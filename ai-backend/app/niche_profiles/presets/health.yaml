@@ -1,0 +1,24 @@
+name: health
+toneProfile: educational
+hookPattern: "Open with a surprising health fact or a common myth to debunk"
+visualVocabulary:
+  - clean white
+  - nature
+  - human body
+  - wellness
+  - green tones
+captionStyle: standard
+musicMood: calm inspirational
+targetSceneCount: 8
+targetDurationSeconds: 45
+viralityWeights:
+  recency_weight: 0.35
+  controversy_weight: 0.30
+  momentum_weight: 0.35
+  duplicate_penalty: 0.20
+ctaKeywords:
+  - subscribe
+  - follow
+  - like
+  - comment
+  - check out

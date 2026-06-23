@@ -1,0 +1,22 @@
+name: default
+toneProfile: informative
+hookPattern: "Opens with a compelling statement about the topic"
+visualVocabulary:
+  - clean
+  - bright
+  - professional
+  - minimal
+captionStyle: standard
+musicMood: neutral
+targetSceneCount: 8
+targetDurationSeconds: 40
+viralityWeights:
+  recency_weight: 0.33
+  controversy_weight: 0.34
+  momentum_weight: 0.33
+  duplicate_penalty: 0.25
+ctaKeywords:
+  - subscribe
+  - follow
+  - like
+  - comment

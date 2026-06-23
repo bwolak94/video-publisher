@@ -1,0 +1,24 @@
+name: entertainment
+toneProfile: comedic
+hookPattern: "Open with a hilarious or shocking celebrity moment"
+visualVocabulary:
+  - vibrant colors
+  - pop culture
+  - celebrities
+  - memes
+  - energetic
+captionStyle: funny_sub
+musicMood: upbeat pop
+targetSceneCount: 6
+targetDurationSeconds: 30
+viralityWeights:
+  recency_weight: 0.50
+  controversy_weight: 0.30
+  momentum_weight: 0.20
+  duplicate_penalty: 0.35
+ctaKeywords:
+  - subscribe
+  - follow
+  - like
+  - comment
+  - link in bio

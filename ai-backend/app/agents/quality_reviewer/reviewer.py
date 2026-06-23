@@ -124,7 +124,7 @@ class QualityReviewer:
         niche_profile: NicheProfile,
         warnings: list[str],
     ) -> None:
-        tone = (storyboard.meta.toneProfile or niche_profile.tone).lower()
+        tone = (storyboard.meta.toneProfile or niche_profile.toneProfile).lower()
         tone_words = _TONE_KEYWORDS.get(tone, [])
         if not tone_words:
             return

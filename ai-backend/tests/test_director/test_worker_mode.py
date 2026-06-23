@@ -24,7 +24,7 @@ def _make_payload(**kwargs) -> DirectorJobPayload:
         },
         "nicheProfile": NicheProfile(
             name="tech",
-            tone="informative",
+            toneProfile="informative",
             hookPattern="opens with a question",
         ),
         "targetSceneCount": 6,

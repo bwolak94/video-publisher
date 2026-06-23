@@ -16,7 +16,7 @@ def _profile(
     return NicheProfile(
         targetSceneCount=target_scene_count,
         targetDurationSeconds=target_duration_seconds,
-        tone=tone,
+        toneProfile=tone,
     )
 
 
