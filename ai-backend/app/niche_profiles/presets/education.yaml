@@ -1,0 +1,24 @@
+name: education
+toneProfile: educational
+hookPattern: "Open with an intriguing question that learners want answered"
+visualVocabulary:
+  - diagrams
+  - books
+  - chalkboard
+  - infographics
+  - clean minimal
+captionStyle: standard
+musicMood: focused ambient
+targetSceneCount: 9
+targetDurationSeconds: 55
+viralityWeights:
+  recency_weight: 0.30
+  controversy_weight: 0.25
+  momentum_weight: 0.45
+  duplicate_penalty: 0.20
+ctaKeywords:
+  - subscribe
+  - follow
+  - like
+  - comment
+  - check out

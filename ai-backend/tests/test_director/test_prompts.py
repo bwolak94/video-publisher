@@ -9,7 +9,7 @@ def test_worker_prompt_includes_niche_profile():
     """UT-03-01: build_worker_prompt embeds NicheProfile in <niche_profile> block."""
     profile = NicheProfile(
         name="tech",
-        tone="edgy",
+        toneProfile="edgy",
         hookPattern="opens with a shocking statistic",
         visualVocabulary=["dark background", "neon"],
     )

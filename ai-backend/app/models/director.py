@@ -1,27 +1,57 @@
 """Pydantic v2 models for the Director Agent pipeline."""
 from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class ProfileViralityWeights(BaseModel):
+    """Virality scoring weights embedded in a NicheProfile.
+
+    recency + controversy + momentum must sum to 1.0 (±0.01 for float rounding).
+    duplicate_penalty is excluded from the sum — it is a separate deduction term.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    recency_weight: float = Field(0.33, ge=0.0, le=1.0)
+    controversy_weight: float = Field(0.34, ge=0.0, le=1.0)
+    momentum_weight: float = Field(0.33, ge=0.0, le=1.0)
+    duplicate_penalty: float = Field(0.25, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def weights_sum_to_one(self) -> "ProfileViralityWeights":
+        total = self.recency_weight + self.controversy_weight + self.momentum_weight
+        if not (0.99 <= total <= 1.01):
+            raise ValueError(
+                f"Virality weights (recency + controversy + momentum) must sum to 1.0, got {total:.2f}"
+            )
+        return self
 
 
 class NicheProfile(BaseModel):
-    """Per-channel creative profile injected into every Director prompt.
+    """Per-channel creative profile — injected into every Director prompt.
 
-    Ships as a built-in preset (PRD REQ-4.1.3); users can override any field.
-    The `default` profile is used as a safe fallback when no profile is supplied.
+    Ships as built-in YAML presets loaded by ProfileRegistry (TASK-06).
+    The 'default' profile is the fallback when no channel profile is configured.
+    All fields have explicit defaults so no field is ever None at runtime (task rule #5).
     """
 
     model_config = ConfigDict(populate_by_name=True)
 
     name: str = "default"
-    tone: Literal["informative", "comedic", "edgy", "educational"] = "informative"
-    hookPattern: str = "opens with a compelling statement"
+    extends: Optional[str] = None          # name of built-in preset to inherit from
+    toneProfile: Literal["informative", "comedic", "edgy", "educational"] = "informative"
+    hookPattern: str = "Opens with a compelling statement"
     visualVocabulary: list[str] = []
     captionStyle: Literal["standard", "punchy", "funny_sub"] = "standard"
     musicMood: str = "neutral"
-    # Quality gate targets — used by QualityReviewer (task rule #4: no magic numbers)
-    targetSceneCount: int = Field(8, ge=1, le=20)
-    targetDurationSeconds: int = Field(40, ge=10, le=3600)
+    # Quality gate targets — used by QualityReviewer (no magic numbers, task rule #4)
+    targetSceneCount: int = Field(8, ge=3, le=90)
+    targetDurationSeconds: int = Field(40, ge=15, le=1800)
+    viralityWeights: ProfileViralityWeights = Field(
+        default_factory=ProfileViralityWeights
+    )
+    ctaKeywords: list[str] = ["subscribe", "follow", "like", "comment"]
 
 
 DEFAULT_NICHE_PROFILE = NicheProfile()
