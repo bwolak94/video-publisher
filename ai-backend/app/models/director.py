@@ -19,6 +19,9 @@ class NicheProfile(BaseModel):
     visualVocabulary: list[str] = []
     captionStyle: Literal["standard", "punchy", "funny_sub"] = "standard"
     musicMood: str = "neutral"
+    # Quality gate targets — used by QualityReviewer (task rule #4: no magic numbers)
+    targetSceneCount: int = Field(8, ge=1, le=20)
+    targetDurationSeconds: int = Field(40, ge=10, le=3600)
 
 
 DEFAULT_NICHE_PROFILE = NicheProfile()
