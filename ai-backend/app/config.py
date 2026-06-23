@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
     APP_ENV: Literal["dev", "test", "prod"] = "dev"
     APP_VERSION: str = "0.1.0"
+    # Optional — only needed when NewsAPI source is enabled on a channel
+    NEWSAPI_KEY: str | None = None
 
 
 @lru_cache
