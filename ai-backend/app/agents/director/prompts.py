@@ -76,6 +76,24 @@ Requirements:
 Return ONLY valid JSON. No markdown, no explanation."""
 
 
+# ── Constraint injection (TASK-05 retry loop) ──────────────────────────────────
+
+_CONSTRAINT_BLOCK_TEMPLATE = """\
+
+PREVIOUS REJECTION CONSTRAINTS — you MUST fix all of the following:
+{constraint_list_numbered}
+
+DO NOT repeat these mistakes. Return ONLY valid JSON conforming to the schema."""
+
+
+def build_constraint_block(prior_constraints: list[str]) -> str:
+    """Render accumulated constraints as a numbered list for re-injection."""
+    if not prior_constraints:
+        return ""
+    numbered = "\n".join(f"{i + 1}. {c}" for i, c in enumerate(prior_constraints))
+    return _CONSTRAINT_BLOCK_TEMPLATE.format(constraint_list_numbered=numbered)
+
+
 # ── Builders ───────────────────────────────────────────────────────────────────
 
 def build_worker_prompt(
@@ -83,10 +101,15 @@ def build_worker_prompt(
     research_report: dict,
     scene_count: int,
     target_duration_seconds: int,
+    prior_constraints: list[str] | None = None,
 ) -> str:
-    """Build the Worker Mode prompt with NicheProfile injected."""
+    """Build the Worker Mode prompt with NicheProfile injected.
+
+    If prior_constraints is non-empty (TASK-05 retry loop), appends the
+    constraint block so the Director knows exactly what to fix.
+    """
     schema = VideoStoryboard.model_json_schema()
-    return _WORKER_TEMPLATE.format(
+    base = _WORKER_TEMPLATE.format(
         niche_profile_json=json.dumps(niche_profile.model_dump(), indent=2),
         research_report_json=json.dumps(research_report, indent=2, default=str),
         storyboard_schema=json.dumps(schema, indent=2),
@@ -94,6 +117,7 @@ def build_worker_prompt(
         target_duration_seconds=target_duration_seconds,
         hook_pattern=niche_profile.hookPattern,
     )
+    return base + build_constraint_block(prior_constraints or [])
 
 
 def build_outline_prompt(niche_profile: NicheProfile, topic: str) -> str:

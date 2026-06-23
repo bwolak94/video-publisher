@@ -50,8 +50,17 @@ def _strip_fences(text: str) -> str:
     return text
 
 
-async def generate_worker_storyboard(payload: DirectorJobPayload) -> VideoStoryboard:
+async def generate_worker_storyboard(
+    payload: DirectorJobPayload,
+    prior_constraints: list[str] | None = None,
+) -> VideoStoryboard:
     """Generate a full VideoStoryboard for Worker Mode (Shorts, 9:16).
+
+    Args:
+        payload: Director job payload.
+        prior_constraints: Accumulated QualityReviewer constraint strings from
+            previous rejection cycles (TASK-05). Appended to the prompt so
+            the Director knows exactly what to fix on retry.
 
     Raises:
         pydantic.ValidationError: if LLM output fails schema validation.
@@ -65,6 +74,7 @@ async def generate_worker_storyboard(payload: DirectorJobPayload) -> VideoStoryb
         research_report=research,
         scene_count=payload.targetSceneCount,
         target_duration_seconds=payload.targetDurationSeconds,
+        prior_constraints=prior_constraints or [],
     )
 
     task = Task(
