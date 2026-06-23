@@ -1,0 +1,39 @@
+prd.md
+docs/
+CLAUDE.md
+node_modules/
+.snapshots/
+skills/
+.claude/
+.claude-plugin/
+.mcp.json
+
+# Next.js
+apps/web/.next/
+apps/web/out/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Data
+data/
+*.db
+*.sqlite
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+dist/
+build/
+packages/*/dist/
+
+# OS
+.DS_Store
