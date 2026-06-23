@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from app.api.health import router as health_router
+from app.api.research import router as research_router
 from app.config import get_settings
 from app.logging_config import setup_logging
 
@@ -47,6 +48,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health_router)
+    app.include_router(research_router)
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request, exc: Exception) -> JSONResponse:
