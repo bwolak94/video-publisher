@@ -37,3 +37,4 @@ packages/*/dist/
 
 # OS
 .DS_Store
+tasks/
