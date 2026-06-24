@@ -7,9 +7,10 @@ import { RenderWorker } from "./workers/render.worker";
 import { GatewayModule } from "../gateway/gateway.module";
 import { ElevenLabsModule } from "../elevenlabs/elevenlabs.module";
 import { MediaModule } from "../media/media.module";
+import { ImagesModule } from "../images/images.module";
 
 @Module({
-  imports: [GatewayModule, ElevenLabsModule, MediaModule],
+  imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule],
   providers: [
     QueueService,
     JobSyncService,

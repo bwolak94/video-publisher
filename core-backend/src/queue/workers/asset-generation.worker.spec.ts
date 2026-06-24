@@ -10,6 +10,7 @@ import { EventsGateway } from "../../gateway/events.gateway";
 import { REDIS_CLIENT } from "../../redis/redis.module";
 import { ElevenLabsService } from "../../elevenlabs/elevenlabs.service";
 import { VideoAssetService } from "../../media/video-asset.service";
+import { ImageAssetService } from "../../images/image-asset.service";
 
 // Prevent actual BullMQ worker from starting
 jest.mock("bullmq", () => ({
@@ -54,6 +55,7 @@ describe("AssetGenerationWorker — UT-08-04", () => {
         { provide: EventsGateway, useValue: gateway },
         { provide: ElevenLabsService, useValue: { generateAudio: jest.fn().mockResolvedValue("s3://url") } },
         { provide: VideoAssetService, useValue: { generateVideo: jest.fn().mockResolvedValue("s3://video-url") } },
+        { provide: ImageAssetService, useValue: { generateImage: jest.fn().mockResolvedValue("s3://image-url") } },
       ],
     }).compile();
 
