@@ -6,6 +6,8 @@ import { JobSyncService } from "../job-sync.service";
 import { DlqAlertService } from "../dlq-alert.service";
 import { EventsGateway } from "../../gateway/events.gateway";
 import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
+import { RenderService } from "../../render/render.service";
+import { VideoStoryboard } from "../../storyboard/video-storyboard";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "render";
@@ -15,6 +17,7 @@ export interface RenderPayload {
   jobId: string;
   projectId: string;
   step: string;
+  storyboard: VideoStoryboard;
   outputFormat?: string;
 }
 
@@ -26,7 +29,8 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
     @Inject(REDIS_CLIENT) private readonly redis: any,
     private readonly jobSync: JobSyncService,
     private readonly dlqAlert: DlqAlertService,
-    private readonly gateway: EventsGateway
+    private readonly gateway: EventsGateway,
+    private readonly renderService: RenderService
   ) {}
 
   onModuleInit() {
@@ -69,7 +73,9 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
     await job.updateProgress(100);
   }
 
-  protected async dispatchRender(_payload: RenderPayload): Promise<void> {}
+  protected async dispatchRender(payload: RenderPayload): Promise<string> {
+    return this.renderService.render(payload.storyboard, payload.projectId);
+  }
 
   // ── Lifecycle handlers ────────────────────────────────────────────────────
 

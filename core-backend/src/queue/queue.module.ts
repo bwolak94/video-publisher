@@ -8,9 +8,10 @@ import { GatewayModule } from "../gateway/gateway.module";
 import { ElevenLabsModule } from "../elevenlabs/elevenlabs.module";
 import { MediaModule } from "../media/media.module";
 import { ImagesModule } from "../images/images.module";
+import { RenderModule } from "../render/render.module";
 
 @Module({
-  imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule],
+  imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule, RenderModule],
   providers: [
     QueueService,
     JobSyncService,
