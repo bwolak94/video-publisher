@@ -7,7 +7,6 @@ import { QueueModule } from "./queue/queue.module";
 import { HealthModule } from "./health/health.module";
 import { GatewayModule } from "./gateway/gateway.module";
 import { ElevenLabsModule } from "./elevenlabs/elevenlabs.module";
-import { MediaModule } from "./media/media.module";
 
 @Module({
   imports: [
@@ -19,7 +18,6 @@ import { MediaModule } from "./media/media.module";
     QueueModule,
     GatewayModule,
     ElevenLabsModule,
-    MediaModule,
   ],
 })
 export class AppModule {}
