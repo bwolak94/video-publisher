@@ -6,9 +6,10 @@ import { AssetGenerationWorker } from "./workers/asset-generation.worker";
 import { RenderWorker } from "./workers/render.worker";
 import { GatewayModule } from "../gateway/gateway.module";
 import { ElevenLabsModule } from "../elevenlabs/elevenlabs.module";
+import { MediaModule } from "../media/media.module";
 
 @Module({
-  imports: [GatewayModule, ElevenLabsModule],
+  imports: [GatewayModule, ElevenLabsModule, MediaModule],
   providers: [
     QueueService,
     JobSyncService,
