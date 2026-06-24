@@ -9,11 +9,13 @@ import { GatewayModule } from "./gateway/gateway.module";
 import { ElevenLabsModule } from "./elevenlabs/elevenlabs.module";
 import { MediaModule } from "./media/media.module";
 import { ImagesModule } from "./images/images.module";
+import { StorageModule } from "./storage/storage.module";
 
 @Module({
   imports: [
     DbModule,
     RedisModule,
+    StorageModule,
     AuthModule,
     HealthModule,
     ProjectsModule,
