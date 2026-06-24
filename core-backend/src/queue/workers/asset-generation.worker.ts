@@ -7,6 +7,7 @@ import { DlqAlertService } from "../dlq-alert.service";
 import { EventsGateway } from "../../gateway/events.gateway";
 import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
 import { ElevenLabsService } from "../../elevenlabs/elevenlabs.service";
+import { VideoAssetService } from "../../media/video-asset.service";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "asset-generation";
@@ -21,6 +22,7 @@ export interface AssetGenerationPayload {
   voiceId?: string;
   standardVoiceId?: string;
   visualPrompt?: string;
+  aspectRatio?: "16:9" | "9:16";
   stability?: number;
   similarityBoost?: number;
   style?: number;
@@ -35,7 +37,8 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     private readonly jobSync: JobSyncService,
     private readonly dlqAlert: DlqAlertService,
     private readonly gateway: EventsGateway,
-    private readonly elevenLabs: ElevenLabsService
+    private readonly elevenLabs: ElevenLabsService,
+    private readonly videoAsset: VideoAssetService
   ) {}
 
   onModuleInit() {
@@ -66,7 +69,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
   private async process(job: Job<AssetGenerationPayload>): Promise<void> {
     const {
       sceneId, narrationText, voiceId, standardVoiceId,
-      visualPrompt, stability, similarityBoost, style,
+      visualPrompt, aspectRatio, stability, similarityBoost, style,
     } = job.data;
 
     logger.info({ jobId: job.id, sceneId }, "Processing asset generation");
@@ -79,7 +82,9 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
       narrationText && voiceId && standardVoiceId
         ? this.generateAudio(narrationText, voiceId, standardVoiceId, { stability, similarityBoost, style })
         : Promise.resolve(),
-      this.generateVideo(visualPrompt),
+      visualPrompt
+        ? this.generateVideo(visualPrompt, sceneId, aspectRatio)
+        : Promise.resolve(),
     ]);
 
     await job.updateProgress(100);
@@ -99,7 +104,13 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  protected async generateVideo(_prompt?: string): Promise<void> {}
+  protected async generateVideo(
+    prompt: string,
+    sceneId: string,
+    aspectRatio?: "16:9" | "9:16"
+  ): Promise<string> {
+    return this.videoAsset.generateVideo({ visualPrompt: prompt, sceneId, aspectRatio });
+  }
 
   // ── Lifecycle event handlers ───────────────────────────────────────────────
 
