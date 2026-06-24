@@ -6,17 +6,11 @@ import { AssetGenerationWorker } from "./workers/asset-generation.worker";
 import { RenderWorker } from "./workers/render.worker";
 import { GatewayModule } from "../gateway/gateway.module";
 import { ElevenLabsModule } from "../elevenlabs/elevenlabs.module";
-<<<<<<< Updated upstream
 import { MediaModule } from "../media/media.module";
-
-@Module({
-  imports: [GatewayModule, ElevenLabsModule, MediaModule],
-=======
 import { ImagesModule } from "../images/images.module";
 
 @Module({
-  imports: [GatewayModule, ElevenLabsModule, ImagesModule],
->>>>>>> Stashed changes
+  imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule],
   providers: [
     QueueService,
     JobSyncService,

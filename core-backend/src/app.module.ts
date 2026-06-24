@@ -7,6 +7,8 @@ import { QueueModule } from "./queue/queue.module";
 import { HealthModule } from "./health/health.module";
 import { GatewayModule } from "./gateway/gateway.module";
 import { ElevenLabsModule } from "./elevenlabs/elevenlabs.module";
+import { MediaModule } from "./media/media.module";
+import { ImagesModule } from "./images/images.module";
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { ElevenLabsModule } from "./elevenlabs/elevenlabs.module";
     QueueModule,
     GatewayModule,
     ElevenLabsModule,
+    MediaModule,
+    ImagesModule,
   ],
 })
 export class AppModule {}

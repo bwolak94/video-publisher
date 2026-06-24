@@ -7,11 +7,8 @@ import { DlqAlertService } from "../dlq-alert.service";
 import { EventsGateway } from "../../gateway/events.gateway";
 import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
 import { ElevenLabsService } from "../../elevenlabs/elevenlabs.service";
-<<<<<<< Updated upstream
 import { VideoAssetService } from "../../media/video-asset.service";
-=======
 import { ImageAssetService } from "../../images/image-asset.service";
->>>>>>> Stashed changes
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "asset-generation";
@@ -27,11 +24,7 @@ export interface AssetGenerationPayload {
   voiceId?: string;
   standardVoiceId?: string;
   visualPrompt?: string;
-<<<<<<< Updated upstream
-  aspectRatio?: "16:9" | "9:16";
-=======
   aspectRatio?: "16:9" | "9:16" | "1:1";
->>>>>>> Stashed changes
   stability?: number;
   similarityBoost?: number;
   style?: number;
@@ -47,11 +40,8 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     private readonly dlqAlert: DlqAlertService,
     private readonly gateway: EventsGateway,
     private readonly elevenLabs: ElevenLabsService,
-<<<<<<< Updated upstream
-    private readonly videoAsset: VideoAssetService
-=======
+    private readonly videoAsset: VideoAssetService,
     private readonly imageAsset: ImageAssetService
->>>>>>> Stashed changes
   ) {}
 
   onModuleInit() {
@@ -81,11 +71,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
 
   private async process(job: Job<AssetGenerationPayload>): Promise<void> {
     const {
-<<<<<<< Updated upstream
-      sceneId, narrationText, voiceId, standardVoiceId,
-=======
       sceneId, assetType, narrationText, voiceId, standardVoiceId,
->>>>>>> Stashed changes
       visualPrompt, aspectRatio, stability, similarityBoost, style,
     } = job.data;
 
@@ -99,15 +85,11 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
       narrationText && voiceId && standardVoiceId
         ? this.generateAudio(narrationText, voiceId, standardVoiceId, { stability, similarityBoost, style })
         : Promise.resolve(),
-<<<<<<< Updated upstream
-      visualPrompt
-        ? this.generateVideo(visualPrompt, sceneId, aspectRatio)
-        : Promise.resolve(),
-=======
       assetType === "image" && visualPrompt
         ? this.generateImage(visualPrompt, sceneId, aspectRatio)
-        : this.generateVideo(visualPrompt),
->>>>>>> Stashed changes
+        : visualPrompt
+          ? this.generateVideo(visualPrompt, sceneId, aspectRatio)
+          : Promise.resolve(),
     ]);
 
     await job.updateProgress(100);
@@ -130,9 +112,13 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
   protected async generateVideo(
     prompt: string,
     sceneId: string,
-    aspectRatio?: "16:9" | "9:16"
+    aspectRatio?: "16:9" | "9:16" | "1:1"
   ): Promise<string> {
-    return this.videoAsset.generateVideo({ visualPrompt: prompt, sceneId, aspectRatio });
+    return this.videoAsset.generateVideo({
+      visualPrompt: prompt,
+      sceneId,
+      aspectRatio: aspectRatio === "1:1" ? "16:9" : aspectRatio, // video doesn't support 1:1
+    });
   }
 
   protected async generateImage(
