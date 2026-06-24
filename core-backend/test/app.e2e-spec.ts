@@ -14,6 +14,7 @@ import * as jwt from "jsonwebtoken";
 import { AppModule } from "../src/app.module";
 import { DRIZZLE } from "../src/db/db.module";
 import { REDIS_CLIENT } from "../src/redis/redis.module";
+import { ELEVENLABS_HTTP } from "../src/elevenlabs/elevenlabs.service";
 
 jest.mock("bullmq", () => ({
   Queue: jest.fn().mockImplementation(() => ({
@@ -95,6 +96,8 @@ async function buildApp({ redisOk = true, dbOk = true }: BuildOptions = {}) {
     // Override JwtService to use HS256 with our test secret
     .overrideProvider(JwtService)
     .useValue(new JwtService({ secret: JWT_SECRET }))
+    .overrideProvider(ELEVENLABS_HTTP)
+    .useValue(jest.fn())
     .compile();
 
   const app = module.createNestApplication<NestFastifyApplication>(

@@ -5,9 +5,10 @@ import { DlqAlertService } from "./dlq-alert.service";
 import { AssetGenerationWorker } from "./workers/asset-generation.worker";
 import { RenderWorker } from "./workers/render.worker";
 import { GatewayModule } from "../gateway/gateway.module";
+import { ElevenLabsModule } from "../elevenlabs/elevenlabs.module";
 
 @Module({
-  imports: [GatewayModule],
+  imports: [GatewayModule, ElevenLabsModule],
   providers: [
     QueueService,
     JobSyncService,

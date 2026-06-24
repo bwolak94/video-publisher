@@ -6,6 +6,7 @@ import { JobSyncService } from "../job-sync.service";
 import { DlqAlertService } from "../dlq-alert.service";
 import { EventsGateway } from "../../gateway/events.gateway";
 import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
+import { ElevenLabsService } from "../../elevenlabs/elevenlabs.service";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "asset-generation";
@@ -18,7 +19,11 @@ export interface AssetGenerationPayload {
   step: string;
   narrationText?: string;
   voiceId?: string;
+  standardVoiceId?: string;
   visualPrompt?: string;
+  stability?: number;
+  similarityBoost?: number;
+  style?: number;
 }
 
 @Injectable()
@@ -29,7 +34,8 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     @Inject(REDIS_CLIENT) private readonly redis: any,
     private readonly jobSync: JobSyncService,
     private readonly dlqAlert: DlqAlertService,
-    private readonly gateway: EventsGateway
+    private readonly gateway: EventsGateway,
+    private readonly elevenLabs: ElevenLabsService
   ) {}
 
   onModuleInit() {
@@ -58,24 +64,41 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
   // ── Job processor ──────────────────────────────────────────────────────────
 
   private async process(job: Job<AssetGenerationPayload>): Promise<void> {
-    const { sceneId, narrationText, voiceId, visualPrompt } = job.data;
+    const {
+      sceneId, narrationText, voiceId, standardVoiceId,
+      visualPrompt, stability, similarityBoost, style,
+    } = job.data;
 
     logger.info({ jobId: job.id, sceneId }, "Processing asset generation");
 
     // Jitter before starting (per task rule #2)
     await this.sleep(Math.random() * 500);
 
-    // Parallel: audio (ElevenLabs) + video (Runway) — stubs
+    // Parallel: audio (ElevenLabs) + video (Runway)
     await Promise.all([
-      this.generateAudio(narrationText, voiceId),
+      narrationText && voiceId && standardVoiceId
+        ? this.generateAudio(narrationText, voiceId, standardVoiceId, { stability, similarityBoost, style })
+        : Promise.resolve(),
       this.generateVideo(visualPrompt),
     ]);
 
     await job.updateProgress(100);
   }
 
-  // Stubs — replaced by real implementations in later tasks
-  protected async generateAudio(_text?: string, _voiceId?: string): Promise<void> {}
+  protected async generateAudio(
+    text: string,
+    voiceId: string,
+    standardVoiceId: string,
+    params: Pick<AssetGenerationPayload, "stability" | "similarityBoost" | "style">
+  ): Promise<string> {
+    return this.elevenLabs.generateAudio({
+      narrationText: text,
+      voiceId,
+      standardVoiceId,
+      ...params,
+    });
+  }
+
   protected async generateVideo(_prompt?: string): Promise<void> {}
 
   // ── Lifecycle event handlers ───────────────────────────────────────────────
