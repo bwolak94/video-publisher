@@ -2,7 +2,10 @@ import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter, NestFastifyApplication } from "@nestjs/platform-fastify";
 import { AppModule } from "./app.module";
+import { DRIZZLE, runMigrations } from "./db/db.module";
+import { setupBullBoard } from "./queue/admin/bull-board.setup";
 import pino from "pino";
+
 import { configuration } from "./config/configuration";
 
 async function bootstrap() {
@@ -13,6 +16,31 @@ async function bootstrap() {
     new FastifyAdapter({ logger: false }),
     { bufferLogs: true }
   );
+
+  // Structured per-request logging: requestId, userId, durationMs
+  app.getHttpAdapter().getInstance().addHook("onRequest", (req: any, _reply: any, done: () => void) => {
+    req.pinoStartTime = Date.now();
+    done();
+  });
+  app.getHttpAdapter().getInstance().addHook("onResponse", (req: any, reply: any, done: () => void) => {
+    logger.info({
+      requestId: req.id,
+      userId: (req as any).userId ?? null,
+      method: req.method,
+      url: req.url,
+      statusCode: reply.statusCode,
+      durationMs: Date.now() - req.pinoStartTime,
+    }, "request completed");
+    done();
+  });
+
+  if (process.env.NODE_ENV !== "production") {
+    setupBullBoard(app);
+  }
+
+  // Run DB migrations on startup (UC-01)
+  const db = app.get(DRIZZLE);
+  await runMigrations(db);
 
   const config = configuration();
   await app.listen(config.port, "0.0.0.0");

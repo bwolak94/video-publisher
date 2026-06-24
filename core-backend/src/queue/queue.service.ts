@@ -1,8 +1,11 @@
 import { Injectable, Inject, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { Queue } from "bullmq";
 import { REDIS_CLIENT } from "../redis/redis.module";
+import { QUEUE_OPTIONS } from "./queue.config";
 
 export type QueueName = "research" | "asset-generation" | "render";
+
+const QUEUE_NAMES: QueueName[] = ["research", "asset-generation", "render"];
 
 @Injectable()
 export class QueueService implements OnModuleInit, OnModuleDestroy {
@@ -11,11 +14,13 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   constructor(@Inject(REDIS_CLIENT) private readonly redis: any) {}
 
   onModuleInit() {
-    const names: QueueName[] = ["research", "asset-generation", "render"];
-    for (const name of names) {
+    for (const name of QUEUE_NAMES) {
       this.queues.set(
         name,
-        new Queue(name, { connection: this.redis })
+        new Queue(name, {
+          connection: this.redis,
+          ...QUEUE_OPTIONS[name],
+        })
       );
     }
   }
@@ -31,10 +36,16 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     if (!queue) {
       throw new Error(`Unknown queue: ${queueName}`);
     }
+    // Note: render jobs have a 30-min max runtime per task spec; BullMQ 5 removed the
+    // `timeout` job option — enforce in the render worker process via a Promise.race() with a timer.
     return queue.add(queueName, payload);
   }
 
   getQueue(name: QueueName): Queue | undefined {
     return this.queues.get(name);
+  }
+
+  getAllQueues(): Queue[] {
+    return Array.from(this.queues.values());
   }
 }

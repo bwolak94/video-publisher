@@ -1,0 +1,111 @@
+import { Injectable, Inject, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
+import { Worker, Job } from "bullmq";
+import pino from "pino";
+import { REDIS_CLIENT } from "../../redis/redis.module";
+import { JobSyncService } from "../job-sync.service";
+import { DlqAlertService } from "../dlq-alert.service";
+import { EventsGateway } from "../../gateway/events.gateway";
+import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
+
+const logger = pino({ level: "info" });
+const QUEUE_NAME = "render";
+const MAX_ATTEMPTS = 3;
+
+export interface RenderPayload {
+  jobId: string;
+  projectId: string;
+  step: string;
+  outputFormat?: string;
+}
+
+@Injectable()
+export class RenderWorker implements OnModuleInit, OnModuleDestroy {
+  private worker: Worker | null = null;
+
+  constructor(
+    @Inject(REDIS_CLIENT) private readonly redis: any,
+    private readonly jobSync: JobSyncService,
+    private readonly dlqAlert: DlqAlertService,
+    private readonly gateway: EventsGateway
+  ) {}
+
+  onModuleInit() {
+    this.worker = new Worker(
+      QUEUE_NAME,
+      async (job: Job<RenderPayload>) => this.process(job),
+      {
+        connection: this.redis,
+        concurrency: QUEUE_CONCURRENCY[QUEUE_NAME],
+        stalledInterval: RESEARCH_WORKER_SETTINGS.stalledInterval,
+        maxStalledCount: RESEARCH_WORKER_SETTINGS.maxStalledCount,
+      }
+    );
+
+    this.worker.on("active", (job) => this.onActive(job));
+    this.worker.on("completed", (job) => this.onCompleted(job));
+    this.worker.on("failed", (job, err) => this.onFailed(job, err));
+    this.worker.on("stalled", (jobId) => this.onStalled(jobId));
+  }
+
+  async onModuleDestroy() {
+    await this.worker?.close();
+  }
+
+  // ── Job processor ──────────────────────────────────────────────────────────
+
+  private async process(job: Job<RenderPayload>): Promise<void> {
+    logger.info({ jobId: job.id, projectId: job.data.projectId }, "Dispatching render");
+
+    // Jitter (per task rule #2)
+    await this.sleep(Math.random() * 500);
+
+    // Enforce 30-min timeout (task spec) — BullMQ 5 removed job-level timeout option
+    const RENDER_TIMEOUT_MS = 1_800_000;
+    const timeoutError = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Render timeout (30 min)")), RENDER_TIMEOUT_MS)
+    );
+    await Promise.race([this.dispatchRender(job.data), timeoutError]);
+
+    await job.updateProgress(100);
+  }
+
+  protected async dispatchRender(_payload: RenderPayload): Promise<void> {}
+
+  // ── Lifecycle handlers ────────────────────────────────────────────────────
+
+  private async onActive(job: Job<RenderPayload>) {
+    await this.jobSync.syncActive(job.data.jobId);
+  }
+
+  private async onCompleted(job: Job<RenderPayload>) {
+    await this.jobSync.syncCompleted(job.data.jobId);
+    this.gateway.broadcastJobProgress(job.data.projectId, {
+      jobId: job.data.jobId,
+      step: job.data.step,
+      status: "completed",
+    });
+  }
+
+  private async onFailed(job: Job<RenderPayload> | undefined, err: Error) {
+    if (!job) return;
+    await this.jobSync.syncFailed(job.data.jobId, err);
+    this.gateway.broadcastJobProgress(job.data.projectId, {
+      jobId: job.data.jobId,
+      step: job.data.step,
+      status: "failed",
+    });
+
+    if ((job.attemptsMade ?? 0) >= MAX_ATTEMPTS) {
+      await this.dlqAlert.alert(job.data.jobId, QUEUE_NAME, err);
+    }
+  }
+
+  private async onStalled(jobId: string) {
+    logger.warn({ jobId, queue: QUEUE_NAME }, "Render job stalled — will be re-queued");
+    await this.jobSync.syncStalled(jobId);
+  }
+
+  private sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+}

@@ -20,6 +20,10 @@ jest.mock("bullmq", () => ({
     add: jest.fn().mockResolvedValue({ id: "job-1" }),
     close: jest.fn().mockResolvedValue(undefined),
   })),
+  Worker: jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    close: jest.fn().mockResolvedValue(undefined),
+  })),
 }));
 
 const JWT_SECRET = "test-e2e-secret";
