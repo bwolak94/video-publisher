@@ -7,9 +7,14 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "test": "jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand"
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@bull-board/api": "^8.0.1",
+    "@bull-board/fastify": "^8.0.1",
+    "@bull-board/nestjs": "^8.0.1",
     "@fastify/static": "^8.0.0",
     "@nestjs/common": "^10.4.0",
     "@nestjs/core": "^10.4.0",
@@ -42,13 +47,19 @@
     "typescript": "^5.5.4"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "collectCoverageFrom": ["**/*.(t|j)s"],
+    "collectCoverageFrom": [
+      "**/*.(t|j)s"
+    ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
   }

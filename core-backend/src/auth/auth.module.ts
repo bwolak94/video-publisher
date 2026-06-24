@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { AuthGuard } from "./auth.guard";
+import { JwksController } from "./jwks.controller";
 import { configuration } from "../config/configuration";
 
 @Module({
@@ -16,6 +17,7 @@ import { configuration } from "../config/configuration";
       },
     }),
   ],
+  controllers: [JwksController],
   providers: [AuthGuard],
   exports: [AuthGuard, JwtModule],
 })
