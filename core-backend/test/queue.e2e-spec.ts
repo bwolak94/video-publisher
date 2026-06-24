@@ -13,6 +13,7 @@ import * as request from "supertest";
 import { AppModule } from "../src/app.module";
 import { DRIZZLE } from "../src/db/db.module";
 import { REDIS_CLIENT } from "../src/redis/redis.module";
+import { ELEVENLABS_HTTP } from "../src/elevenlabs/elevenlabs.service";
 import { JobSyncService } from "../src/queue/job-sync.service";
 import { DlqAlertService } from "../src/queue/dlq-alert.service";
 import { AssetGenerationWorker } from "../src/queue/workers/asset-generation.worker";
@@ -70,6 +71,8 @@ async function buildApp() {
     .useValue(dbMock)
     .overrideProvider(JwtService)
     .useValue(new JwtService({ secret: JWT_SECRET }))
+    .overrideProvider(ELEVENLABS_HTTP)
+    .useValue(jest.fn().mockResolvedValue({ ok: true, status: 200, arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(0)) }))
     .compile();
 
   const app = module.createNestApplication<NestFastifyApplication>(
