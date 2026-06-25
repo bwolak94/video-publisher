@@ -16,6 +16,8 @@ export interface SceneCardProps {
  * Exported for unit testing (UT-17-01, UT-17-02, UT-17-03).
  * Compares two SceneState objects field-by-field.
  */
+// sequenceNumber intentionally excluded — reorder changes sequenceNumber but not
+// scene content, so SceneCard should not re-render on reorder (TASK-19 Rule 6)
 export function areScenesEqual(a: SceneState, b: SceneState): boolean {
   return (
     a.sceneId === b.sceneId &&
@@ -25,14 +27,14 @@ export function areScenesEqual(a: SceneState, b: SceneState): boolean {
     a.videoUrl === b.videoUrl &&
     a.isDirty === b.isDirty &&
     a.status === b.status &&
-    a.durationInSeconds === b.durationInSeconds &&
-    a.sequenceNumber === b.sequenceNumber
+    a.durationInSeconds === b.durationInSeconds
   );
 }
 
 function SceneCardInner({ sceneId }: SceneCardProps) {
-  // Per-scene selector — only re-renders when this scene's data changes (Rule 2)
-  const scene = useTimelineStore((s) => s.scenes[sceneId]);
+  // Per-scene selector with areScenesEqual equality — skips re-render when only
+  // sequenceNumber changes (reorder), satisfying TASK-19 Rule 6
+  const scene = useTimelineStore((s) => s.scenes[sceneId], areScenesEqual);
 
   // Stable callbacks — read from store at call time to avoid stale closures (Rule 3)
   const handleVisualPromptChange = useCallback(
@@ -91,7 +93,7 @@ function SceneCardInner({ sceneId }: SceneCardProps) {
         />
         <div className="flex-1 space-y-2 min-w-0">
           <SceneMetadata
-            sequenceNumber={scene.sequenceNumber}
+            sceneId={sceneId}
             durationInSeconds={scene.durationInSeconds}
             isDirty={scene.isDirty}
           />

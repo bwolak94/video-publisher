@@ -1,13 +1,18 @@
 "use client";
 import React, { useMemo } from "react";
+import { useTimelineStore } from "@/store/timelineStore";
 
 interface SceneMetadataProps {
-  sequenceNumber: number;
+  sceneId: string;
   durationInSeconds: number;
   isDirty: boolean;
 }
 
-export function SceneMetadata({ sequenceNumber, durationInSeconds, isDirty }: SceneMetadataProps) {
+// sequenceNumber is subscribed internally so SceneCard itself doesn't
+// re-render when only sequenceNumber changes after a reorder (TASK-19 Rule 6)
+export function SceneMetadata({ sceneId, durationInSeconds, isDirty }: SceneMetadataProps) {
+  const sequenceNumber = useTimelineStore((s) => s.scenes[sceneId]?.sequenceNumber ?? 0);
+
   const displayDuration = useMemo(() => {
     const s = Math.round(durationInSeconds);
     return `${s}s`;

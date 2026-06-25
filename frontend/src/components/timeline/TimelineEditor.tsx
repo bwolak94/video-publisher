@@ -19,7 +19,7 @@ export function TimelineEditor({ projectId, onRender }: TimelineEditorProps) {
       data-testid="timeline-editor"
     >
       <TimelineHeader onRender={onRender} />
-      <VirtualizedSceneList />
+      <VirtualizedSceneList projectId={projectId} />
     </div>
   );
 }
