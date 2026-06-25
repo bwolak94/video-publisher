@@ -19,6 +19,7 @@ dependencies = [
     "PyYAML>=6.0.0",
     "newsapi-python>=0.2.7",
     "pytrends>=4.9.0",
+    "prometheus-client>=0.25.0",
 ]
 
 [dependency-groups]

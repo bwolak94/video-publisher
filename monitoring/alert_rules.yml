@@ -1,0 +1,28 @@
+groups:
+  - name: ai_video_factory
+    rules:
+      - alert: HighDlqDepth
+        expr: dlq_depth > 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DLQ depth is {{ $value }} for queue {{ $labels.queue }}"
+
+      - alert: HighExternalApiErrorRate
+        expr: rate(external_api_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate for service {{ $labels.service }}"
+
+      - alert: LowCacheHitRatio
+        expr: >
+          rate(cache_hits_total[5m]) /
+          (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) < 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Cache hit ratio below 50% for cache {{ $labels.cache }}"
