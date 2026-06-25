@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import type { Language, VoiceProfile } from "@/lib/voice-profiles";
 import { getVoiceProfile } from "@/lib/voice-profiles";
 
@@ -49,52 +50,63 @@ interface CreatorState {
 let messageCounter = 0;
 const nextId = () => `msg-${++messageCounter}`;
 
-export const useCreatorStore = create<CreatorState>((set) => ({
-  messages: [],
-  stage: "chat",
-  isStreaming: false,
-  outline: [],
-  storyboardJson: null,
-  language: "en",
-  voiceProfile: getVoiceProfile("en"),
-  uploadedFiles: [],
+export const useCreatorStore = create<CreatorState>()(
+  devtools(
+    (set) => ({
+      messages: [],
+      stage: "chat" as ChatStage,
+      isStreaming: false,
+      outline: [],
+      storyboardJson: null,
+      language: "en" as Language,
+      voiceProfile: getVoiceProfile("en"),
+      uploadedFiles: [],
 
-  addMessage: (msg) =>
-    set((s) => ({ messages: [...s.messages, { id: nextId(), ...msg }] })),
+      addMessage: (msg) =>
+        set((s) => ({ messages: [...s.messages, { id: nextId(), ...msg }] })),
 
-  appendStreamToken: (token) =>
-    set((s) => {
-      const msgs = [...s.messages];
-      const last = msgs[msgs.length - 1];
-      if (last?.isStreaming) {
-        msgs[msgs.length - 1] = { ...last, content: last.content + token };
-      }
-      return { messages: msgs };
+      appendStreamToken: (token) =>
+        set((s) => {
+          const msgs = [...s.messages];
+          const last = msgs[msgs.length - 1];
+          if (last?.isStreaming) {
+            msgs[msgs.length - 1] = { ...last, content: last.content + token };
+          }
+          return { messages: msgs };
+        }),
+
+      setStreaming: (v) => set({ isStreaming: v }),
+
+      setStage: (stage) => set({ stage }),
+
+      setOutline: (bullets) =>
+        set({
+          outline: bullets.map((text, i) => ({ id: `bullet-${i}`, text })),
+          stage: "outline" as ChatStage,
+        }),
+
+      updateOutlineBullet: (id, text) =>
+        set((s) => ({
+          outline: s.outline.map((b) => (b.id === id ? { ...b, text } : b)),
+        })),
+
+      setStoryboard: (json) =>
+        set({ storyboardJson: json, stage: "complete" as ChatStage }),
+
+      setLanguage: (lang) =>
+        set({ language: lang, voiceProfile: getVoiceProfile(lang) }),
+
+      addFile: (file) =>
+        set((s) => ({ uploadedFiles: [...s.uploadedFiles, file] })),
+
+      removeFile: (name) =>
+        set((s) => ({
+          uploadedFiles: s.uploadedFiles.filter((f) => f.name !== name),
+        })),
     }),
+    { name: "CreatorStore", enabled: process.env.NODE_ENV === "development" }
+  )
+);
 
-  setStreaming: (v) => set({ isStreaming: v }),
-
-  setStage: (stage) => set({ stage }),
-
-  setOutline: (bullets) =>
-    set({
-      outline: bullets.map((text, i) => ({ id: `bullet-${i}`, text })),
-      stage: "outline",
-    }),
-
-  updateOutlineBullet: (id, text) =>
-    set((s) => ({
-      outline: s.outline.map((b) => (b.id === id ? { ...b, text } : b)),
-    })),
-
-  setStoryboard: (json) => set({ storyboardJson: json, stage: "complete" }),
-
-  setLanguage: (lang) =>
-    set({ language: lang, voiceProfile: getVoiceProfile(lang) }),
-
-  addFile: (file) =>
-    set((s) => ({ uploadedFiles: [...s.uploadedFiles, file] })),
-
-  removeFile: (name) =>
-    set((s) => ({ uploadedFiles: s.uploadedFiles.filter((f) => f.name !== name) })),
-}));
+/** Alias for spec compliance (TASK-22 useChatStore deliverable) */
+export const useChatStore = useCreatorStore;

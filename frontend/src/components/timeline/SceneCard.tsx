@@ -10,6 +10,7 @@ import { SceneMetadata } from "./SceneMetadata";
 
 export interface SceneCardProps {
   sceneId: string;
+  onSeekClick?: () => void;
 }
 
 /**
@@ -31,7 +32,7 @@ export function areScenesEqual(a: SceneState, b: SceneState): boolean {
   );
 }
 
-function SceneCardInner({ sceneId }: SceneCardProps) {
+function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
   // Per-scene selector with areScenesEqual equality — skips re-render when only
   // sequenceNumber changes (reorder), satisfying TASK-19 Rule 6
   const scene = useTimelineStore((s) => s.scenes[sceneId], areScenesEqual);
@@ -96,6 +97,7 @@ function SceneCardInner({ sceneId }: SceneCardProps) {
             sceneId={sceneId}
             durationInSeconds={scene.durationInSeconds}
             isDirty={scene.isDirty}
+            onClick={onSeekClick}
           />
           <AudioPlayer audioUrl={scene.audioUrl} />
           <VisualPromptField

@@ -1,6 +1,8 @@
 import { createWithEqualityFn } from "zustand/traditional";
+import { devtools } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import type { TextOverlay, VideoStoryboardScene } from "@/types/storyboard";
+import type { PersistedScene } from "@/lib/storyboardStorage";
 
 export interface SceneState {
   sceneId: string;
@@ -33,9 +35,11 @@ interface TimelineState {
   reorderScenes: (fromIndex: number, toIndex: number) => void;
   updateSceneUrls: (sceneId: string, audioUrl: string, videoUrl: string) => void;
   getDirtySceneIds: () => string[];
+  restoreFromDraft: (draftScenes: PersistedScene[]) => void;
 }
 
 export const useTimelineStore = createWithEqualityFn<TimelineState>()(
+  devtools(
   immer((set, get) => ({
     scenes: {},
     sceneOrder: [],
@@ -129,5 +133,30 @@ export const useTimelineStore = createWithEqualityFn<TimelineState>()(
       const { scenes } = get();
       return Object.keys(scenes).filter((id) => scenes[id].isDirty);
     },
-  }))
+
+    restoreFromDraft: (draftScenes) =>
+      set((draft) => {
+        for (const persisted of draftScenes) {
+          const scene = draft.scenes[persisted.sceneId];
+          if (!scene) continue;
+          scene.narrationText = persisted.narrationText;
+          scene.visualPrompt = persisted.visualPrompt;
+          scene.textOverlay = persisted.textOverlay;
+          scene.isDirty = persisted.isDirty;
+          scene.narrationDirty = persisted.isDirty;
+          scene.visualDirty = persisted.isDirty;
+          scene.sequenceNumber = persisted.sequenceNumber;
+        }
+        // Restore scene ordering from draft (for drag-drop reorders)
+        const draftOrder = draftScenes
+          .map((s) => s.sceneId)
+          .filter((id) => !!draft.scenes[id]);
+        const serverOnly = draft.sceneOrder.filter(
+          (id) => !draftOrder.includes(id)
+        );
+        draft.sceneOrder = [...draftOrder, ...serverOnly];
+      }),
+  })),
+  { name: "TimelineStore", enabled: process.env.NODE_ENV === "development" }
+  )
 );
