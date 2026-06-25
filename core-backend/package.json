@@ -24,6 +24,7 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/platform-fastify": "^10.4.0",
     "@nestjs/platform-socket.io": "^10.4.0",
+    "@nestjs/schedule": "^6.1.3",
     "@nestjs/websockets": "^10.4.0",
     "@remotion/lambda": "^4.0.482",
     "@types/fluent-ffmpeg": "^2.1.28",
@@ -68,7 +69,14 @@
     "testRegex": ".*\\.spec\\.tsx?$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest",
-      "^.+\\.tsx$": ["ts-jest", {"tsconfig": {"jsx": "react-jsx"}}]
+      "^.+\\.tsx$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "jsx": "react-jsx"
+          }
+        }
+      ]
     },
     "collectCoverageFrom": [
       "**/*.(t|j)sx?"

@@ -1,3 +1,12 @@
+export interface WorkerConfig {
+  enabled: boolean;
+  cronSchedule: string;
+  aiBackendUrl: string;
+  minViralityScore: number;
+  dedupWindowHours: number;
+  notificationWebhook: string;
+}
+
 export interface AppConfig {
   port: number;
   database: {
@@ -11,6 +20,7 @@ export interface AppConfig {
     publicKey: string;
     privateKey: string;
   };
+  worker: WorkerConfig;
 }
 
 export function configuration(): AppConfig {
@@ -27,6 +37,14 @@ export function configuration(): AppConfig {
       // In production these come from Vault/Secrets Manager
       publicKey: process.env.JWT_PUBLIC_KEY ?? "",
       privateKey: process.env.JWT_PRIVATE_KEY ?? "",
+    },
+    worker: {
+      enabled: process.env.WORKER_ENABLED === "true",
+      cronSchedule: process.env.WORKER_CRON_SCHEDULE ?? "0 * * * *",
+      aiBackendUrl: process.env.AI_BACKEND_URL ?? "http://localhost:8000",
+      minViralityScore: parseFloat(process.env.WORKER_MIN_VIRALITY_SCORE ?? "0.65"),
+      dedupWindowHours: parseInt(process.env.WORKER_DEDUP_WINDOW_HOURS ?? "48", 10),
+      notificationWebhook: process.env.WORKER_NOTIFICATION_WEBHOOK ?? "",
     },
   };
 }

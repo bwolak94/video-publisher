@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ScheduleModule } from "@nestjs/schedule";
 import { DbModule } from "./db/db.module";
 import { RedisModule } from "./redis/redis.module";
 import { AuthModule } from "./auth/auth.module";
@@ -10,9 +11,11 @@ import { ElevenLabsModule } from "./elevenlabs/elevenlabs.module";
 import { MediaModule } from "./media/media.module";
 import { ImagesModule } from "./images/images.module";
 import { StorageModule } from "./storage/storage.module";
+import { WorkerModeModule } from "./worker-mode/worker-mode.module";
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     DbModule,
     RedisModule,
     StorageModule,
@@ -24,6 +27,7 @@ import { StorageModule } from "./storage/storage.module";
     ElevenLabsModule,
     MediaModule,
     ImagesModule,
+    WorkerModeModule,
   ],
 })
 export class AppModule {}
