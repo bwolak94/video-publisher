@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { createWithEqualityFn } from "zustand/traditional";
 import { immer } from "zustand/middleware/immer";
 import type { TextOverlay, VideoStoryboardScene } from "@/types/storyboard";
 
@@ -35,7 +35,7 @@ interface TimelineState {
   getDirtySceneIds: () => string[];
 }
 
-export const useTimelineStore = create<TimelineState>()(
+export const useTimelineStore = createWithEqualityFn<TimelineState>()(
   immer((set, get) => ({
     scenes: {},
     sceneOrder: [],
