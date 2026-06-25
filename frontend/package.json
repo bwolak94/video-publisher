@@ -10,11 +10,13 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.3",
+    "clsx": "^2.1.1",
+    "immer": "^11.1.8",
     "next": "14.2.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "zustand": "^4.5.4",
-    "clsx": "^2.1.1"
+    "zustand": "^4.5.4"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.6",
@@ -33,14 +35,29 @@
   },
   "jest": {
     "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": ["<rootDir>/src/__tests__/setup.ts"],
+    "setupFilesAfterEnv": [
+      "<rootDir>/src/__tests__/setup.ts"
+    ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1"
     },
     "transform": {
-      "^.+\\.(t|j)sx?$": ["ts-jest", { "tsconfig": { "jsx": "react-jsx" } }]
+      "^.+\\.(t|j)sx?$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "jsx": "react-jsx"
+          }
+        }
+      ]
     },
     "testRegex": ".*\\.test\\.(ts|tsx)$",
-    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json"]
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json"
+    ]
   }
 }
