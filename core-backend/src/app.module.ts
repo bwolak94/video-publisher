@@ -12,6 +12,7 @@ import { MediaModule } from "./media/media.module";
 import { ImagesModule } from "./images/images.module";
 import { StorageModule } from "./storage/storage.module";
 import { WorkerModeModule } from "./worker-mode/worker-mode.module";
+import { YouTubeModule } from "./youtube/youtube.module";
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { WorkerModeModule } from "./worker-mode/worker-mode.module";
     MediaModule,
     ImagesModule,
     WorkerModeModule,
+    YouTubeModule,
   ],
 })
 export class AppModule {}

@@ -13,6 +13,7 @@ export const projects = pgTable("projects", {
   mode: text("mode").notNull(),
   status: text("status").default("draft"),
   storyboard: jsonb("storyboard"),
+  youtubeVideoId: text("youtube_video_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });

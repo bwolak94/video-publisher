@@ -95,6 +95,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Broadcast job progress to all sockets in the project room.
    * Applies rate limiting (max 10/sec per project) and caches completed/failed events.
    */
+  broadcastUploadProgress(projectId: string, percent: number): void {
+    this.server
+      .to(`project:${projectId}`)
+      .emit("upload_progress", { type: "upload_progress", percent, projectId });
+  }
+
   async broadcastJobProgress(
     projectId: string,
     payload: { jobId: string; step: string; status: string; [key: string]: any }
