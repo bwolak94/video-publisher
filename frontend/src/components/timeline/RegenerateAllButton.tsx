@@ -6,7 +6,11 @@ import { ConfirmRegenerateModal } from "./ConfirmRegenerateModal";
 
 const COST_WARNING_THRESHOLD = 5;
 
-export function RegenerateAllButton() {
+interface RegenerateAllButtonProps {
+  budgetExceeded?: boolean;
+}
+
+export function RegenerateAllButton({ budgetExceeded = false }: RegenerateAllButtonProps) {
   const [showModal, setShowModal] = useState(false);
 
   // Subscribe only to the minimal slice needed for the button label
@@ -56,7 +60,7 @@ export function RegenerateAllButton() {
     <>
       <button
         onClick={handleClick}
-        disabled={dirtyCount === 0}
+        disabled={dirtyCount === 0 || budgetExceeded}
         data-testid="regenerate-all-btn"
         className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-md hover:bg-amber-600 disabled:opacity-40"
       >

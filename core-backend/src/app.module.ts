@@ -13,6 +13,7 @@ import { ImagesModule } from "./images/images.module";
 import { StorageModule } from "./storage/storage.module";
 import { WorkerModeModule } from "./worker-mode/worker-mode.module";
 import { YouTubeModule } from "./youtube/youtube.module";
+import { CostModule } from "./cost/cost.module";
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { YouTubeModule } from "./youtube/youtube.module";
     ImagesModule,
     WorkerModeModule,
     YouTubeModule,
+    CostModule,
   ],
 })
 export class AppModule {}

@@ -11,9 +11,10 @@ import { MediaModule } from "../media/media.module";
 import { ImagesModule } from "../images/images.module";
 import { RenderModule } from "../render/render.module";
 import { DeduplicationService } from "../worker-mode/deduplication.service";
+import { CostModule } from "../cost/cost.module";
 
 @Module({
-  imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule, RenderModule],
+  imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule, RenderModule, CostModule],
   providers: [
     QueueService,
     JobSyncService,

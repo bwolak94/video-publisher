@@ -9,6 +9,7 @@ import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
 import { ElevenLabsService } from "../../elevenlabs/elevenlabs.service";
 import { VideoAssetService } from "../../media/video-asset.service";
 import { ImageAssetService } from "../../images/image-asset.service";
+import { BudgetService } from "../../cost/budget.service";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "asset-generation";
@@ -28,6 +29,9 @@ export interface AssetGenerationPayload {
   stability?: number;
   similarityBoost?: number;
   style?: number;
+  // Budget tracking (TASK-25)
+  channelId?: string;
+  estimatedCostUsd?: number;
 }
 
 @Injectable()
@@ -41,7 +45,8 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     private readonly gateway: EventsGateway,
     private readonly elevenLabs: ElevenLabsService,
     private readonly videoAsset: VideoAssetService,
-    private readonly imageAsset: ImageAssetService
+    private readonly imageAsset: ImageAssetService,
+    private readonly budget: BudgetService
   ) {}
 
   onModuleInit() {
@@ -143,6 +148,11 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
       status: "completed",
       sceneId: job.data.sceneId,
     } as any);
+
+    // Increment channel spend after successful completion (Rule #6 — only on completed)
+    if (job.data.channelId && job.data.estimatedCostUsd) {
+      await this.budget.incrementSpend(job.data.channelId, job.data.estimatedCostUsd);
+    }
   }
 
   private async onFailed(job: Job<AssetGenerationPayload> | undefined, err: Error) {

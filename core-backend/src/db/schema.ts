@@ -34,7 +34,9 @@ export const youtubeChannels = pgTable("youtube_channels", {
   userId: uuid("user_id").references(() => users.id),
   channelId: text("channel_id").notNull(),
   channelName: text("channel_name"),
-  refreshTokenEncrypted: text("refresh_token_encrypted").notNull(),
+  refreshTokenEncrypted: text("refresh_token_encrypted"),
+  monthlyBudgetUsd: text("monthly_budget_usd").default("0"),       // 0 = unlimited
+  currentMonthSpendUsd: text("current_month_spend_usd").default("0"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
