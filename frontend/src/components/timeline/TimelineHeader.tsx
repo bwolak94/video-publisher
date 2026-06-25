@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo } from "react";
 import { useTimelineStore } from "@/store/timelineStore";
+import { RegenerateAllButton } from "./RegenerateAllButton";
 
 interface TimelineHeaderProps {
   onRender?: () => void;
@@ -38,14 +39,17 @@ export function TimelineHeader({ onRender }: TimelineHeaderProps) {
           {formattedDuration}
         </span>
       </div>
-      <button
-        onClick={onRender}
-        disabled={sceneCount === 0}
-        data-testid="render-button"
-        className="px-4 py-1.5 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 disabled:opacity-50"
-      >
-        Render Video
-      </button>
+      <div className="flex items-center gap-2">
+        <RegenerateAllButton />
+        <button
+          onClick={onRender}
+          disabled={sceneCount === 0}
+          data-testid="render-button"
+          className="px-4 py-1.5 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 disabled:opacity-50"
+        >
+          Render Video
+        </button>
+      </div>
     </div>
   );
 }
