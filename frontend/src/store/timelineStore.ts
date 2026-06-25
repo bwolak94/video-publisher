@@ -1,4 +1,5 @@
 import { createWithEqualityFn } from "zustand/traditional";
+import { devtools } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import type { TextOverlay, VideoStoryboardScene } from "@/types/storyboard";
 import type { PersistedScene } from "@/lib/storyboardStorage";
@@ -38,6 +39,7 @@ interface TimelineState {
 }
 
 export const useTimelineStore = createWithEqualityFn<TimelineState>()(
+  devtools(
   immer((set, get) => ({
     scenes: {},
     sceneOrder: [],
@@ -154,5 +156,7 @@ export const useTimelineStore = createWithEqualityFn<TimelineState>()(
         );
         draft.sceneOrder = [...draftOrder, ...serverOnly];
       }),
-  }))
+  })),
+  { name: "TimelineStore", enabled: process.env.NODE_ENV === "development" }
+  )
 );
