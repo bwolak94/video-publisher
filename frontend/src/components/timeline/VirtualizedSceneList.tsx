@@ -27,9 +27,10 @@ const OVERSCAN = 5;
 
 interface VirtualizedSceneListProps {
   projectId?: string;
+  onSceneClick?: (sceneId: string) => void;
 }
 
-export function VirtualizedSceneList({ projectId }: VirtualizedSceneListProps) {
+export function VirtualizedSceneList({ projectId, onSceneClick }: VirtualizedSceneListProps) {
   const sceneOrder = useTimelineStore((s) => s.sceneOrder);
   const parentRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -98,7 +99,14 @@ export function VirtualizedSceneList({ projectId }: VirtualizedSceneListProps) {
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
               >
-                <SortableSceneCard sceneId={sceneOrder[virtualItem.index]} />
+                <SortableSceneCard
+                  sceneId={sceneOrder[virtualItem.index]}
+                  onSeekClick={
+                    onSceneClick
+                      ? () => onSceneClick(sceneOrder[virtualItem.index])
+                      : undefined
+                  }
+                />
               </div>
             ))}
           </div>

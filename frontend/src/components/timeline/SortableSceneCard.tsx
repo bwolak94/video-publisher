@@ -6,9 +6,10 @@ import { SceneCard } from "./SceneCard";
 
 interface SortableSceneCardProps {
   sceneId: string;
+  onSeekClick?: () => void;
 }
 
-export function SortableSceneCard({ sceneId }: SortableSceneCardProps) {
+export function SortableSceneCard({ sceneId, onSeekClick }: SortableSceneCardProps) {
   const {
     attributes,
     listeners,
@@ -36,7 +37,7 @@ export function SortableSceneCard({ sceneId }: SortableSceneCardProps) {
       >
         ⠿⠿⠿
       </div>
-      <SceneCard sceneId={sceneId} />
+      <SceneCard sceneId={sceneId} onSeekClick={onSeekClick} />
     </div>
   );
 }
