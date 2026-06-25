@@ -13,6 +13,11 @@ export interface SceneState {
   videoUrl: string | null;
   visualCacheKey: string | null;
   isDirty: boolean;
+  // Granular dirty tracking for cost estimation and undo detection (TASK-18)
+  narrationDirty: boolean;
+  visualDirty: boolean;
+  committedNarrationText: string; // narration that corresponds to current audioUrl
+  committedVisualPrompt: string;  // prompt that corresponds to current videoUrl
   status: "idle" | "regenerating" | "error";
   textOverlay: TextOverlay | null;
 }
@@ -51,6 +56,10 @@ export const useTimelineStore = create<TimelineState>()(
             videoUrl: scene.videoUrl ?? null,
             visualCacheKey: scene.visualCacheKey ?? null,
             isDirty: scene.isDirty ?? false,
+            narrationDirty: false,
+            visualDirty: false,
+            committedNarrationText: scene.narrationText,
+            committedVisualPrompt: scene.visualPrompt,
             status: "idle",
             textOverlay: scene.textOverlay ?? null,
           };
@@ -61,12 +70,31 @@ export const useTimelineStore = create<TimelineState>()(
     updateSceneField: (sceneId, field, value) =>
       set((draft) => {
         if (!draft.scenes[sceneId]) return;
-        Object.assign(draft.scenes[sceneId], { [field]: value, isDirty: true });
+        const scene = draft.scenes[sceneId];
+        (scene as Record<string, unknown>)[field as string] = value;
+
+        // For content fields: track granular dirty and support undo detection (UC-03)
+        if (field === "narrationText") {
+          scene.narrationDirty = value !== scene.committedNarrationText;
+          scene.isDirty = scene.narrationDirty || scene.visualDirty;
+        } else if (field === "visualPrompt") {
+          scene.visualDirty = value !== scene.committedVisualPrompt;
+          scene.isDirty = scene.narrationDirty || scene.visualDirty;
+        } else {
+          // Non-content fields always mark dirty
+          scene.isDirty = true;
+        }
       }),
 
     markSceneClean: (sceneId) =>
       set((draft) => {
-        if (draft.scenes[sceneId]) draft.scenes[sceneId].isDirty = false;
+        if (!draft.scenes[sceneId]) return;
+        const scene = draft.scenes[sceneId];
+        scene.isDirty = false;
+        scene.narrationDirty = false;
+        scene.visualDirty = false;
+        scene.committedNarrationText = scene.narrationText;
+        scene.committedVisualPrompt = scene.visualPrompt;
       }),
 
     markSceneStatus: (sceneId, status) =>
@@ -86,10 +114,15 @@ export const useTimelineStore = create<TimelineState>()(
     updateSceneUrls: (sceneId, audioUrl, videoUrl) =>
       set((draft) => {
         if (!draft.scenes[sceneId]) return;
-        draft.scenes[sceneId].audioUrl = audioUrl;
-        draft.scenes[sceneId].videoUrl = videoUrl;
-        draft.scenes[sceneId].isDirty = false;
-        draft.scenes[sceneId].status = "idle";
+        const scene = draft.scenes[sceneId];
+        scene.audioUrl = audioUrl;
+        scene.videoUrl = videoUrl;
+        scene.isDirty = false;
+        scene.narrationDirty = false;
+        scene.visualDirty = false;
+        scene.committedNarrationText = scene.narrationText;
+        scene.committedVisualPrompt = scene.visualPrompt;
+        scene.status = "idle";
       }),
 
     getDirtySceneIds: () => {
