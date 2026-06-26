@@ -4,6 +4,9 @@
 import { Test } from "@nestjs/testing";
 import { ElevenLabsService, ELEVENLABS_HTTP, GenerateAudioParams } from "./elevenlabs.service";
 import { AudioCacheService } from "./audio-cache.service";
+import { SettingsService } from "../settings/settings.service";
+
+const settingsMock = { getPlaintext: jest.fn().mockResolvedValue(null) };
 
 const CACHE_KEY = "abc123def456";
 const S3_URL = "https://bucket.s3.amazonaws.com/audio/abc123def456.mp3";
@@ -50,6 +53,7 @@ async function buildService(
       ElevenLabsService,
       { provide: AudioCacheService, useValue: cacheMock },
       { provide: ELEVENLABS_HTTP, useValue: mockFetch },
+      { provide: SettingsService, useValue: settingsMock },
     ],
   }).compile();
 

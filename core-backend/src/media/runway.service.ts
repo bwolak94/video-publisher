@@ -3,6 +3,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import pino from "pino";
 import { CircuitBreaker } from "../elevenlabs/circuit-breaker";
 import { VideoCacheService } from "./video-cache.service";
+import { SettingsService } from "../settings/settings.service";
 
 const logger = pino({ level: "info" });
 
@@ -22,20 +23,24 @@ export class RunwayService {
   private readonly breaker = new CircuitBreaker("runway", 5, 60_000);
   private readonly s3: S3Client;
   private readonly bucket: string;
-  private readonly apiKey: string;
   private readonly baseUrl: string;
 
   constructor(
     private readonly cache: VideoCacheService,
-    @Inject(RUNWAY_HTTP) private readonly httpFetch: typeof fetch
+    @Inject(RUNWAY_HTTP) private readonly httpFetch: typeof fetch,
+    private readonly settings: SettingsService
   ) {
-    this.apiKey = process.env.RUNWAY_API_KEY ?? "";
     this.baseUrl = process.env.RUNWAY_BASE_URL ?? "https://api.runwayml.com";
     this.bucket = process.env.S3_BUCKET ?? "video-publisher-assets";
     this.s3 = new S3Client({
       region: process.env.AWS_REGION ?? "us-east-1",
       ...(process.env.S3_ENDPOINT ? { endpoint: process.env.S3_ENDPOINT } : {}),
     });
+  }
+
+  private async getApiKey(): Promise<string> {
+    if (process.env.RUNWAY_API_KEY) return process.env.RUNWAY_API_KEY;
+    return (await this.settings.getPlaintext("integrations.runwayKey")) ?? "";
   }
 
   /**
@@ -70,7 +75,7 @@ export class RunwayService {
     const response = await this.httpFetch(`${this.baseUrl}/v1/text_to_video`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${await this.getApiKey()}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -102,7 +107,7 @@ export class RunwayService {
       await this.sleep(POLL_INTERVAL_MS);
 
       const response = await this.httpFetch(`${this.baseUrl}/v1/tasks/${taskId}`, {
-        headers: { Authorization: `Bearer ${this.apiKey}` },
+        headers: { Authorization: `Bearer ${await this.getApiKey()}` },
       });
 
       if (!response.ok) {

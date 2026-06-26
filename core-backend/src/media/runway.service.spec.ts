@@ -4,6 +4,9 @@
 import { Test } from "@nestjs/testing";
 import { RunwayService, RUNWAY_HTTP } from "./runway.service";
 import { VideoCacheService } from "./video-cache.service";
+import { SettingsService } from "../settings/settings.service";
+
+const settingsMock = { getPlaintext: jest.fn().mockResolvedValue(null) };
 
 const CACHE_KEY = "deadbeef1234";
 const RUNWAY_CDN_URL = "https://cdn.runway.com/output/video.mp4";
@@ -27,6 +30,7 @@ async function buildService(cacheMock: any, mockFetch: jest.Mock) {
       RunwayService,
       { provide: VideoCacheService, useValue: cacheMock },
       { provide: RUNWAY_HTTP, useValue: mockFetch },
+      { provide: SettingsService, useValue: settingsMock },
     ],
   }).compile();
 

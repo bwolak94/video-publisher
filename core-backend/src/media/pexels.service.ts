@@ -4,6 +4,7 @@ import pino from "pino";
 import { CircuitBreaker } from "../elevenlabs/circuit-breaker";
 import { VideoCacheService } from "./video-cache.service";
 import { extractKeywords } from "./keyword-extractor";
+import { SettingsService } from "../settings/settings.service";
 
 const logger = pino({ level: "info" });
 
@@ -24,20 +25,24 @@ export class PexelsService {
   private readonly breaker = new CircuitBreaker("pexels", 5, 60_000);
   private readonly s3: S3Client;
   private readonly bucket: string;
-  private readonly apiKey: string;
   private readonly baseUrl: string;
 
   constructor(
     private readonly cache: VideoCacheService,
-    @Inject(PEXELS_HTTP) private readonly httpFetch: typeof fetch
+    @Inject(PEXELS_HTTP) private readonly httpFetch: typeof fetch,
+    private readonly settings: SettingsService
   ) {
-    this.apiKey = process.env.PEXELS_API_KEY ?? "";
     this.baseUrl = process.env.PEXELS_BASE_URL ?? "https://api.pexels.com";
     this.bucket = process.env.S3_BUCKET ?? "video-publisher-assets";
     this.s3 = new S3Client({
       region: process.env.AWS_REGION ?? "us-east-1",
       ...(process.env.S3_ENDPOINT ? { endpoint: process.env.S3_ENDPOINT } : {}),
     });
+  }
+
+  private async getApiKey(): Promise<string> {
+    if (process.env.PEXELS_API_KEY) return process.env.PEXELS_API_KEY;
+    return (await this.settings.getPlaintext("integrations.pexelsKey")) ?? "";
   }
 
   /**
@@ -77,7 +82,7 @@ export class PexelsService {
     const url = `${this.baseUrl}/v1/videos/search?query=${encodeURIComponent(keywords)}&per_page=5&orientation=${orientation}`;
 
     const response = await this.httpFetch(url, {
-      headers: { Authorization: this.apiKey },
+      headers: { Authorization: await this.getApiKey() },
     });
 
     if (!response.ok) {
