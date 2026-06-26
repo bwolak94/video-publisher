@@ -15,6 +15,8 @@ import { WorkerModeModule } from "./worker-mode/worker-mode.module";
 import { YouTubeModule } from "./youtube/youtube.module";
 import { CostModule } from "./cost/cost.module";
 import { MetricsModule } from "./metrics/metrics.module";
+import { AlertsModule } from "./alerts/alerts.module";
+import { SettingsModule } from "./settings/settings.module";
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { MetricsModule } from "./metrics/metrics.module";
     YouTubeModule,
     CostModule,
     MetricsModule,
+    AlertsModule,
+    SettingsModule,
   ],
 })
 export class AppModule {}

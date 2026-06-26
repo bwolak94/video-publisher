@@ -109,6 +109,12 @@ export default function DashboardPage() {
           >
             Creator Mode
           </Link>
+          <Link
+            href="/dashboard/settings"
+            className="px-3 py-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+          >
+            Settings
+          </Link>
         </nav>
       </header>
 
@@ -227,13 +233,12 @@ export default function DashboardPage() {
             </p>
 
             <div className="mt-auto">
-              <button
-                disabled
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-md opacity-50 cursor-not-allowed"
-                title="Worker Mode coming soon"
+              <Link
+                href="/dashboard/settings#worker"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-md hover:bg-amber-600 transition-colors"
               >
                 Configure Worker
-              </button>
+              </Link>
             </div>
           </div>
         </div>

@@ -3,8 +3,10 @@ import { Worker, Job } from "bullmq";
 import pino from "pino";
 import { REDIS_CLIENT } from "../../redis/redis.module";
 import { DlqAlertService } from "../dlq-alert.service";
+import { DlqService } from "../dlq.service";
 import { QueueService } from "../queue.service";
 import { DeduplicationService } from "../../worker-mode/deduplication.service";
+import { MetricsService } from "../../metrics/metrics.service";
 import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
 
 const logger = pino({ level: "info" });
@@ -34,8 +36,10 @@ export class ResearchWorker implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(REDIS_CLIENT) private readonly redis: any,
     private readonly dlqAlert: DlqAlertService,
+    private readonly dlq: DlqService,
     private readonly queue: QueueService,
-    private readonly dedup: DeduplicationService
+    private readonly dedup: DeduplicationService,
+    private readonly metrics: MetricsService
   ) {}
 
   onModuleInit() {
@@ -125,6 +129,8 @@ export class ResearchWorker implements OnModuleInit, OnModuleDestroy {
 
     if ((job.attemptsMade ?? 0) >= MAX_ATTEMPTS) {
       await this.dlqAlert.alert(job.data?.jobId ?? String(job.id), QUEUE_NAME, err);
+      await this.dlq.enqueue(QUEUE_NAME, job.data as any, err, job.attemptsMade ?? 0);
+      this.metrics.dlqDepth.inc({ queue: QUEUE_NAME });
       await this.sendNotification("failure", { channelId: job.data?.channelId, error: err.message });
     }
   }

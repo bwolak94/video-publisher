@@ -15,6 +15,6 @@ import { GatewayModule } from "../gateway/gateway.module";
     YouTubeUploadService,
     YouTubeVisibilityService,
   ],
-  exports: [YouTubeUploadService, YouTubeAuthService],
+  exports: [YouTubeUploadService, YouTubeAuthService, TokenCryptoService],
 })
 export class YouTubeModule {}

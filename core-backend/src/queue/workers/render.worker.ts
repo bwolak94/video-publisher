@@ -4,10 +4,12 @@ import pino from "pino";
 import { REDIS_CLIENT } from "../../redis/redis.module";
 import { JobSyncService } from "../job-sync.service";
 import { DlqAlertService } from "../dlq-alert.service";
+import { DlqService } from "../dlq.service";
 import { EventsGateway } from "../../gateway/events.gateway";
 import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
 import { RenderService } from "../../render/render.service";
 import { VideoStoryboard } from "../../storyboard/video-storyboard";
+import { MetricsService } from "../../metrics/metrics.service";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "render";
@@ -29,8 +31,10 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
     @Inject(REDIS_CLIENT) private readonly redis: any,
     private readonly jobSync: JobSyncService,
     private readonly dlqAlert: DlqAlertService,
+    private readonly dlq: DlqService,
     private readonly gateway: EventsGateway,
-    private readonly renderService: RenderService
+    private readonly renderService: RenderService,
+    private readonly metrics: MetricsService
   ) {}
 
   onModuleInit() {
@@ -103,6 +107,8 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
 
     if ((job.attemptsMade ?? 0) >= MAX_ATTEMPTS) {
       await this.dlqAlert.alert(job.data.jobId, QUEUE_NAME, err);
+      await this.dlq.enqueue(QUEUE_NAME, job.data as any, err, job.attemptsMade ?? 0);
+      this.metrics.dlqDepth.inc({ queue: QUEUE_NAME });
     }
   }
 

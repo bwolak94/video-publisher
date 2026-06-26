@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -39,6 +39,15 @@ export const youtubeChannels = pgTable("youtube_channels", {
   currentMonthSpendUsd: text("current_month_spend_usd").default("0"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
+
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  isEncrypted: boolean("is_encrypted").default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export type AppSetting = typeof appSettings.$inferSelect;
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

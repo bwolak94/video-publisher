@@ -4,7 +4,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { JobSyncService } from "./job-sync.service";
 import { DlqAlertService } from "./dlq-alert.service";
+import { AlertService } from "../alerts/alert.service";
 import { DRIZZLE } from "../db/db.module";
+import { REDIS_CLIENT } from "../redis/redis.module";
 
 const JOB_ID = "job-uuid-001";
 const PROJECT_ID = "project-uuid-001";
@@ -78,33 +80,35 @@ describe("JobSyncService", () => {
 
 // UT-08-03: onFailed after 3rd attempt → DLQ alert triggered
 describe("DlqAlertService — UT-08-03", () => {
-  it("alert() logs CRITICAL and fires webhook when DLQ_WEBHOOK_URL is set", async () => {
-    const fetchSpy = jest.spyOn(global, "fetch" as any).mockResolvedValue({
-      ok: true,
-      status: 200,
-    } as any);
-    process.env.DLQ_WEBHOOK_URL = "http://localhost:9999/dlq";
+  const mockAlertService = { send: jest.fn().mockResolvedValue(undefined) };
 
+  beforeEach(() => jest.clearAllMocks());
+
+  it("alert() delegates to AlertService.send (UT-08-03)", async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [DlqAlertService],
+      providers: [
+        DlqAlertService,
+        { provide: AlertService, useValue: mockAlertService },
+        { provide: REDIS_CLIENT, useValue: {} },
+      ],
     }).compile();
 
     const service = module.get<DlqAlertService>(DlqAlertService);
     await service.alert(JOB_ID, "asset-generation", new Error("3rd attempt failed"));
 
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "http://localhost:9999/dlq",
-      expect.objectContaining({ method: "POST" })
+    expect(mockAlertService.send).toHaveBeenCalledWith(
+      "dlq_escalation",
+      expect.objectContaining({ jobId: JOB_ID, queueName: "asset-generation" })
     );
-
-    delete process.env.DLQ_WEBHOOK_URL;
-    fetchSpy.mockRestore();
   });
 
-  it("alert() does not throw when DLQ_WEBHOOK_URL is not set", async () => {
-    delete process.env.DLQ_WEBHOOK_URL;
+  it("alert() does not throw when AlertService.send resolves", async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [DlqAlertService],
+      providers: [
+        DlqAlertService,
+        { provide: AlertService, useValue: mockAlertService },
+        { provide: REDIS_CLIENT, useValue: {} },
+      ],
     }).compile();
 
     const service = module.get<DlqAlertService>(DlqAlertService);

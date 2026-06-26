@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: video_publisher
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -32,9 +32,9 @@ services:
       context: ./core-backend
       dockerfile: Dockerfile
     ports:
-      - "3001:3001"
+      - "3002:3002"
     environment:
-      PORT: "3001"
+      PORT: "3002"
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/video_publisher
       REDIS_HOST: redis
       REDIS_PORT: "6379"
