@@ -184,7 +184,7 @@ export class YouTubeAuthService {
     return new google.auth.OAuth2(
       process.env.YOUTUBE_CLIENT_ID,
       process.env.YOUTUBE_CLIENT_SECRET,
-      process.env.YOUTUBE_REDIRECT_URI ?? "http://localhost:3001/api/youtube/callback"
+      process.env.YOUTUBE_REDIRECT_URI ?? "http://localhost:3002/api/youtube/callback"
     );
   }
 }

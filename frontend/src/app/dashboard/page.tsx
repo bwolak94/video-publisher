@@ -1,75 +1,49 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
-const RECENT_PROJECTS = [
-  {
-    id: "proj-001",
-    title: "10 React Hooks You Should Know",
-    mode: "creator" as const,
-    status: "completed" as const,
-    scenes: 8,
-    duration: "4:32",
-    updatedAt: "2 hours ago",
-  },
-  {
-    id: "proj-002",
-    title: "TypeScript Generics Explained",
-    mode: "creator" as const,
-    status: "running" as const,
-    scenes: 6,
-    duration: "3:18",
-    updatedAt: "5 hours ago",
-  },
-  {
-    id: "proj-003",
-    title: "Auto-Short: Next.js App Router",
-    mode: "worker" as const,
-    status: "completed" as const,
-    scenes: 3,
-    duration: "0:58",
-    updatedAt: "Yesterday",
-  },
-  {
-    id: "proj-004",
-    title: "Auto-Short: Tailwind Tips #42",
-    mode: "worker" as const,
-    status: "completed" as const,
-    scenes: 3,
-    duration: "0:54",
-    updatedAt: "2 days ago",
-  },
-];
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
 
-const STATS = [
-  { label: "Videos Produced", value: "24" },
-  { label: "Total Duration", value: "1h 47m" },
-  { label: "Scenes Generated", value: "163" },
-  { label: "Cache Hit Rate", value: "68%" },
-];
+interface Project {
+  id: string;
+  title: string;
+  mode: string;
+  status: string;
+  storyboard: { scenes?: unknown[] } | null;
+  updatedAt: string;
+}
 
-const WORKER_STATUS = {
-  running: false,
-  lastPublished: "Auto-Short: Next.js App Router",
-  lastPublishedAt: "Yesterday at 14:22",
-  queueLength: 0,
-};
+interface Stats {
+  totalProjects: number;
+  totalScenes: number;
+  projectsByStatus: Record<string, number>;
+  cacheHitRate: number;
+  totalDuration: number;
+}
 
-function StatusBadge({ status }: { status: "completed" | "running" | "idle" | "failed" }) {
-  const styles = {
+interface WorkerSettings {
+  enabled: boolean;
+  cronSchedule: string;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
     completed: "bg-green-100 text-green-700",
     running: "bg-blue-100 text-blue-700",
     idle: "bg-gray-100 text-gray-500",
     failed: "bg-red-100 text-red-700",
+    draft: "bg-gray-100 text-gray-500",
   };
+  const style = styles[status] ?? "bg-gray-100 text-gray-500";
   return (
-    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${styles[status]}`}>
+    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${style}`}>
       {status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
   );
 }
 
-function ModeBadge({ mode }: { mode: "creator" | "worker" }) {
+function ModeBadge({ mode }: { mode: string }) {
   return (
     <span
       className={`text-xs font-medium px-2 py-0.5 rounded-full ${
@@ -84,6 +58,27 @@ function ModeBadge({ mode }: { mode: "creator" | "worker" }) {
 }
 
 export default function DashboardPage() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [workerSettings, setWorkerSettings] = useState<WorkerSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API_BASE}/api/projects`).then((r) => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/api/projects/stats`).then((r) => r.ok ? r.json() : null),
+      fetch(`${API_BASE}/api/settings`).then((r) => r.ok ? r.json() : null),
+    ]).then(([projectsData, statsData, settingsData]) => {
+      setProjects(projectsData ?? []);
+      setStats(statsData);
+      if (settingsData?.worker) {
+        setWorkerSettings(settingsData.worker);
+      }
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const workerRunning = workerSettings?.enabled ?? false;
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top nav */}
@@ -127,7 +122,12 @@ export default function DashboardPage() {
 
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-4">
-          {STATS.map((s) => (
+          {[
+            { label: "Videos Produced", value: loading ? "…" : String(stats?.totalProjects ?? 0) },
+            { label: "Total Duration", value: "—" },
+            { label: "Scenes Generated", value: loading ? "…" : String(stats?.totalScenes ?? 0) },
+            { label: "Cache Hit Rate", value: "—" },
+          ].map((s) => (
             <div key={s.label} className="bg-white rounded-lg border px-5 py-4">
               <p className="text-sm text-gray-500">{s.label}</p>
               <p className="text-2xl font-semibold text-gray-900 mt-1">{s.value}</p>
@@ -201,7 +201,7 @@ export default function DashboardPage() {
                     </svg>
                   </div>
                   <h2 className="font-semibold text-gray-900">Worker Mode</h2>
-                  <StatusBadge status={WORKER_STATUS.running ? "running" : "idle"} />
+                  <StatusBadge status={workerRunning ? "running" : "idle"} />
                 </div>
                 <p className="text-sm text-gray-500">
                   Fully autonomous Shorts pipeline. Runs in the background, no input needed.
@@ -213,24 +213,22 @@ export default function DashboardPage() {
               <div className="flex justify-between">
                 <span className="text-gray-500">Status</span>
                 <span className="text-gray-900 font-medium">
-                  {WORKER_STATUS.running ? "Running" : "Idle"}
+                  {loading ? "…" : workerRunning ? "Running" : "Idle"}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Queue length</span>
-                <span className="text-gray-900 font-medium">{WORKER_STATUS.queueLength} jobs</span>
+                <span className="text-gray-500">Schedule</span>
+                <code className="text-xs text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">
+                  {loading ? "…" : workerSettings?.cronSchedule ?? "—"}
+                </code>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Last published</span>
-                <span className="text-gray-900 font-medium truncate ml-4 text-right">
-                  {WORKER_STATUS.lastPublishedAt}
+                <span className="text-gray-500">Projects</span>
+                <span className="text-gray-900 font-medium">
+                  {loading ? "…" : String(stats?.totalProjects ?? 0)}
                 </span>
               </div>
             </div>
-
-            <p className="text-xs text-gray-400 truncate">
-              &quot;{WORKER_STATUS.lastPublished}&quot;
-            </p>
 
             <div className="mt-auto">
               <Link
@@ -256,47 +254,63 @@ export default function DashboardPage() {
           </div>
 
           <div className="bg-white rounded-lg border divide-y">
-            {RECENT_PROJECTS.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors group"
-              >
-                {/* Thumbnail placeholder */}
-                <div className="w-16 h-9 bg-gray-100 rounded flex-shrink-0 flex items-center justify-center">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <rect x="1" y="1" width="14" height="14" rx="2" stroke="#d1d5db" strokeWidth="1.2" />
-                    <path d="M6 5L11 8L6 11V5Z" fill="#d1d5db" />
-                  </svg>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{p.title}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <ModeBadge mode={p.mode} />
-                    <span className="text-xs text-gray-400">
-                      {p.scenes} scenes · {p.duration}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <StatusBadge status={p.status} />
-                  <span className="text-xs text-gray-400 w-20 text-right">{p.updatedAt}</span>
-                  {p.mode === "creator" ? (
-                    <Link
-                      href={`/project/${p.id}/timeline`}
-                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      Open
-                    </Link>
-                  ) : (
-                    <span className="text-xs text-gray-300 font-medium opacity-0 group-hover:opacity-100 w-8">
-                      View
-                    </span>
-                  )}
-                </div>
+            {loading ? (
+              <div className="px-5 py-8 text-center text-sm text-gray-400">Loading…</div>
+            ) : projects.length === 0 ? (
+              <div className="px-5 py-8 text-center text-sm text-gray-400">
+                No projects yet.{" "}
+                <Link href="/create" className="text-indigo-600 hover:text-indigo-700 font-medium">
+                  Create your first one.
+                </Link>
               </div>
-            ))}
+            ) : (
+              projects.slice(0, 10).map((p) => {
+                const sceneCount = p.storyboard?.scenes?.length ?? 0;
+                return (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors group"
+                  >
+                    {/* Thumbnail placeholder */}
+                    <div className="w-16 h-9 bg-gray-100 rounded flex-shrink-0 flex items-center justify-center">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <rect x="1" y="1" width="14" height="14" rx="2" stroke="#d1d5db" strokeWidth="1.2" />
+                        <path d="M6 5L11 8L6 11V5Z" fill="#d1d5db" />
+                      </svg>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{p.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <ModeBadge mode={p.mode} />
+                        {sceneCount > 0 && (
+                          <span className="text-xs text-gray-400">{sceneCount} scenes</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <StatusBadge status={p.status} />
+                      <span className="text-xs text-gray-400 w-28 text-right">
+                        {new Date(p.updatedAt).toLocaleDateString()}
+                      </span>
+                      {p.mode === "creator" ? (
+                        <Link
+                          href={`/project/${p.id}/timeline`}
+                          className="text-xs text-indigo-600 hover:text-indigo-700 font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          Open
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-gray-300 font-medium opacity-0 group-hover:opacity-100 w-8">
+                          View
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </main>

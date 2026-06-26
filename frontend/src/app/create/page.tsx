@@ -8,7 +8,7 @@ import { OutlineCard } from "@/components/creator/OutlineCard";
 import { useCreatorStore } from "@/store/creatorStore";
 import type { OutlineBullet } from "@/store/creatorStore";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
 
 export default function CreatePage() {
   const router = useRouter();

@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useUserId } from "@/hooks/useUserId";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
 const MASK = "__STORED__";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -185,6 +186,7 @@ function IntegrationsTab({ initial }: { initial: Record<string, string> }) {
 // ── Tab: YouTube Channels ─────────────────────────────────────────────────────
 
 function YouTubeTab() {
+  const userId = useUserId();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
@@ -283,7 +285,7 @@ function YouTubeTab() {
               </p>
             </div>
             <a
-              href={`${API_BASE}/api/youtube/connect`}
+              href={`${API_BASE}/api/youtube/connect${userId ? `?userId=${userId}` : ""}`}
               className="mt-1 inline-flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors"
             >
               Connect with Google

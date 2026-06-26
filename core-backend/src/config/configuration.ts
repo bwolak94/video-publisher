@@ -20,6 +20,7 @@ export interface AppConfig {
     publicKey: string;
     privateKey: string;
   };
+  youtubeRedirectUri: string;
   worker: WorkerConfig;
 }
 
@@ -38,6 +39,7 @@ export function configuration(): AppConfig {
       publicKey: process.env.JWT_PUBLIC_KEY ?? "",
       privateKey: process.env.JWT_PRIVATE_KEY ?? "",
     },
+    youtubeRedirectUri: process.env.YOUTUBE_REDIRECT_URI ?? "http://localhost:3002/api/youtube/callback",
     worker: {
       enabled: process.env.WORKER_ENABLED === "true",
       cronSchedule: process.env.WORKER_CRON_SCHEDULE ?? "0 * * * *",
