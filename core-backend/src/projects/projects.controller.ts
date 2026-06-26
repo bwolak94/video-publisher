@@ -4,29 +4,33 @@ import {
   Post,
   Body,
   Param,
-  UseGuards,
   Req,
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
-import { AuthGuard } from "../auth/auth.guard";
 import { ProjectsService } from "./projects.service";
 import { CreateProjectDto } from "./dto/create-project.dto";
 
+// Auth is intentionally removed — single-user local dev tool.
+// Tech debt: re-add JWT auth in a future auth sprint.
 @Controller("projects")
-@UseGuards(AuthGuard)
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@Req() req: any, @Body() dto: CreateProjectDto) {
-    return this.projectsService.create(req.userId, dto);
+    return this.projectsService.create(req.headers["x-user-id"] ?? null, dto);
+  }
+
+  @Get("stats")
+  getStats() {
+    return this.projectsService.getStats();
   }
 
   @Get()
-  findAll(@Req() req: any) {
-    return this.projectsService.findAll(req.userId);
+  findAll() {
+    return this.projectsService.findAll();
   }
 
   @Get(":id")

@@ -19,25 +19,17 @@ from app.models.storyboard import VideoStoryboard
 
 logger = structlog.get_logger(__name__)
 
-# Outline agent — cheap model per task rule #1
-_outline_agent = Agent(
-    role="Video Outline Writer",
-    goal="Produce a concise 5-point outline for a YouTube video.",
-    backstory="You structure compelling video narratives from news research.",
-    llm="gpt-4o-mini",
-    verbose=False,
-    allow_delegation=False,
-)
 
-# Director agent — expensive model per task rule #1
-_director_agent = Agent(
-    role="YouTube Video Director",
-    goal="Generate a complete, schema-valid VideoStoryboard JSON object.",
-    backstory="You are a professional video director who writes precise, vivid storyboards.",
-    llm="gpt-4o",
-    verbose=False,
-    allow_delegation=False,
-)
+def _make_director_agent() -> Agent:
+    """Instantiate a fresh Director agent per call to avoid shared mutable state across concurrent jobs."""
+    return Agent(
+        role="YouTube Video Director",
+        goal="Generate a complete, schema-valid VideoStoryboard JSON object.",
+        backstory="You are a professional video director who writes precise, vivid storyboards.",
+        llm="gpt-4o",
+        verbose=False,
+        allow_delegation=False,
+    )
 
 
 def _strip_fences(text: str) -> str:
@@ -77,12 +69,13 @@ async def generate_worker_storyboard(
         prior_constraints=prior_constraints or [],
     )
 
+    director_agent = _make_director_agent()
     task = Task(
         description=prompt,
-        agent=_director_agent,
+        agent=director_agent,
         expected_output="A valid VideoStoryboard JSON object",
     )
-    crew = Crew(agents=[_director_agent], tasks=[task], verbose=False)
+    crew = Crew(agents=[director_agent], tasks=[task], verbose=False)
 
     result = await asyncio.to_thread(crew.kickoff)
     raw = result.raw if hasattr(result, "raw") else str(result)

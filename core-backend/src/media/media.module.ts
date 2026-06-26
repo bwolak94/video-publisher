@@ -3,8 +3,10 @@ import { VideoCacheService } from "./video-cache.service";
 import { RunwayService, RUNWAY_HTTP } from "./runway.service";
 import { PexelsService, PEXELS_HTTP } from "./pexels.service";
 import { VideoAssetService } from "./video-asset.service";
+import { SettingsModule } from "../settings/settings.module";
 
 @Module({
+  imports: [SettingsModule],
   providers: [
     VideoCacheService,
     VideoAssetService,

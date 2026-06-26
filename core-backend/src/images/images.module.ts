@@ -16,6 +16,6 @@ import { ImageAssetService } from "./image-asset.service";
     StableDiffusionService,
     { provide: SD_HTTP, useValue: fetch },
   ],
-  exports: [ImageAssetService],
+  exports: [ImageAssetService, DallE3Service],
 })
 export class ImagesModule {}

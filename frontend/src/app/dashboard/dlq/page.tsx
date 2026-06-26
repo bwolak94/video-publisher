@@ -11,7 +11,7 @@ interface DlqEntry {
   attemptsMade: number;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
 
 export default function DlqDashboardPage() {
   const [jobs, setJobs] = useState<DlqEntry[]>([]);

@@ -1,13 +1,17 @@
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
+import uuid
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
+from app.api.creator import router as creator_router
 from app.api.director import router as director_router
 from app.api.health import router as health_router
 from app.api.research import router as research_router
+from app.api.sources import router as sources_router
 from app.config import get_settings
 from app.logging_config import setup_logging
 from app.metrics import metrics_output
@@ -29,9 +33,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         version=settings.APP_VERSION,
     )
 
-    logger.info("startup", event="startup")
+    logger.info("startup")
     yield
-    logger.info("shutdown", event="shutdown")
+    logger.info("shutdown")
 
 
 def create_app() -> FastAPI:
@@ -49,9 +53,27 @@ def create_app() -> FastAPI:
         openapi_url=openapi_url,
     )
 
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000", "http://localhost:3002"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.middleware("http")
+    async def correlation_id_middleware(request: Request, call_next):
+        correlation_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+        structlog.contextvars.bind_contextvars(correlation_id=correlation_id)
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = correlation_id
+        structlog.contextvars.clear_contextvars()
+        return response
+
     app.include_router(health_router)
     app.include_router(research_router)
     app.include_router(director_router)
+    app.include_router(creator_router)
+    app.include_router(sources_router)
 
     @app.get("/metrics", include_in_schema=False)
     async def metrics() -> Response:

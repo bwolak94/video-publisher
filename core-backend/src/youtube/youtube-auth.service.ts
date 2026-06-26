@@ -2,8 +2,11 @@ import { Injectable, Inject } from "@nestjs/common";
 import { google } from "googleapis";
 import pino from "pino";
 import { eq } from "drizzle-orm";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import type Redis from "ioredis";
 import { DRIZZLE } from "../db/db.module";
 import { REDIS_CLIENT } from "../redis/redis.module";
+import * as schema from "../db/schema";
 import { youtubeChannels } from "../db/schema";
 import { TokenCryptoService } from "./token-crypto.service";
 
@@ -20,8 +23,8 @@ export interface ConnectedChannel {
 @Injectable()
 export class YouTubeAuthService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: any,
-    @Inject(REDIS_CLIENT) private readonly redis: any,
+    @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly crypto: TokenCryptoService
   ) {}
 
@@ -90,7 +93,7 @@ export class YouTubeAuthService {
     if (existing.length > 0) {
       await this.db
         .update(youtubeChannels)
-        .set({ refreshTokenEncrypted: encryptedRefreshToken, channelName })
+        .set({ refreshTokenEncrypted: encryptedRefreshToken, channelName } as any)
         .where(eq(youtubeChannels.userId, userId));
     } else {
       await this.db.insert(youtubeChannels).values({
@@ -98,7 +101,7 @@ export class YouTubeAuthService {
         channelId,
         channelName,
         refreshTokenEncrypted: encryptedRefreshToken,
-      });
+      } as any);
     }
 
     logger.info({ userId, channelId }, "YouTube channel connected");
@@ -143,7 +146,7 @@ export class YouTubeAuthService {
       try {
         await this.db
           .update(youtubeChannels)
-          .set({ refreshTokenEncrypted: newEncrypted })
+          .set({ refreshTokenEncrypted: newEncrypted } as any)
           .where(eq(youtubeChannels.channelId, channelId));
       } catch (dbErr) {
         logger.error(
@@ -161,7 +164,7 @@ export class YouTubeAuthService {
 
     await this.db
       .update(youtubeChannels)
-      .set({ refreshTokenEncrypted: null })
+      .set({ refreshTokenEncrypted: null } as any)
       .where(eq(youtubeChannels.channelId, channelId));
 
     const webhookUrl = process.env.WORKER_NOTIFICATION_WEBHOOK;
@@ -184,7 +187,7 @@ export class YouTubeAuthService {
     return new google.auth.OAuth2(
       process.env.YOUTUBE_CLIENT_ID,
       process.env.YOUTUBE_CLIENT_SECRET,
-      process.env.YOUTUBE_REDIRECT_URI ?? "http://localhost:3001/api/youtube/callback"
+      process.env.YOUTUBE_REDIRECT_URI ?? "http://localhost:3002/api/youtube/callback"
     );
   }
 }

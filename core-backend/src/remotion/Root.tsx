@@ -36,14 +36,14 @@ export const RemotionRoot: React.FC = () => {
   return (
     <Composition
       id={COMPOSITION_ID}
-      component={VideoStoryboardComposition}
+      component={VideoStoryboardComposition as any}
       fps={FPS}
       width={getCompositionWidth(DEFAULT_STORYBOARD.meta.aspectRatio)}
       height={getCompositionHeight(DEFAULT_STORYBOARD.meta.aspectRatio)}
       durationInFrames={calculateDurationInFrames(DEFAULT_STORYBOARD.timeline, FPS)}
       defaultProps={{ storyboard: DEFAULT_STORYBOARD }}
       calculateMetadata={async ({ props }) => {
-        const { storyboard } = props;
+        const storyboard = (props as { storyboard: VideoStoryboard }).storyboard;
         return {
           fps: FPS,
           width: getCompositionWidth(storyboard.meta.aspectRatio),

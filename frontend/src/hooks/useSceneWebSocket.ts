@@ -16,7 +16,7 @@ interface StepFailedEvent {
 
 type WsEvent = StepCompletedEvent | StepFailedEvent;
 
-const DEFAULT_WS_URL = "ws://localhost:3001";
+const DEFAULT_WS_URL = "ws://localhost:3002";
 
 /**
  * Connects to the backend WebSocket and handles scene regeneration progress events.

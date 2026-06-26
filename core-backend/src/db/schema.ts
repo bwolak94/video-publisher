@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, jsonb, timestamp, boolean, numeric } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -40,6 +40,39 @@ export const youtubeChannels = pgTable("youtube_channels", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
+export const costRecords = pgTable("cost_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").references(() => projects.id),
+  sceneId: text("scene_id"),
+  assetType: text("asset_type").notNull(), // audio | video | image
+  provider: text("provider").notNull(),    // elevenlabs | runway | pexels | dalle3 | stable-diffusion
+  estimatedCostUsd: numeric("estimated_cost_usd", { precision: 10, scale: 6 }).notNull(),
+  actualCostUsd: numeric("actual_cost_usd", { precision: 10, scale: 6 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const webhooks = pgTable("webhooks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id),
+  url: text("url").notNull(),
+  secret: text("secret").notNull(),
+  events: text("events").array().notNull(),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const thumbnailExperiments = pgTable("thumbnail_experiments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").references(() => projects.id),
+  youtubeVideoId: text("youtube_video_id").notNull(),
+  channelId: text("channel_id").notNull(),
+  variants: jsonb("variants").notNull().default([]),
+  currentVariantIndex: text("current_variant_index").default("0"),
+  winnerId: text("winner_id"),
+  status: text("status").default("running"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
 export const appSettings = pgTable("app_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
@@ -55,3 +88,8 @@ export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;
+export type CostRecord = typeof costRecords.$inferSelect;
+export type NewCostRecord = typeof costRecords.$inferInsert;
+export type Webhook = typeof webhooks.$inferSelect;
+export type NewWebhook = typeof webhooks.$inferInsert;
+export type ThumbnailExperiment = typeof thumbnailExperiments.$inferSelect;

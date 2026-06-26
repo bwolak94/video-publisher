@@ -1,7 +1,9 @@
 import { Injectable, Inject } from "@nestjs/common";
 import { eq, sql } from "drizzle-orm";
 import pino from "pino";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DRIZZLE } from "../db/db.module";
+import * as schema from "../db/schema";
 import { youtubeChannels } from "../db/schema";
 
 const logger = pino({ level: "info" });
@@ -17,7 +19,7 @@ export interface BudgetCheckResult {
 
 @Injectable()
 export class BudgetService {
-  constructor(@Inject(DRIZZLE) private readonly db: any) {}
+  constructor(@Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>) {}
 
   async checkBudget(channelId: string, estimatedCost: number): Promise<BudgetCheckResult> {
     const row = await this.getChannelRow(channelId);
@@ -70,7 +72,7 @@ export class BudgetService {
       .update(youtubeChannels)
       .set({
         currentMonthSpendUsd: sql`CAST(current_month_spend_usd AS NUMERIC) + ${amount}`,
-      })
+      } as any)
       .where(eq(youtubeChannels.channelId, channelId));
 
     logger.info({ channelId, amount }, "Monthly spend incremented");

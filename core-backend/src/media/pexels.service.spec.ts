@@ -4,6 +4,9 @@
 import { Test } from "@nestjs/testing";
 import { PexelsService, PEXELS_HTTP } from "./pexels.service";
 import { VideoCacheService } from "./video-cache.service";
+import { SettingsService } from "../settings/settings.service";
+
+const settingsMock = { getPlaintext: jest.fn().mockResolvedValue(null) };
 
 const CACHE_KEY = "pexcache123";
 const PEXELS_CDN_URL = "https://videos.pexels.com/video-files/1234/portrait.mp4";
@@ -42,6 +45,7 @@ async function buildService(cacheMock: any, mockFetch: jest.Mock) {
       PexelsService,
       { provide: VideoCacheService, useValue: cacheMock },
       { provide: PEXELS_HTTP, useValue: mockFetch },
+      { provide: SettingsService, useValue: settingsMock },
     ],
   }).compile();
 

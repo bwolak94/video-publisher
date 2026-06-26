@@ -10,6 +10,7 @@ import { AudioCacheService } from "./audio-cache.service";
 import { CircuitBreaker, CircuitOpenError } from "./circuit-breaker";
 import { splitAtSentenceBoundary } from "./text-splitter";
 import { configuration } from "../config/configuration";
+import { SettingsService } from "../settings/settings.service";
 
 const logger = pino({ level: "info" });
 
@@ -30,20 +31,24 @@ export class ElevenLabsService {
   private readonly breaker = new CircuitBreaker("elevenlabs", 5, 60_000);
   private readonly s3: S3Client;
   private readonly bucket: string;
-  private readonly apiKey: string;
   private readonly baseUrl: string;
 
   constructor(
     private readonly cache: AudioCacheService,
-    @Inject(ELEVENLABS_HTTP) private readonly httpFetch: typeof fetch
+    @Inject(ELEVENLABS_HTTP) private readonly httpFetch: typeof fetch,
+    private readonly settings: SettingsService
   ) {
-    this.apiKey = process.env.ELEVENLABS_API_KEY ?? "";
     this.baseUrl = process.env.ELEVENLABS_BASE_URL ?? "https://api.elevenlabs.io";
     this.bucket = process.env.S3_BUCKET ?? "video-publisher-assets";
     this.s3 = new S3Client({
       region: process.env.AWS_REGION ?? "us-east-1",
       ...(process.env.S3_ENDPOINT ? { endpoint: process.env.S3_ENDPOINT } : {}),
     });
+  }
+
+  private async getApiKey(): Promise<string> {
+    if (process.env.ELEVENLABS_API_KEY) return process.env.ELEVENLABS_API_KEY;
+    return (await this.settings.getPlaintext("integrations.elevenLabsKey")) ?? "";
   }
 
   /**
@@ -130,7 +135,7 @@ export class ElevenLabsService {
     const response = await this.httpFetch(url, {
       method: "POST",
       headers: {
-        "xi-api-key": this.apiKey,
+        "xi-api-key": await this.getApiKey(),
         "Content-Type": "application/json",
         Accept: "audio/mpeg",
       },

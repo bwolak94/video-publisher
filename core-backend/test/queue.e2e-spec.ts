@@ -101,7 +101,7 @@ describe("BullMQ Queue Integration (IT-08)", () => {
     const gatewaySpy = jest.spyOn(
       module.get<EventsGateway>(EventsGateway),
       "broadcastJobProgress"
-    ).mockImplementation(() => {});
+    ).mockImplementation(async () => {});
 
     const worker = module.get<AssetGenerationWorker>(AssetGenerationWorker);
 
@@ -129,7 +129,7 @@ describe("BullMQ Queue Integration (IT-08)", () => {
     jest.spyOn(
       module.get<EventsGateway>(EventsGateway),
       "broadcastJobProgress"
-    ).mockImplementation(() => {});
+    ).mockImplementation(async () => {});
 
     const worker = module.get<AssetGenerationWorker>(AssetGenerationWorker);
     const err = new Error("ElevenLabs 503 after 3 attempts");
