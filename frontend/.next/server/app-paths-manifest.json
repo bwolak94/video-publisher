@@ -1,5 +1,7 @@
 {
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/dlq/page": "app/dashboard/dlq/page.js",
+  "/dashboard/settings/page": "app/dashboard/settings/page.js",
   "/create/page": "app/create/page.js",
-  "/project/[id]/timeline/page": "app/project/[id]/timeline/page.js",
-  "/dashboard/page": "app/dashboard/page.js"
+  "/project/[id]/timeline/page": "app/project/[id]/timeline/page.js"
 }

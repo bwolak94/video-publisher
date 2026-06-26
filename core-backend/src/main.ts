@@ -1,3 +1,4 @@
+import "dotenv/config";
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter, NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -34,9 +35,16 @@ async function bootstrap() {
     done();
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    setupBullBoard(app);
-  }
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+  });
+
+  // BullBoard disabled: @bull-board/fastify requires @fastify/view 5.x but project uses Fastify 4.x
+  // if (process.env.NODE_ENV !== "production") {
+  //   setupBullBoard(app);
+  // }
 
   // Run DB migrations on startup (UC-01)
   const db = app.get(DRIZZLE);

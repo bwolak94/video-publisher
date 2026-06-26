@@ -1,5 +1,6 @@
 import { ResearchWorker, type ResearchJobPayload, type ResearchResult } from "./research.worker";
 import { DeduplicationService } from "../../worker-mode/deduplication.service";
+import { MetricsService } from "../../metrics/metrics.service";
 
 function makeJob(
   data: Partial<ResearchJobPayload> & { attemptsMade?: number } = {}
@@ -26,6 +27,8 @@ describe("ResearchWorker", () => {
   let mockDlqAlert: { alert: jest.Mock };
   let mockDedup: { isDuplicate: jest.Mock; markSeen: jest.Mock };
   let mockRedis: object;
+  let mockDlq: { enqueue: jest.Mock };
+  let mockMetrics: { dlqDepth: { inc: jest.Mock } };
 
   beforeEach(() => {
     mockRedis = {};
@@ -35,12 +38,16 @@ describe("ResearchWorker", () => {
       isDuplicate: jest.fn().mockResolvedValue(false),
       markSeen: jest.fn().mockResolvedValue(undefined),
     };
+    mockDlq = { enqueue: jest.fn().mockResolvedValue(undefined) };
+    mockMetrics = { dlqDepth: { inc: jest.fn() } };
 
     worker = new ResearchWorker(
       mockRedis,
       mockDlqAlert as any,
+      mockDlq as any,
       mockQueue as any,
-      mockDedup as unknown as DeduplicationService
+      mockDedup as unknown as DeduplicationService,
+      mockMetrics as unknown as MetricsService
     );
   });
 

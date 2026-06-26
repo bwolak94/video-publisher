@@ -10,6 +10,8 @@ import { ElevenLabsService } from "../../elevenlabs/elevenlabs.service";
 import { VideoAssetService } from "../../media/video-asset.service";
 import { ImageAssetService } from "../../images/image-asset.service";
 import { BudgetService } from "../../cost/budget.service";
+import { DlqService } from "../dlq.service";
+import { MetricsService } from "../../metrics/metrics.service";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "asset-generation";
@@ -46,7 +48,9 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     private readonly elevenLabs: ElevenLabsService,
     private readonly videoAsset: VideoAssetService,
     private readonly imageAsset: ImageAssetService,
-    private readonly budget: BudgetService
+    private readonly budget: BudgetService,
+    private readonly dlq: DlqService,
+    private readonly metrics: MetricsService
   ) {}
 
   onModuleInit() {
@@ -166,6 +170,8 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
 
     if ((job.attemptsMade ?? 0) >= MAX_ATTEMPTS) {
       await this.dlqAlert.alert(job.data.jobId, QUEUE_NAME, err);
+      await this.dlq.enqueue(QUEUE_NAME, job.data as any, err, job.attemptsMade ?? 0);
+      this.metrics.dlqDepth.inc({ queue: QUEUE_NAME });
     }
   }
 

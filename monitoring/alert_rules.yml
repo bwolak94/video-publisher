@@ -1,0 +1,41 @@
+groups:
+  - name: pipeline
+    rules:
+      - alert: HighJobFailureRate
+        expr: |
+          rate(pipeline_jobs_total{status="failed"}[5m])
+          / rate(pipeline_jobs_total[5m]) > 0.10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Job failure rate > 10% for 5 minutes"
+
+      - alert: DLQDepthHigh
+        expr: dlq_depth > 5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dead Letter Queue has {{ $value }} failed jobs"
+
+      - alert: CacheHitRateLow
+        expr: |
+          rate(cache_hits_total{cache="audio"}[10m])
+          / (rate(cache_hits_total{cache="audio"}[10m]) + rate(cache_misses_total{cache="audio"}[10m]))
+          < 0.70
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Audio cache hit rate below 70%"
+
+  - name: ai_video_factory
+    rules:
+      - alert: HighExternalApiErrorRate
+        expr: rate(external_api_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate for service {{ $labels.service }}"

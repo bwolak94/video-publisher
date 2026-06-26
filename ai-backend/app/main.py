@@ -3,13 +3,14 @@ from typing import AsyncIterator
 
 import structlog
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from app.api.director import router as director_router
 from app.api.health import router as health_router
 from app.api.research import router as research_router
 from app.config import get_settings
 from app.logging_config import setup_logging
+from app.metrics import metrics_output
 
 logger = structlog.get_logger(__name__)
 
@@ -51,6 +52,11 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(research_router)
     app.include_router(director_router)
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics() -> Response:
+        body, content_type = metrics_output()
+        return Response(content=body, media_type=content_type)
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request, exc: Exception) -> JSONResponse:
