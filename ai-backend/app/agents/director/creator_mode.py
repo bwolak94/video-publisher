@@ -15,11 +15,12 @@ import json
 from typing import Optional
 
 import structlog
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langgraph.graph import END, StateGraph
 from typing_extensions import TypedDict
 
 from app.agents.director.prompts import build_full_storyboard_prompt, build_outline_prompt
+from app.config import get_settings
 from app.models.director import NicheProfile
 from app.models.storyboard import VideoStoryboard
 
@@ -34,6 +35,7 @@ class DirectorState(TypedDict):
     scene_count: int
     target_duration_seconds: int
     aspect_ratio: str
+    project_id: Optional[str]           # used for RAG retrieval if source material was ingested
     outline: Optional[list[dict]]
     outline_approved: bool
     storyboard: Optional[dict]
@@ -77,10 +79,25 @@ def _strip_fences(text: str) -> str:
 
 # ── Graph Nodes ────────────────────────────────────────────────────────────────
 
+async def _retrieve_rag_context(project_id: str | None, query: str) -> list[str]:
+    """Retrieve relevant source chunks if project has ingested material."""
+    if not project_id:
+        return []
+    try:
+        from app.rag.db import get_pool
+        from app.rag.ingestion import retrieve_context
+        pool = await get_pool()
+        return await retrieve_context(pool, project_id, query)
+    except Exception as exc:
+        logger.warning("rag_retrieval_failed", error=str(exc))
+        return []
+
+
 async def outline_node(state: DirectorState) -> DirectorState:
     """Stage 1: generate a 5-point outline using the cheap model."""
     profile = NicheProfile.model_validate(state["niche_profile"])
-    prompt = build_outline_prompt(profile, state["topic"])
+    source_chunks = await _retrieve_rag_context(state.get("project_id"), state["topic"])
+    prompt = build_outline_prompt(profile, state["topic"], source_chunks=source_chunks)
 
     try:
         raw = await _call_llm_mini(prompt)
@@ -107,6 +124,7 @@ async def generate_storyboard_node(state: DirectorState) -> DirectorState:
     """Stage 2: generate full storyboard from approved outline (expensive model)."""
     profile = NicheProfile.model_validate(state["niche_profile"])
     outline = state.get("outline") or []
+    source_chunks = await _retrieve_rag_context(state.get("project_id"), state["topic"])
 
     prompt = build_full_storyboard_prompt(
         niche_profile=profile,
@@ -114,6 +132,7 @@ async def generate_storyboard_node(state: DirectorState) -> DirectorState:
         scene_count=state["scene_count"],
         target_duration_seconds=state["target_duration_seconds"],
         aspect_ratio=state.get("aspect_ratio", "16:9"),
+        source_chunks=source_chunks,
     )
 
     try:
@@ -158,10 +177,15 @@ def build_creator_graph() -> StateGraph:
     return graph
 
 
-def get_creator_graph():
-    """Return a compiled Creator Mode graph with MemorySaver + interrupt_before."""
-    memory = MemorySaver()
+async def get_creator_graph():
+    """Return a compiled Creator Mode graph with Redis-backed checkpointer + interrupt_before.
+
+    Uses AsyncRedisSaver so sessions survive process restarts and deploys.
+    """
+    settings = get_settings()
+    checkpointer = AsyncRedisSaver.from_conn_string(settings.REDIS_URL)
+    await checkpointer.asetup()
     return build_creator_graph().compile(
-        checkpointer=memory,
+        checkpointer=checkpointer,
         interrupt_before=["human_approval"],
     )

@@ -13,6 +13,7 @@ import { Inject } from "@nestjs/common";
 import { ProjectsService } from "../projects/projects.service";
 import { EventCacheService } from "./event-cache.service";
 import { RateLimiter } from "./rate-limiter";
+import { WebhookService } from "../webhooks/webhook.service";
 
 @WebSocketGateway({ cors: true })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -24,7 +25,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     @Inject(JwtService) private readonly jwtService: JwtService,
     private readonly projectsService: ProjectsService,
-    private readonly eventCache: EventCacheService
+    private readonly eventCache: EventCacheService,
+    private readonly webhookService: WebhookService
   ) {}
 
   async handleConnection(client: Socket) {
@@ -113,6 +115,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (payload.status === "completed" || payload.status === "failed") {
       await this.eventCache.cacheEvent(projectId, payload.step, payload);
+      const event = payload.status === "completed" ? "job.completed" : "job.failed";
+      this.webhookService.fanOut(event, { projectId, ...payload }).catch(() => {});
     }
   }
 }

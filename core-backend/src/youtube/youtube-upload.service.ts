@@ -4,14 +4,14 @@ import { google } from "googleapis";
 import { Readable } from "stream";
 import pino from "pino";
 import { eq } from "drizzle-orm";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DRIZZLE } from "../db/db.module";
+import * as schema from "../db/schema";
 import { projects } from "../db/schema";
 import { EventsGateway } from "../gateway/events.gateway";
 import { YouTubeAuthService } from "./youtube-auth.service";
 
 const logger = pino({ level: "info" });
-
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB
 
 export interface UploadOptions {
   projectId: string;
@@ -28,7 +28,7 @@ export interface UploadOptions {
 @Injectable()
 export class YouTubeUploadService {
   constructor(
-    @Inject(DRIZZLE) private readonly db: any,
+    @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly auth: YouTubeAuthService,
     private readonly gateway: EventsGateway
   ) {}
@@ -109,21 +109,9 @@ export class YouTubeUploadService {
       status.publishAt = publishAt;
     }
 
-    // Collect stream into buffer chunks for resumable upload
-    const chunks: Buffer[] = [];
+    // Stream S3 body directly to googleapis — never buffer entire video in RAM
     let bytesUploaded = 0;
 
-    await new Promise<void>((resolve, reject) => {
-      stream.on("data", (chunk: Buffer) => chunks.push(chunk));
-      stream.on("end", resolve);
-      stream.on("error", reject);
-    });
-
-    const fullBuffer = Buffer.concat(chunks);
-    const totalSize = fullBuffer.length;
-
-    // Initiate resumable upload and upload in CHUNK_SIZE slices
-    // googleapis handles the resumable protocol internally via media upload
     const res = await youtube.videos.insert(
       {
         part: ["snippet", "status"],
@@ -133,13 +121,13 @@ export class YouTubeUploadService {
         },
         media: {
           mimeType: "video/mp4",
-          body: Readable.from(fullBuffer),
+          body: stream,
         },
       },
       {
         onUploadProgress: (evt: { bytesRead: number }) => {
           bytesUploaded = evt.bytesRead;
-          const percent = Math.round((bytesUploaded / (totalBytes || totalSize)) * 100);
+          const percent = Math.round((bytesUploaded / totalBytes) * 100);
           onProgress(Math.min(percent, 100));
         },
       }

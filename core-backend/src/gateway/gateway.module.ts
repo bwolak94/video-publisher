@@ -3,9 +3,10 @@ import { EventsGateway } from "./events.gateway";
 import { EventCacheService } from "./event-cache.service";
 import { AuthModule } from "../auth/auth.module";
 import { ProjectsModule } from "../projects/projects.module";
+import { WebhooksModule } from "../webhooks/webhooks.module";
 
 @Module({
-  imports: [AuthModule, ProjectsModule],
+  imports: [AuthModule, ProjectsModule, WebhooksModule],
   providers: [EventsGateway, EventCacheService],
   exports: [EventsGateway],
 })

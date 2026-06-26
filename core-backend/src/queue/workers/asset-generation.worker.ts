@@ -1,6 +1,7 @@
 import { Injectable, Inject, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { Worker, Job } from "bullmq";
 import pino from "pino";
+import type Redis from "ioredis";
 import { REDIS_CLIENT } from "../../redis/redis.module";
 import { JobSyncService } from "../job-sync.service";
 import { DlqAlertService } from "../dlq-alert.service";
@@ -10,6 +11,7 @@ import { ElevenLabsService } from "../../elevenlabs/elevenlabs.service";
 import { VideoAssetService } from "../../media/video-asset.service";
 import { ImageAssetService } from "../../images/image-asset.service";
 import { BudgetService } from "../../cost/budget.service";
+import { CostRecordService } from "../../cost/cost-record.service";
 import { DlqService } from "../dlq.service";
 import { MetricsService } from "../../metrics/metrics.service";
 
@@ -34,6 +36,8 @@ export interface AssetGenerationPayload {
   // Budget tracking (TASK-25)
   channelId?: string;
   estimatedCostUsd?: number;
+  // Observability — threaded through from originating HTTP request
+  correlationId?: string;
 }
 
 @Injectable()
@@ -41,7 +45,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
   private worker: Worker | null = null;
 
   constructor(
-    @Inject(REDIS_CLIENT) private readonly redis: any,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly jobSync: JobSyncService,
     private readonly dlqAlert: DlqAlertService,
     private readonly gateway: EventsGateway,
@@ -49,6 +53,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     private readonly videoAsset: VideoAssetService,
     private readonly imageAsset: ImageAssetService,
     private readonly budget: BudgetService,
+    private readonly costRecord: CostRecordService,
     private readonly dlq: DlqService,
     private readonly metrics: MetricsService
   ) {}
@@ -82,9 +87,10 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     const {
       sceneId, assetType, narrationText, voiceId, standardVoiceId,
       visualPrompt, aspectRatio, stability, similarityBoost, style,
+      correlationId,
     } = job.data;
 
-    logger.info({ jobId: job.id, sceneId, assetType }, "Processing asset generation");
+    logger.info({ jobId: job.id, sceneId, assetType, correlationId }, "Processing asset generation");
 
     // Jitter before starting (per task rule #2)
     await this.sleep(Math.random() * 500);
@@ -156,6 +162,23 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     // Increment channel spend after successful completion (Rule #6 — only on completed)
     if (job.data.channelId && job.data.estimatedCostUsd) {
       await this.budget.incrementSpend(job.data.channelId, job.data.estimatedCostUsd);
+    }
+
+    // Record per-asset cost for project breakdown
+    if (job.data.projectId && job.data.estimatedCostUsd) {
+      const provider = job.data.assetType === "audio"
+        ? "elevenlabs"
+        : job.data.assetType === "image"
+          ? "dalle3"
+          : "runway";
+      await this.costRecord.record({
+        projectId: job.data.projectId,
+        sceneId: job.data.sceneId,
+        assetType: job.data.assetType ?? "video",
+        provider,
+        estimatedCostUsd: job.data.estimatedCostUsd,
+        actualCostUsd: job.data.estimatedCostUsd, // actual = estimated (fixed per-unit pricing)
+      });
     }
   }
 

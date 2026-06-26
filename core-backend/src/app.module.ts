@@ -17,6 +17,9 @@ import { CostModule } from "./cost/cost.module";
 import { MetricsModule } from "./metrics/metrics.module";
 import { AlertsModule } from "./alerts/alerts.module";
 import { SettingsModule } from "./settings/settings.module";
+import { WebhooksModule } from "./webhooks/webhooks.module";
+import { PublishingModule } from "./publishing/publishing.module";
+import { ThumbnailsModule } from "./thumbnails/thumbnails.module";
 
 @Module({
   imports: [
@@ -38,6 +41,9 @@ import { SettingsModule } from "./settings/settings.module";
     MetricsModule,
     AlertsModule,
     SettingsModule,
+    WebhooksModule,
+    PublishingModule,
+    ThumbnailsModule,
   ],
 })
 export class AppModule {}

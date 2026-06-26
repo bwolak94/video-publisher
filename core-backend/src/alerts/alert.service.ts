@@ -1,6 +1,7 @@
 import { Injectable, Inject } from "@nestjs/common";
 import * as nodemailer from "nodemailer";
 import pino from "pino";
+import type Redis from "ioredis";
 import { REDIS_CLIENT } from "../redis/redis.module";
 
 const logger = pino({ level: "info" });
@@ -18,7 +19,7 @@ export interface AlertContext {
 
 @Injectable()
 export class AlertService {
-  constructor(@Inject(REDIS_CLIENT) private readonly redis: any) {}
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   /**
    * Send alert with 15-minute deduplication per (type, channelId).
