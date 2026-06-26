@@ -64,7 +64,7 @@ export class YouTubeUploadService {
 
     await this.db
       .update(projects)
-      .set({ youtubeVideoId: videoId, status: "published" })
+      .set({ youtubeVideoId: videoId, status: "published" } as any)
       .where(eq(projects.id, projectId));
 
     logger.info({ projectId, videoId, channelId }, "YouTube upload complete");

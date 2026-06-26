@@ -30,7 +30,7 @@ export class WebhookService {
     const secret = randomBytes(32).toString("hex");
     const [row] = await this.db
       .insert(webhooks)
-      .values({ userId, url, secret, events, active: true })
+      .values({ userId, url, secret, events, active: true } as any)
       .returning();
     logger.info({ userId, url }, "Webhook created");
     return row;
@@ -46,7 +46,7 @@ export class WebhookService {
   async delete(id: string, userId: string): Promise<void> {
     await this.db
       .update(webhooks)
-      .set({ active: false })
+      .set({ active: false } as any)
       .where(and(eq(webhooks.id, id), eq(webhooks.userId, userId)));
     logger.info({ id, userId }, "Webhook deactivated");
   }

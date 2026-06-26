@@ -20,6 +20,7 @@ import { SettingsModule } from "./settings/settings.module";
 import { WebhooksModule } from "./webhooks/webhooks.module";
 import { PublishingModule } from "./publishing/publishing.module";
 import { ThumbnailsModule } from "./thumbnails/thumbnails.module";
+import { CreatorModule } from "./creator/creator.module";
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { ThumbnailsModule } from "./thumbnails/thumbnails.module";
     WebhooksModule,
     PublishingModule,
     ThumbnailsModule,
+    CreatorModule,
   ],
 })
 export class AppModule {}

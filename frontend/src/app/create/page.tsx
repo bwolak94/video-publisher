@@ -39,15 +39,14 @@ export default function CreatePage() {
       setStreaming(true);
 
       try {
-        const formData = new FormData();
-        formData.append("message", text);
-        formData.append("language", language);
-        formData.append("voiceId", voiceProfile.voiceId);
-        files.forEach((f) => formData.append("files", f));
-
         const res = await fetch(`${API_BASE}/api/creator/outline`, {
           method: "POST",
-          body: formData,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: text,
+            language,
+            voiceId: voiceProfile.voiceId,
+          }),
         });
 
         if (!res.ok || !res.body) throw new Error("Stream failed");

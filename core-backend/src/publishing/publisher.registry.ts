@@ -13,7 +13,7 @@ export class PublisherRegistry {
     tiktok: TikTokPublisher,
     instagram: InstagramPublisher
   ) {
-    this.map = new Map([
+    this.map = new Map<Platform, VideoPublisher>([
       ["youtube", youtube],
       ["tiktok", tiktok],
       ["instagram", instagram],

@@ -72,7 +72,7 @@ export class BudgetService {
       .update(youtubeChannels)
       .set({
         currentMonthSpendUsd: sql`CAST(current_month_spend_usd AS NUMERIC) + ${amount}`,
-      })
+      } as any)
       .where(eq(youtubeChannels.channelId, channelId));
 
     logger.info({ channelId, amount }, "Monthly spend incremented");

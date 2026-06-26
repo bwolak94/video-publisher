@@ -63,7 +63,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
       QUEUE_NAME,
       async (job: Job<AssetGenerationPayload>) => this.process(job),
       {
-        connection: this.redis,
+        connection: this.redis as any,
         concurrency: QUEUE_CONCURRENCY[QUEUE_NAME],
         stalledInterval: RESEARCH_WORKER_SETTINGS.stalledInterval,
         maxStalledCount: RESEARCH_WORKER_SETTINGS.maxStalledCount,

@@ -93,7 +93,7 @@ export class YouTubeAuthService {
     if (existing.length > 0) {
       await this.db
         .update(youtubeChannels)
-        .set({ refreshTokenEncrypted: encryptedRefreshToken, channelName })
+        .set({ refreshTokenEncrypted: encryptedRefreshToken, channelName } as any)
         .where(eq(youtubeChannels.userId, userId));
     } else {
       await this.db.insert(youtubeChannels).values({
@@ -101,7 +101,7 @@ export class YouTubeAuthService {
         channelId,
         channelName,
         refreshTokenEncrypted: encryptedRefreshToken,
-      });
+      } as any);
     }
 
     logger.info({ userId, channelId }, "YouTube channel connected");
@@ -146,7 +146,7 @@ export class YouTubeAuthService {
       try {
         await this.db
           .update(youtubeChannels)
-          .set({ refreshTokenEncrypted: newEncrypted })
+          .set({ refreshTokenEncrypted: newEncrypted } as any)
           .where(eq(youtubeChannels.channelId, channelId));
       } catch (dbErr) {
         logger.error(
@@ -164,7 +164,7 @@ export class YouTubeAuthService {
 
     await this.db
       .update(youtubeChannels)
-      .set({ refreshTokenEncrypted: null })
+      .set({ refreshTokenEncrypted: null } as any)
       .where(eq(youtubeChannels.channelId, channelId));
 
     const webhookUrl = process.env.WORKER_NOTIFICATION_WEBHOOK;

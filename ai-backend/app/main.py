@@ -4,8 +4,10 @@ import uuid
 
 import structlog
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
+from app.api.creator import router as creator_router
 from app.api.director import router as director_router
 from app.api.health import router as health_router
 from app.api.research import router as research_router
@@ -31,9 +33,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         version=settings.APP_VERSION,
     )
 
-    logger.info("startup", event="startup")
+    logger.info("startup")
     yield
-    logger.info("shutdown", event="shutdown")
+    logger.info("shutdown")
 
 
 def create_app() -> FastAPI:
@@ -51,6 +53,13 @@ def create_app() -> FastAPI:
         openapi_url=openapi_url,
     )
 
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000", "http://localhost:3002"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     @app.middleware("http")
     async def correlation_id_middleware(request: Request, call_next):
         correlation_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
@@ -63,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(research_router)
     app.include_router(director_router)
+    app.include_router(creator_router)
     app.include_router(sources_router)
 
     @app.get("/metrics", include_in_schema=False)

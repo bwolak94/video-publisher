@@ -44,7 +44,7 @@ export class CostRecordService {
       provider: opts.provider,
       estimatedCostUsd: opts.estimatedCostUsd.toFixed(6),
       actualCostUsd: opts.actualCostUsd != null ? opts.actualCostUsd.toFixed(6) : null,
-    });
+    } as any);
 
     logger.info(
       { projectId: opts.projectId, sceneId: opts.sceneId, provider: opts.provider, estimatedCostUsd: opts.estimatedCostUsd },

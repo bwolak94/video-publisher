@@ -61,7 +61,7 @@ export class ThumbnailTestService {
         variants: variants as any,
         currentVariantIndex: "0",
         status: "running",
-      })
+      } as any)
       .returning();
 
     // Activate variant 0
@@ -70,7 +70,7 @@ export class ThumbnailTestService {
 
     await this.db
       .update(thumbnailExperiments)
-      .set({ variants: variants as any })
+      .set({ variants: variants } as any)
       .where(eq(thumbnailExperiments.id, experiment.id));
 
     logger.info({ experimentId: experiment.id, projectId, youtubeVideoId }, "Thumbnail experiment started");
@@ -105,14 +105,14 @@ export class ThumbnailTestService {
       await this.activateVariant(experiment, winner.index);
       await this.db
         .update(thumbnailExperiments)
-        .set({ status: "completed", winnerId: String(winner.index) })
+        .set({ status: "completed", winnerId: String(winner.index) } as any)
         .where(eq(thumbnailExperiments.id, experiment.id));
       logger.info({ experimentId: experiment.id, winnerIndex: winner.index }, "Thumbnail winner selected");
     } else {
       await this.activateVariant(experiment, nextIdx);
       await this.db
         .update(thumbnailExperiments)
-        .set({ currentVariantIndex: String(nextIdx) })
+        .set({ currentVariantIndex: String(nextIdx) } as any)
         .where(eq(thumbnailExperiments.id, experiment.id));
     }
   }
