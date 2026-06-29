@@ -66,7 +66,10 @@ export class CreatorController {
       return;
     }
 
-    // Stream the plain-text response back to the frontend
+    // Stream the plain-text response back to the frontend.
+    // Must set CORS headers manually because reply.raw bypasses Fastify's pipeline.
+    reply.raw.setHeader("Access-Control-Allow-Origin", process.env.CORS_ORIGIN ?? "http://localhost:3000");
+    reply.raw.setHeader("Access-Control-Allow-Credentials", "true");
     reply.raw.setHeader("Content-Type", "text/plain; charset=utf-8");
     reply.raw.setHeader("Transfer-Encoding", "chunked");
 

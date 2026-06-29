@@ -3,7 +3,7 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 WORKDIR /app
 
 # Copy dependency manifest first for layer caching
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock ./
 
 # Install production dependencies only
 RUN uv sync --frozen --no-dev
