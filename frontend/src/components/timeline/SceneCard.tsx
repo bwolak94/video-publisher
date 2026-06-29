@@ -25,7 +25,8 @@ export function areScenesEqual(a: SceneState, b: SceneState): boolean {
     a.durationInSeconds === b.durationInSeconds &&
     a.textOverlay?.text === b.textOverlay?.text &&
     a.textOverlay?.style === b.textOverlay?.style &&
-    a.textOverlay?.position === b.textOverlay?.position
+    a.textOverlay?.position === b.textOverlay?.position &&
+    a.subtitleTrack?.generatedAt === b.subtitleTrack?.generatedAt
   );
 }
 
@@ -135,6 +136,29 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
       })
       .catch(() => store.markSceneStatus(sceneId, "error"));
   }, [sceneId, videoUrlInput]);
+
+  const handleGenerateSubtitles = useCallback(() => {
+    const store = useTimelineStore.getState();
+    store.markSceneStatus(sceneId, "regenerating");
+    fetch(`/api/scenes/${sceneId}/generate-subtitles`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language: "en" }),
+    })
+      .then((res) => res.json())
+      .then((data: { srtUrl: string; vttUrl: string; wordCount: number; language: string; provider: string }) => {
+        store.updateSceneSubtitleTrack(sceneId, {
+          words: [],  // words are persisted server-side; client only needs URLs
+          srtUrl: data.srtUrl,
+          vttUrl: data.vttUrl,
+          language: data.language,
+          provider: data.provider as "whisper_local" | "whisper_api",
+          generatedAt: new Date().toISOString(),
+        });
+        store.markSceneStatus(sceneId, "idle");
+      })
+      .catch(() => store.markSceneStatus(sceneId, "error"));
+  }, [sceneId]);
 
   const handleDelete = useCallback(() => {
     useTimelineStore.getState().deleteScene(sceneId);
@@ -269,6 +293,41 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
             onUpdateVoice={handleUpdateVoice}
             isRegenerating={scene.status === "regenerating"}
           />
+
+          {/* Subtitle generation */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleGenerateSubtitles}
+              disabled={!scene.audioUrl || scene.status === "regenerating"}
+              title={!scene.audioUrl ? "Generate audio first" : "Generate subtitles from narration audio"}
+              className="px-2 py-0.5 text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded hover:bg-teal-100 disabled:opacity-40"
+            >
+              {scene.subtitleTrack ? "Regenerate Subtitles" : "Generate Subtitles"}
+            </button>
+            {scene.subtitleTrack && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
+                CC {scene.subtitleTrack.provider === "whisper_local" ? "(local)" : "(API)"}
+              </span>
+            )}
+            {scene.subtitleTrack?.vttUrl && (
+              <a
+                href={scene.subtitleTrack.vttUrl}
+                download
+                className="text-xs text-teal-600 underline hover:text-teal-800"
+              >
+                VTT
+              </a>
+            )}
+            {scene.subtitleTrack?.srtUrl && (
+              <a
+                href={scene.subtitleTrack.srtUrl}
+                download
+                className="text-xs text-teal-600 underline hover:text-teal-800"
+              >
+                SRT
+              </a>
+            )}
+          </div>
 
           {/* Text overlay / effects panel */}
           {showEffects && (

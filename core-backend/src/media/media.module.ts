@@ -1,5 +1,6 @@
 import { Module, OnModuleInit } from "@nestjs/common";
 import { VideoCacheService } from "./video-cache.service";
+import { ArchivalFootageCacheService } from "./archival-footage-db-cache.service";
 import { RunwayService, RUNWAY_HTTP } from "./runway.service";
 import { PexelsService, PEXELS_HTTP } from "./pexels.service";
 import { KlingService, KLING_HTTP } from "./kling.service";
@@ -15,6 +16,7 @@ import { MetricsModule } from "../metrics/metrics.module";
   imports: [SettingsModule, MetricsModule],
   providers: [
     VideoCacheService,
+    ArchivalFootageCacheService,
 
     // ── Raw provider services ────────────────────────────────────────────────
     RunwayService,
@@ -34,7 +36,7 @@ import { MetricsModule } from "../metrics/metrics.module";
     VideoProviderRegistry,
     VideoAssetService,
   ],
-  exports: [VideoAssetService, VideoCacheService, VideoProviderRegistry],
+  exports: [VideoAssetService, VideoCacheService, VideoProviderRegistry, ArchivalFootageCacheService],
 })
 export class MediaModule implements OnModuleInit {
   constructor(

@@ -8,5 +8,6 @@ import { ElevenLabsModule } from "../elevenlabs/elevenlabs.module";
   imports: [MediaModule, ElevenLabsModule],
   controllers: [ScenesController],
   providers: [ScenesService],
+  exports: [ScenesService],
 })
 export class ScenesModule {}

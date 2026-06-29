@@ -3,6 +3,7 @@ import { devtools } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import type { TextOverlay, VideoStoryboardScene } from "@/types/storyboard";
 import type { PersistedScene } from "@/lib/storyboardStorage";
+import type { SubtitleTrack } from "@/types/subtitle";
 
 function generateSceneId(): string {
   return `scene-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -28,6 +29,8 @@ export interface SceneState {
   textOverlay: TextOverlay | null;
   /** Provider that generated the current videoUrl: "runway" | "kling" | "pexels" | "archival" */
   videoProvider?: string;
+  /** Generated subtitle track for this scene (FEATURE-04) */
+  subtitleTrack?: SubtitleTrack | null;
 }
 
 interface TimelineState {
@@ -40,6 +43,7 @@ interface TimelineState {
   markSceneStatus: (sceneId: string, status: SceneState["status"]) => void;
   reorderScenes: (fromIndex: number, toIndex: number) => void;
   updateSceneUrls: (sceneId: string, audioUrl: string, videoUrl: string, videoProvider?: string) => void;
+  updateSceneSubtitleTrack: (sceneId: string, track: SubtitleTrack) => void;
   getDirtySceneIds: () => string[];
   restoreFromDraft: (draftScenes: PersistedScene[]) => void;
   addScene: (afterSceneId?: string) => string;
@@ -74,6 +78,7 @@ export const useTimelineStore = createWithEqualityFn<TimelineState>()(
             committedVisualPrompt: scene.visualPrompt,
             status: "idle",
             textOverlay: scene.textOverlay ?? null,
+            subtitleTrack: (scene as any).subtitleTrack ?? null,
           };
           draft.sceneOrder.push(scene.sceneId);
         }
@@ -136,6 +141,11 @@ export const useTimelineStore = createWithEqualityFn<TimelineState>()(
         scene.committedNarrationText = scene.narrationText;
         scene.committedVisualPrompt = scene.visualPrompt;
         scene.status = "idle";
+      }),
+
+    updateSceneSubtitleTrack: (sceneId, track) =>
+      set((draft) => {
+        if (draft.scenes[sceneId]) draft.scenes[sceneId].subtitleTrack = track;
       }),
 
     getDirtySceneIds: () => {
