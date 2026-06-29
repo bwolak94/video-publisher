@@ -1,4 +1,4 @@
-import { Controller, Post, Param, Body, HttpCode, HttpStatus, NotFoundException } from "@nestjs/common";
+import { Controller, Post, Param, Body, HttpCode, HttpStatus, NotFoundException, HttpException } from "@nestjs/common";
 import pino from "pino";
 import { ScenesService } from "./scenes.service";
 import { VideoAssetService } from "../media/video-asset.service";
@@ -62,11 +62,23 @@ export class ScenesController {
 
     logger.info({ sceneId, visualPrompt }, "Regenerating visual for scene");
 
-    const rawUrl = await this.videoAsset.generateVideo({ visualPrompt, sceneId });
+    let rawUrl: string;
+    try {
+      rawUrl = await this.videoAsset.generateVideo({ visualPrompt, sceneId });
+    } catch (err: any) {
+      const msg = err?.reason ?? err?.message ?? "asset_generation_failed";
+      logger.error({ sceneId, err: msg }, "Video generation failed");
+      throw new HttpException(
+        { error: "Video generation failed", detail: msg, hint: "Check Runway/Pexels API keys in Settings." },
+        503,
+      );
+    }
+
     const videoUrl = toPublicUrl(rawUrl);
 
     if (projectId) {
-      await this.scenesService.updateSceneVideoUrl(projectId, sceneId, videoUrl);
+      // Store the s3:// URL in DB so the render worker can process it
+      await this.scenesService.updateSceneVideoUrl(projectId, sceneId, rawUrl);
     }
 
     logger.info({ sceneId, videoUrl }, "Visual regenerated");
@@ -115,16 +127,27 @@ export class ScenesController {
 
     logger.info({ sceneId, voiceId }, "Generating voice for scene");
 
-    const rawUrl = await this.elevenLabs.generateAudio({
-      narrationText,
-      voiceId,
-      standardVoiceId: DEFAULT_VOICE_ID,
-    });
+    let rawUrl: string;
+    try {
+      rawUrl = await this.elevenLabs.generateAudio({
+        narrationText,
+        voiceId,
+        standardVoiceId: DEFAULT_VOICE_ID,
+      });
+    } catch (err: any) {
+      const msg = err?.message ?? "tts_failed";
+      logger.error({ sceneId, err: msg }, "TTS generation failed");
+      throw new HttpException(
+        { error: "Voice generation failed", detail: msg, hint: "Check ElevenLabs API key in Settings." },
+        503,
+      );
+    }
 
     const audioUrl = toPublicUrl(rawUrl);
 
     if (projectId) {
-      await this.scenesService.updateSceneAudioUrl(projectId, sceneId, audioUrl);
+      // Store the s3:// URL in DB so the render worker can process it
+      await this.scenesService.updateSceneAudioUrl(projectId, sceneId, rawUrl);
     }
 
     logger.info({ sceneId, audioUrl }, "Voice updated");

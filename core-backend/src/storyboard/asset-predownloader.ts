@@ -83,15 +83,41 @@ export class AssetPredownloader {
     return updated;
   }
 
+  /**
+   * Convert a MinIO public URL back to s3:// format if it points to our own bucket.
+   * e.g. http://localhost:9000/video-publisher-assets/video/abc.mp4 → s3://video-publisher-assets/video/abc.mp4
+   */
+  private toS3IfMinio(url: string): string | null {
+    const minioPublic = process.env.MINIO_PUBLIC_URL;
+    const bucket = process.env.S3_BUCKET ?? process.env.S3_BUCKET_NAME ?? "video-publisher-assets";
+    if (!minioPublic) return null;
+    const prefix = `${minioPublic}/${bucket}/`;
+    if (url.startsWith(prefix)) {
+      return `s3://${bucket}/${url.slice(prefix.length)}`;
+    }
+    return null;
+  }
+
   private collectExternalUrls(storyboard: VideoStoryboard): DownloadTask[] {
     const tasks: DownloadTask[] = [];
     for (let i = 0; i < storyboard.timeline.length; i++) {
       const scene = storyboard.timeline[i];
       if (scene.audioUrl && !scene.audioUrl.startsWith("s3://")) {
-        tasks.push({ sceneIndex: i, sceneId: scene.sceneId, field: "audioUrl", url: scene.audioUrl });
+        const s3 = this.toS3IfMinio(scene.audioUrl);
+        if (s3) {
+          // Rewrite in-place — no download needed
+          storyboard.timeline[i] = { ...scene, audioUrl: s3 };
+        } else {
+          tasks.push({ sceneIndex: i, sceneId: scene.sceneId, field: "audioUrl", url: scene.audioUrl });
+        }
       }
       if (scene.videoUrl && !scene.videoUrl.startsWith("s3://")) {
-        tasks.push({ sceneIndex: i, sceneId: scene.sceneId, field: "videoUrl", url: scene.videoUrl });
+        const s3 = this.toS3IfMinio(scene.videoUrl);
+        if (s3) {
+          storyboard.timeline[i] = { ...storyboard.timeline[i], videoUrl: s3 };
+        } else {
+          tasks.push({ sceneIndex: i, sceneId: scene.sceneId, field: "videoUrl", url: scene.videoUrl });
+        }
       }
     }
     return tasks;
