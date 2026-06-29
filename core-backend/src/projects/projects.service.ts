@@ -68,4 +68,29 @@ export class ProjectsService {
     }
     return rows[0];
   }
+
+  async createWithStoryboard(
+    title: string,
+    storyboard: Record<string, unknown>,
+    userId?: string | null,
+  ): Promise<Project> {
+    const rows = await this.db
+      .insert(projects)
+      .values({
+        userId: userId ?? undefined,
+        title,
+        mode: "creator",
+        status: "draft",
+        storyboard,
+      })
+      .returning();
+    return rows[0];
+  }
+
+  async updateStoryboard(id: string, storyboard: Record<string, unknown>): Promise<void> {
+    await this.db
+      .update(projects)
+      .set({ storyboard, updatedAt: new Date() })
+      .where(eq(projects.id, id));
+  }
 }

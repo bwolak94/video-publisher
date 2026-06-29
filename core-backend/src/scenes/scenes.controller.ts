@@ -1,4 +1,4 @@
-import { Controller, Post, Param, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Post, Param, Body, HttpCode, HttpStatus, NotFoundException } from "@nestjs/common";
 import pino from "pino";
 import { ScenesService } from "./scenes.service";
 import { VideoAssetService } from "../media/video-asset.service";
@@ -11,9 +11,6 @@ const DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"; // Rachel — ElevenLabs defaul
 
 /**
  * Convert an internal S3/MinIO URL to a browser-accessible public URL.
- * - s3://bucket/key           → {MINIO_PUBLIC_URL}/bucket/key
- * - https://bucket.s3.*.com/key → {MINIO_PUBLIC_URL}/bucket/key
- * Falls back to the original URL when no MinIO endpoint is configured.
  */
 function toPublicUrl(url: string): string {
   const publicBase = process.env.MINIO_PUBLIC_URL;
@@ -22,11 +19,9 @@ function toPublicUrl(url: string): string {
   const bucket = process.env.S3_BUCKET ?? process.env.S3_BUCKET_NAME ?? "video-publisher-assets";
 
   if (url.startsWith("s3://")) {
-    // s3://bucket/key → publicBase/bucket/key
     return `${publicBase}/${url.slice("s3://".length)}`;
   }
 
-  // https://bucket.s3.amazonaws.com/key → publicBase/bucket/key
   const s3Pattern = new RegExp(`^https://${bucket}\\.s3[^/]*/`);
   if (s3Pattern.test(url)) {
     const key = url.replace(s3Pattern, "");
@@ -46,40 +41,91 @@ export class ScenesController {
 
   @Post(":sceneId/regenerate-visual")
   @HttpCode(HttpStatus.OK)
-  async regenerateVisual(@Param("sceneId") sceneId: string): Promise<{ videoUrl: string }> {
-    const { project, scene } = await this.scenesService.findScene(sceneId);
+  async regenerateVisual(
+    @Param("sceneId") sceneId: string,
+    @Body() body?: { visualPrompt?: string; projectId?: string },
+  ): Promise<{ videoUrl: string }> {
+    let visualPrompt: string;
+    let projectId: string | undefined;
 
-    logger.info({ sceneId, visualPrompt: scene.visualPrompt }, "Regenerating visual for scene");
+    try {
+      const found = await this.scenesService.findScene(sceneId);
+      visualPrompt = body?.visualPrompt ?? found.scene.visualPrompt;
+      projectId = found.project.id;
+    } catch (err) {
+      // Scene not in DB yet (e.g. newly added client-side) — use body data
+      if (!(err instanceof NotFoundException)) throw err;
+      if (!body?.visualPrompt) throw new NotFoundException(`Scene ${sceneId} not found and no visualPrompt provided`);
+      visualPrompt = body.visualPrompt;
+      projectId = body.projectId;
+    }
 
-    const rawUrl = await this.videoAsset.generateVideo({
-      visualPrompt: scene.visualPrompt,
-      sceneId,
-    });
+    logger.info({ sceneId, visualPrompt }, "Regenerating visual for scene");
 
+    const rawUrl = await this.videoAsset.generateVideo({ visualPrompt, sceneId });
     const videoUrl = toPublicUrl(rawUrl);
-    await this.scenesService.updateSceneVideoUrl(project.id, sceneId, videoUrl);
+
+    if (projectId) {
+      await this.scenesService.updateSceneVideoUrl(projectId, sceneId, videoUrl);
+    }
 
     logger.info({ sceneId, videoUrl }, "Visual regenerated");
     return { videoUrl };
   }
 
+  @Post(":sceneId/set-video-url")
+  @HttpCode(HttpStatus.OK)
+  async setVideoUrl(
+    @Param("sceneId") sceneId: string,
+    @Body() body: { videoUrl: string; projectId?: string },
+  ): Promise<{ videoUrl: string }> {
+    try {
+      const { project } = await this.scenesService.findScene(sceneId);
+      await this.scenesService.updateSceneVideoUrl(project.id, sceneId, body.videoUrl);
+    } catch (err) {
+      if (!(err instanceof NotFoundException)) throw err;
+      // Scene not in DB — skip DB update, just return the URL
+    }
+    return { videoUrl: body.videoUrl };
+  }
+
   @Post(":sceneId/update-voice")
   @HttpCode(HttpStatus.OK)
-  async updateVoice(@Param("sceneId") sceneId: string): Promise<{ audioUrl: string }> {
-    const { project, scene } = await this.scenesService.findScene(sceneId);
-    const storyboard = project.storyboard as VideoStoryboard | null;
-    const voiceId = storyboard?.meta?.voiceId ?? DEFAULT_VOICE_ID;
+  async updateVoice(
+    @Param("sceneId") sceneId: string,
+    @Body() body?: { voiceId?: string; narrationText?: string; projectId?: string },
+  ): Promise<{ audioUrl: string }> {
+    let narrationText: string;
+    let voiceId: string;
+    let projectId: string | undefined;
+
+    try {
+      const found = await this.scenesService.findScene(sceneId);
+      const storyboard = found.project.storyboard as VideoStoryboard | null;
+      narrationText = body?.narrationText ?? found.scene.narrationText;
+      voiceId = body?.voiceId ?? storyboard?.meta?.voiceId ?? DEFAULT_VOICE_ID;
+      projectId = found.project.id;
+    } catch (err) {
+      if (!(err instanceof NotFoundException)) throw err;
+      if (!body?.narrationText) throw new NotFoundException(`Scene ${sceneId} not found and no narrationText provided`);
+      narrationText = body.narrationText;
+      voiceId = body?.voiceId ?? DEFAULT_VOICE_ID;
+      projectId = body.projectId;
+    }
 
     logger.info({ sceneId, voiceId }, "Generating voice for scene");
 
     const rawUrl = await this.elevenLabs.generateAudio({
-      narrationText: scene.narrationText,
+      narrationText,
       voiceId,
       standardVoiceId: DEFAULT_VOICE_ID,
     });
 
     const audioUrl = toPublicUrl(rawUrl);
-    await this.scenesService.updateSceneAudioUrl(project.id, sceneId, audioUrl);
+
+    if (projectId) {
+      await this.scenesService.updateSceneAudioUrl(projectId, sceneId, audioUrl);
+    }
 
     logger.info({ sceneId, audioUrl }, "Voice updated");
     return { audioUrl };

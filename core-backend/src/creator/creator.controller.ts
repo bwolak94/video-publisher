@@ -2,12 +2,13 @@ import { Controller, Post, Body, Res } from "@nestjs/common";
 import type { FastifyReply } from "fastify";
 import pino from "pino";
 import { configuration } from "../config/configuration";
+import { ProjectsService } from "../projects/projects.service";
 
 const logger = pino({ level: "info" });
 
 interface OutlineBody {
   topic?: string;
-  message?: string;       // alias — frontend sends "message"
+  message?: string;
   language?: string;
   voiceId?: string;
   projectId?: string;
@@ -27,14 +28,10 @@ interface StoryboardBody {
 export class CreatorController {
   private readonly aiBackendUrl: string;
 
-  constructor() {
+  constructor(private readonly projectsService: ProjectsService) {
     this.aiBackendUrl = configuration().worker.aiBackendUrl;
   }
 
-  /**
-   * Proxy outline generation to ai-backend and stream the plain-text response back.
-   * Frontend sends FormData; we map it to JSON for the ai-backend.
-   */
   @Post("outline")
   async outline(@Body() body: OutlineBody, @Res() reply: FastifyReply): Promise<void> {
     const topic = body.topic ?? body.message ?? "";
@@ -66,8 +63,6 @@ export class CreatorController {
       return;
     }
 
-    // Stream the plain-text response back to the frontend.
-    // Must set CORS headers manually because reply.raw bypasses Fastify's pipeline.
     reply.raw.setHeader("Access-Control-Allow-Origin", process.env.CORS_ORIGIN ?? "http://localhost:3000");
     reply.raw.setHeader("Access-Control-Allow-Credentials", "true");
     reply.raw.setHeader("Content-Type", "text/plain; charset=utf-8");
@@ -85,9 +80,6 @@ export class CreatorController {
     }
   }
 
-  /**
-   * Proxy storyboard generation to ai-backend and return the JSON result.
-   */
   @Post("storyboard")
   async storyboard(@Body() body: StoryboardBody): Promise<unknown> {
     logger.info({ outlineLength: body.outline?.length }, "Proxying creator storyboard to ai-backend");
@@ -118,6 +110,14 @@ export class CreatorController {
       throw new Error(`AI backend error: ${text}`);
     }
 
-    return aiRes.json();
+    const data = await aiRes.json() as { storyboard: Record<string, unknown>; projectId: string };
+
+    // Save the project + storyboard to the DB so scene endpoints can look them up
+    const title = (data.storyboard?.meta as any)?.title ?? "Untitled";
+    const project = await this.projectsService.createWithStoryboard(title, data.storyboard);
+
+    logger.info({ projectId: project.id, scenes: (data.storyboard?.timeline as any[])?.length }, "Project saved to DB");
+
+    return { storyboard: data.storyboard, projectId: project.id };
   }
 }

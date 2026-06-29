@@ -1,5 +1,9 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { CreatorController } from "./creator.controller";
+import { ProjectsModule } from "../projects/projects.module";
 
-@Module({ controllers: [CreatorController] })
+@Module({
+  imports: [forwardRef(() => ProjectsModule)],
+  controllers: [CreatorController],
+})
 export class CreatorModule {}

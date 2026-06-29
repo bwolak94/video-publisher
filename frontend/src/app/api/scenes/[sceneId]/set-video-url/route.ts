@@ -6,9 +6,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { sceneId: string } }
 ) {
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json();
   const res = await fetch(
-    `${API_BASE}/api/scenes/${params.sceneId}/regenerate-visual`,
+    `${API_BASE}/api/scenes/${params.sceneId}/set-video-url`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
