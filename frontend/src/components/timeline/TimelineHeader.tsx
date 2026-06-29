@@ -2,14 +2,16 @@
 import React, { useMemo } from "react";
 import { useTimelineStore } from "@/store/timelineStore";
 import { RegenerateAllButton } from "./RegenerateAllButton";
+import { GenerateAllButton } from "./GenerateAllButton";
 import { CostBreakdown } from "./CostBreakdown";
 
 interface TimelineHeaderProps {
   onRender?: () => void;
   budgetExceeded?: boolean;
+  projectId?: string;
 }
 
-export function TimelineHeader({ onRender, budgetExceeded = false }: TimelineHeaderProps) {
+export function TimelineHeader({ onRender, budgetExceeded = false, projectId }: TimelineHeaderProps) {
   const scenes = useTimelineStore((s) => s.scenes);
   const sceneOrder = useTimelineStore((s) => s.sceneOrder);
 
@@ -43,6 +45,7 @@ export function TimelineHeader({ onRender, budgetExceeded = false }: TimelineHea
       </div>
       <div className="flex items-center gap-2">
         <CostBreakdown budgetExceeded={budgetExceeded} />
+        <GenerateAllButton projectId={projectId} />
         <RegenerateAllButton budgetExceeded={budgetExceeded} />
         <button
           onClick={onRender}

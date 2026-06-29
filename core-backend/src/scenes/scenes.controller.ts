@@ -1,4 +1,4 @@
-import { Controller, Post, Param, Body, HttpCode, HttpStatus, NotFoundException, HttpException } from "@nestjs/common";
+import { Controller, Get, Post, Param, Body, HttpCode, HttpStatus, NotFoundException, HttpException } from "@nestjs/common";
 import pino from "pino";
 import { ScenesService } from "./scenes.service";
 import { VideoAssetService } from "../media/video-asset.service";
@@ -39,12 +39,18 @@ export class ScenesController {
     private readonly elevenLabs: ElevenLabsService,
   ) {}
 
+  /** Returns all registered providers and their availability + scores */
+  @Get("video-providers")
+  async getVideoProviders() {
+    return this.videoAsset.getProviderStatus();
+  }
+
   @Post(":sceneId/regenerate-visual")
   @HttpCode(HttpStatus.OK)
   async regenerateVisual(
     @Param("sceneId") sceneId: string,
-    @Body() body?: { visualPrompt?: string; projectId?: string },
-  ): Promise<{ videoUrl: string }> {
+    @Body() body?: { visualPrompt?: string; projectId?: string; aspectRatio?: "16:9" | "9:16" },
+  ): Promise<{ videoUrl: string; provider: string }> {
     let visualPrompt: string;
     let projectId: string | undefined;
 
@@ -53,7 +59,6 @@ export class ScenesController {
       visualPrompt = body?.visualPrompt ?? found.scene.visualPrompt;
       projectId = found.project.id;
     } catch (err) {
-      // Scene not in DB yet (e.g. newly added client-side) — use body data
       if (!(err instanceof NotFoundException)) throw err;
       if (!body?.visualPrompt) throw new NotFoundException(`Scene ${sceneId} not found and no visualPrompt provided`);
       visualPrompt = body.visualPrompt;
@@ -62,27 +67,31 @@ export class ScenesController {
 
     logger.info({ sceneId, visualPrompt }, "Regenerating visual for scene");
 
-    let rawUrl: string;
+    let result: { s3Url: string; provider: string };
     try {
-      rawUrl = await this.videoAsset.generateVideo({ visualPrompt, sceneId });
+      result = await this.videoAsset.generateVideo({
+        visualPrompt,
+        sceneId,
+        aspectRatio: body?.aspectRatio,
+      });
     } catch (err: any) {
       const msg = err?.reason ?? err?.message ?? "asset_generation_failed";
       logger.error({ sceneId, err: msg }, "Video generation failed");
       throw new HttpException(
-        { error: "Video generation failed", detail: msg, hint: "Check Runway/Pexels API keys in Settings." },
+        { error: "Video generation failed", detail: msg, hint: "Add at least one video provider key in Settings (Runway, Pexels, or Kling). Archival footage is free and needs no key." },
         503,
       );
     }
 
-    const videoUrl = toPublicUrl(rawUrl);
+    const videoUrl = toPublicUrl(result.s3Url);
 
     if (projectId) {
-      // Store the s3:// URL in DB so the render worker can process it
-      await this.scenesService.updateSceneVideoUrl(projectId, sceneId, rawUrl);
+      // Store s3:// in DB (render worker needs it); also store provider name
+      await this.scenesService.updateSceneVideoUrl(projectId, sceneId, result.s3Url, result.provider);
     }
 
-    logger.info({ sceneId, videoUrl }, "Visual regenerated");
-    return { videoUrl };
+    logger.info({ sceneId, videoUrl, provider: result.provider }, "Visual regenerated");
+    return { videoUrl, provider: result.provider };
   }
 
   @Post(":sceneId/set-video-url")

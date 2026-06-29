@@ -129,11 +129,12 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     sceneId: string,
     aspectRatio?: "16:9" | "9:16" | "1:1"
   ): Promise<string> {
-    return this.videoAsset.generateVideo({
+    const result = await this.videoAsset.generateVideo({
       visualPrompt: prompt,
       sceneId,
       aspectRatio: aspectRatio === "1:1" ? "16:9" : aspectRatio, // video doesn't support 1:1
     });
+    return result.s3Url;
   }
 
   protected async generateImage(

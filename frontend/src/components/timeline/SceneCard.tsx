@@ -29,6 +29,20 @@ export function areScenesEqual(a: SceneState, b: SceneState): boolean {
   );
 }
 
+const PROVIDER_LABELS: Record<string, string> = {
+  runway: "Runway AI",
+  kling: "Kling AI",
+  pexels: "Pexels",
+  archival: "Archival (free)",
+};
+
+const PROVIDER_BADGE_STYLES: Record<string, string> = {
+  runway:   "bg-purple-100 text-purple-700",
+  kling:    "bg-blue-100 text-blue-700",
+  pexels:   "bg-green-100 text-green-700",
+  archival: "bg-amber-100 text-amber-700",
+};
+
 const VOICE_OPTIONS = [
   { voiceId: "21m00Tcm4TlvDq8ikWAM", label: "Rachel (EN)" },
   { voiceId: "AZnzlk1XvdvUeBnXmlld", label: "Domi (EN)" },
@@ -72,9 +86,9 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
       body: JSON.stringify({ visualPrompt: currentScene?.visualPrompt ?? "" }),
     })
       .then((res) => res.json())
-      .then((data: { videoUrl: string }) => {
+      .then((data: { videoUrl: string; provider?: string }) => {
         const s = useTimelineStore.getState().scenes[sceneId];
-        store.updateSceneUrls(sceneId, s?.audioUrl ?? "", data.videoUrl);
+        store.updateSceneUrls(sceneId, s?.audioUrl ?? "", data.videoUrl, data.provider);
       })
       .catch(() => {
         store.markSceneStatus(sceneId, "error");
@@ -197,6 +211,15 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
             onRegenerate={handleRegenerate}
             isRegenerating={scene.status === "regenerating"}
           />
+
+          {/* Provider badge */}
+          {scene.videoProvider && (
+            <div className="flex items-center gap-1">
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${PROVIDER_BADGE_STYLES[scene.videoProvider] ?? "bg-gray-100 text-gray-600"}`}>
+                {PROVIDER_LABELS[scene.videoProvider] ?? scene.videoProvider}
+              </span>
+            </div>
+          )}
 
           {/* Custom video URL input */}
           <div className="flex items-center gap-2">

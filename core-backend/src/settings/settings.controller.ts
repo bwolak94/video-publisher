@@ -25,6 +25,7 @@ export class SettingsController {
     const allowed = [
       "elevenLabsKey", "openaiKey", "anthropicKey",
       "runwayKey", "pexelsKey",
+      "klingAccessKey", "klingSecretKey", "archivalEnabled",
       "awsAccessKey", "awsSecretKey", "awsRegion", "s3Bucket",
     ];
     const entries: Record<string, string> = {};

@@ -11,6 +11,8 @@ const SENSITIVE_KEYS = new Set([
   "integrations.anthropicKey",
   "integrations.runwayKey",
   "integrations.pexelsKey",
+  "integrations.klingAccessKey",
+  "integrations.klingSecretKey",
   "integrations.awsAccessKey",
   "integrations.awsSecretKey",
   "alerts.slackWebhookUrl",
@@ -26,6 +28,9 @@ export interface SettingsDto {
     anthropicKey: string;
     runwayKey: string;
     pexelsKey: string;
+    klingAccessKey: string;
+    klingSecretKey: string;
+    archivalEnabled: string;
     awsAccessKey: string;
     awsSecretKey: string;
     awsRegion: string;
@@ -86,6 +91,9 @@ export class SettingsService {
         anthropicKey: get("integrations.anthropicKey", ""),
         runwayKey: get("integrations.runwayKey", ""),
         pexelsKey: get("integrations.pexelsKey", ""),
+        klingAccessKey: get("integrations.klingAccessKey", ""),
+        klingSecretKey: get("integrations.klingSecretKey", ""),
+        archivalEnabled: get("integrations.archivalEnabled", "true"),
         awsAccessKey: get("integrations.awsAccessKey", ""),
         awsSecretKey: get("integrations.awsSecretKey", ""),
         awsRegion: get("integrations.awsRegion", "eu-central-1"),
