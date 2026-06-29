@@ -16,6 +16,24 @@ export interface TextOverlay {
   position?: "top" | "center" | "bottom";
 }
 
+/** Word-level subtitle timestamp (stored per scene in storyboard JSONB) */
+export interface WordTimestamp {
+  word: string;
+  start: number;
+  end: number;
+  confidence: number;
+}
+
+/** Full subtitle track attached to a scene (FEATURE-04) */
+export interface SubtitleTrack {
+  words: WordTimestamp[];
+  srtS3Url: string;
+  vttS3Url: string;
+  language: string;
+  provider: "whisper_local" | "whisper_api";
+  generatedAt: string;
+}
+
 export interface StoryboardScene {
   sceneId: string;
   sequenceNumber: number;
@@ -28,6 +46,9 @@ export interface StoryboardScene {
   visualCacheKey?: string;
   isDirty?: boolean;
   textOverlay?: TextOverlay;
+  videoProvider?: string;
+  /** Auto-generated subtitle track (FEATURE-04) */
+  subtitleTrack?: SubtitleTrack | null;
 }
 
 export interface VideoStoryboard {

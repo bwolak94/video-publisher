@@ -22,6 +22,7 @@ import { PublishingModule } from "./publishing/publishing.module";
 import { ThumbnailsModule } from "./thumbnails/thumbnails.module";
 import { CreatorModule } from "./creator/creator.module";
 import { ScenesModule } from "./scenes/scenes.module";
+import { SubtitlesModule } from "./subtitles/subtitles.module";
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { ScenesModule } from "./scenes/scenes.module";
     ThumbnailsModule,
     CreatorModule,
     ScenesModule,
+    SubtitlesModule,
   ],
 })
 export class AppModule {}

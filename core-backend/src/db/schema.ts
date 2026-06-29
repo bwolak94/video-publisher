@@ -93,3 +93,29 @@ export type NewCostRecord = typeof costRecords.$inferInsert;
 export type Webhook = typeof webhooks.$inferSelect;
 export type NewWebhook = typeof webhooks.$inferInsert;
 export type ThumbnailExperiment = typeof thumbnailExperiments.$inferSelect;
+
+export const archivalFootageCache = pgTable("archival_footage_cache", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  promptHash: text("prompt_hash").notNull().unique(),
+  results: jsonb("results").notNull().default([]),
+  s3Url: text("s3_url"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
+export type ArchivalFootageCache = typeof archivalFootageCache.$inferSelect;
+export type NewArchivalFootageCache = typeof archivalFootageCache.$inferInsert;
+
+export const subtitleCache = pgTable("subtitle_cache", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  audioHash: text("audio_hash").notNull().unique(),
+  words: jsonb("words").notNull().default([]),
+  language: text("language").notNull().default("en"),
+  srtS3Url: text("srt_s3_url").notNull(),
+  vttS3Url: text("vtt_s3_url").notNull(),
+  provider: text("provider").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type SubtitleCache = typeof subtitleCache.$inferSelect;
+export type NewSubtitleCache = typeof subtitleCache.$inferInsert;

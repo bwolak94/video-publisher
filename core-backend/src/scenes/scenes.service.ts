@@ -2,7 +2,7 @@ import { Injectable, Inject, NotFoundException } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { DRIZZLE } from "../db/db.module";
 import { projects } from "../db/schema";
-import type { VideoStoryboard, StoryboardScene } from "../storyboard/video-storyboard";
+import type { VideoStoryboard, StoryboardScene, SubtitleTrack } from "../storyboard/video-storyboard";
 
 @Injectable()
 export class ScenesService {
@@ -33,6 +33,25 @@ export class ScenesService {
         s.sceneId === sceneId
           ? { ...s, videoUrl, ...(videoProvider ? { videoProvider } : {}) }
           : s
+      ),
+    };
+
+    await this.db
+      .update(projects)
+      .set({ storyboard: updated, updatedAt: new Date() })
+      .where(eq(projects.id, projectId));
+  }
+
+  async updateSceneSubtitles(projectId: string, sceneId: string, subtitleTrack: SubtitleTrack): Promise<void> {
+    const rows = await this.db.select().from(projects).where(eq(projects.id, projectId));
+    const project = rows[0];
+    if (!project) return;
+
+    const storyboard = project.storyboard as VideoStoryboard;
+    const updated = {
+      ...storyboard,
+      timeline: storyboard.timeline.map((s) =>
+        s.sceneId === sceneId ? { ...s, subtitleTrack } : s
       ),
     };
 

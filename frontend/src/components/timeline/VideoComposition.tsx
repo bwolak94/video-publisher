@@ -2,13 +2,14 @@
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, Video } from "remotion";
 import type { SceneState } from "@/store/timelineStore";
+import { SubtitleOverlay } from "./SubtitleOverlay";
 
 const FPS = 30;
 
 interface VideoCompositionProps {
   scenes: Pick<
     SceneState,
-    "sceneId" | "videoUrl" | "audioUrl" | "durationInSeconds"
+    "sceneId" | "videoUrl" | "audioUrl" | "durationInSeconds" | "subtitleTrack"
   >[];
 }
 
@@ -42,6 +43,9 @@ export function VideoComposition({ scenes }: VideoCompositionProps) {
                 </div>
               )}
               {scene.audioUrl && <Audio src={scene.audioUrl} />}
+              {scene.subtitleTrack && scene.subtitleTrack.words.length > 0 && (
+                <SubtitleOverlay words={scene.subtitleTrack.words} fps={FPS} />
+              )}
             </AbsoluteFill>
           </Sequence>
         );

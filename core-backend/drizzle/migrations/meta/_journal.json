@@ -15,6 +15,20 @@
       "when": 1782391800000,
       "tag": "0001_settings_and_budget",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782478200000,
+      "tag": "0002_multi_provider_video",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782564600000,
+      "tag": "0003_subtitle_cache",
+      "breakpoints": true
     }
   ]
 }

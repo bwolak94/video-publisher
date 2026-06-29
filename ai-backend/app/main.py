@@ -12,6 +12,7 @@ from app.api.director import router as director_router
 from app.api.health import router as health_router
 from app.api.research import router as research_router
 from app.api.sources import router as sources_router
+from app.api.subtitles import router as subtitles_router
 from app.config import get_settings
 from app.logging_config import setup_logging
 from app.metrics import metrics_output
@@ -74,6 +75,7 @@ def create_app() -> FastAPI:
     app.include_router(director_router)
     app.include_router(creator_router)
     app.include_router(sources_router)
+    app.include_router(subtitles_router)
 
     @app.get("/metrics", include_in_schema=False)
     async def metrics() -> Response:
