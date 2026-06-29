@@ -27,14 +27,25 @@ export function RegenerateAllButton({ budgetExceeded = false }: RegenerateAllBut
 
   // Dispatch reads from store at call-time — no stale closures
   const dispatchRegeneration = useCallback(() => {
-    const { scenes, sceneOrder, markSceneStatus } = useTimelineStore.getState();
+    const { scenes, sceneOrder, markSceneStatus, updateSceneUrls } = useTimelineStore.getState();
     sceneOrder
       .filter((id) => scenes[id]?.isDirty)
       .forEach((sceneId) => {
+        const scene = scenes[sceneId];
         markSceneStatus(sceneId, "regenerating");
-        fetch(`/api/scenes/${sceneId}/regenerate`, { method: "POST" }).catch(() => {
-          useTimelineStore.getState().markSceneStatus(sceneId, "error");
-        });
+        fetch(`/api/scenes/${sceneId}/regenerate-visual`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ visualPrompt: scene?.visualPrompt ?? "" }),
+        })
+          .then((r) => r.json())
+          .then((data: { videoUrl: string; provider?: string }) => {
+            const s = useTimelineStore.getState().scenes[sceneId];
+            updateSceneUrls(sceneId, s?.audioUrl ?? "", data.videoUrl, data.provider);
+          })
+          .catch(() => {
+            useTimelineStore.getState().markSceneStatus(sceneId, "error");
+          });
       });
   }, []);
 

@@ -21,7 +21,7 @@ export class ScenesService {
     throw new NotFoundException(`Scene ${sceneId} not found`);
   }
 
-  async updateSceneVideoUrl(projectId: string, sceneId: string, videoUrl: string): Promise<void> {
+  async updateSceneVideoUrl(projectId: string, sceneId: string, videoUrl: string, videoProvider?: string): Promise<void> {
     const rows = await this.db.select().from(projects).where(eq(projects.id, projectId));
     const project = rows[0];
     if (!project) return;
@@ -30,7 +30,9 @@ export class ScenesService {
     const updated = {
       ...storyboard,
       timeline: storyboard.timeline.map((s) =>
-        s.sceneId === sceneId ? { ...s, videoUrl } : s
+        s.sceneId === sceneId
+          ? { ...s, videoUrl, ...(videoProvider ? { videoProvider } : {}) }
+          : s
       ),
     };
 

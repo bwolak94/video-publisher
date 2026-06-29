@@ -152,11 +152,38 @@ function IntegrationsTab({ initial }: { initial: Record<string, string> }) {
 
         <div>
           <SectionLabel>Video Generation</SectionLabel>
-          <FieldGroup label="Runway Gen-3 Alpha API Key" hint="Primary B-roll. Falls back to Pexels if unavailable.">
+          <FieldGroup label="Runway Gen-3 Alpha API Key" hint="AI-generated video. Quality: ★★★★★  Cost: $0.15/scene.">
             <ApiKeyInput placeholder="rw_…" value={fields.runwayKey ?? ""} onChange={set("runwayKey")} />
           </FieldGroup>
-          <FieldGroup label="Pexels API Key" hint="Free stock footage fallback.">
+          <FieldGroup label="Kling AI — Access Key" hint="AI-generated video. Quality: ★★★★★  Cost: ~$0.10/scene.">
+            <ApiKeyInput placeholder="kling_ak_…" value={fields.klingAccessKey ?? ""} onChange={set("klingAccessKey")} />
+          </FieldGroup>
+          <FieldGroup label="Kling AI — Secret Key" hint="Required together with Access Key. Get both at platform.klingai.com.">
+            <ApiKeyInput placeholder="kling_sk_…" value={fields.klingSecretKey ?? ""} onChange={set("klingSecretKey")} />
+          </FieldGroup>
+          <FieldGroup label="Pexels API Key" hint="Stock footage. Quality: ★★★  Cost: Free.">
             <ApiKeyInput placeholder="…" value={fields.pexelsKey ?? ""} onChange={set("pexelsKey")} />
+          </FieldGroup>
+          <FieldGroup
+            label="Archival Footage (Archive.org / Wikimedia / NASA)"
+            hint="Real historical footage. Quality: ★★★  Cost: Free — no key required."
+          >
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => set("archivalEnabled")(fields.archivalEnabled === "false" ? "true" : "false")}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  fields.archivalEnabled !== "false" ? "bg-indigo-600" : "bg-gray-200"
+                }`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                  fields.archivalEnabled !== "false" ? "translate-x-4" : "translate-x-0.5"
+                }`} />
+              </button>
+              <span className="text-sm text-gray-600">
+                {fields.archivalEnabled !== "false" ? "Enabled (used as free fallback)" : "Disabled"}
+              </span>
+            </div>
           </FieldGroup>
 
           <SectionLabel>Storage (AWS S3)</SectionLabel>

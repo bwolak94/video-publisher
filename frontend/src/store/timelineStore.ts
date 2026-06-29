@@ -26,6 +26,8 @@ export interface SceneState {
   committedVisualPrompt: string;  // prompt that corresponds to current videoUrl
   status: "idle" | "regenerating" | "error";
   textOverlay: TextOverlay | null;
+  /** Provider that generated the current videoUrl: "runway" | "kling" | "pexels" | "archival" */
+  videoProvider?: string;
 }
 
 interface TimelineState {
@@ -37,7 +39,7 @@ interface TimelineState {
   markSceneClean: (sceneId: string) => void;
   markSceneStatus: (sceneId: string, status: SceneState["status"]) => void;
   reorderScenes: (fromIndex: number, toIndex: number) => void;
-  updateSceneUrls: (sceneId: string, audioUrl: string, videoUrl: string) => void;
+  updateSceneUrls: (sceneId: string, audioUrl: string, videoUrl: string, videoProvider?: string) => void;
   getDirtySceneIds: () => string[];
   restoreFromDraft: (draftScenes: PersistedScene[]) => void;
   addScene: (afterSceneId?: string) => string;
@@ -121,12 +123,13 @@ export const useTimelineStore = createWithEqualityFn<TimelineState>()(
         });
       }),
 
-    updateSceneUrls: (sceneId, audioUrl, videoUrl) =>
+    updateSceneUrls: (sceneId, audioUrl, videoUrl, videoProvider) =>
       set((draft) => {
         if (!draft.scenes[sceneId]) return;
         const scene = draft.scenes[sceneId];
         scene.audioUrl = audioUrl;
         scene.videoUrl = videoUrl;
+        if (videoProvider) scene.videoProvider = videoProvider;
         scene.isDirty = false;
         scene.narrationDirty = false;
         scene.visualDirty = false;

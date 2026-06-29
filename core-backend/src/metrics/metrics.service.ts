@@ -88,6 +88,30 @@ export class MetricsService {
     registers: [this.registry],
   });
 
+  // ── Video Provider Metrics (FEATURE-01) ──────────────────────────────────────
+
+  readonly videoProviderRequestsTotal = new Counter({
+    name: "video_provider_requests_total",
+    help: "Total video generation attempts per provider and status",
+    labelNames: ["provider", "status"] as const,
+    registers: [this.registry],
+  });
+
+  readonly videoProviderFallbackTotal = new Counter({
+    name: "video_provider_fallback_total",
+    help: "Total provider fallbacks, labeled by from/to provider pair",
+    labelNames: ["from_provider", "to_provider"] as const,
+    registers: [this.registry],
+  });
+
+  readonly videoProviderDurationSeconds = new Histogram({
+    name: "video_provider_duration_seconds",
+    help: "Video generation duration in seconds per provider",
+    labelNames: ["provider", "status"] as const,
+    buckets: [1, 5, 10, 20, 30, 60, 90, 120, 180, 300],
+    registers: [this.registry],
+  });
+
   constructor() {
     collectDefaultMetrics({ register: this.registry });
   }

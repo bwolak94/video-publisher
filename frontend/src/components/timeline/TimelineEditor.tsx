@@ -73,7 +73,7 @@ export function TimelineEditor({
       className="flex flex-col h-screen bg-gray-50"
       data-testid="timeline-editor"
     >
-      <TimelineHeader onRender={onRender} />
+      <TimelineHeader onRender={onRender} projectId={projectId} />
 
       {draft && (
         <RestoreBanner

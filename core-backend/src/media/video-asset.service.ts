@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import pino from "pino";
-import { RunwayService } from "./runway.service";
-import { PexelsService } from "./pexels.service";
+import { VideoProviderRegistry } from "./video-provider-registry";
 
 const logger = pino({ level: "info" });
 
@@ -11,42 +10,36 @@ export interface GenerateVideoParams {
   sceneId: string;
 }
 
+export interface GenerateVideoResult {
+  /** Permanent s3:// URL */
+  s3Url: string;
+  /** Provider name that generated this clip */
+  provider: string;
+}
+
 @Injectable()
 export class VideoAssetService {
-  constructor(
-    private readonly runway: RunwayService,
-    private readonly pexels: PexelsService
-  ) {}
+  constructor(private readonly registry: VideoProviderRegistry) {}
 
   /**
    * Generate a video asset for a scene.
-   * Tries Runway first; falls back to Pexels on any failure.
-   * Returns s3:// URL or throws a structured error (UC-04).
+   * Delegates to VideoProviderRegistry which scores all available providers,
+   * tries them in order, and falls through on failure.
+   * Returns s3:// URL + the provider name used (for cost tracking & display).
    */
-  async generateVideo(params: GenerateVideoParams): Promise<string> {
+  async generateVideo(params: GenerateVideoParams): Promise<GenerateVideoResult> {
     const { visualPrompt, aspectRatio = "16:9", sceneId } = params;
 
-    try {
-      return await this.runway.generateVideo({ visualPrompt });
-    } catch (runwayErr: any) {
-      logger.warn(
-        { sceneId, error: runwayErr.message, code: runwayErr.code },
-        "Runway failed, falling back to Pexels"
-      );
-    }
+    logger.info({ sceneId, visualPrompt: visualPrompt.slice(0, 80) }, "Video generation requested");
 
-    try {
-      return await this.pexels.searchAndDownload(visualPrompt, aspectRatio);
-    } catch (pexelsErr: any) {
-      logger.error(
-        { sceneId, error: pexelsErr.message },
-        "Both Runway and Pexels failed"
-      );
-      const err: any = new Error("asset_generation_failed");
-      err.error = "asset_generation_failed";
-      err.sceneId = sceneId;
-      err.reason = pexelsErr.message;
-      throw err;
-    }
+    const result = await this.registry.generate({ visualPrompt, aspectRatio, sceneId });
+
+    logger.info({ sceneId, provider: result.provider, s3Url: result.s3Url }, "Video generation complete");
+    return result;
+  }
+
+  /** Expose registry status for health/debug endpoints */
+  async getProviderStatus() {
+    return this.registry.getProviderStatus();
   }
 }
