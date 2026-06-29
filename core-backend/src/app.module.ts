@@ -21,6 +21,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
 import { PublishingModule } from "./publishing/publishing.module";
 import { ThumbnailsModule } from "./thumbnails/thumbnails.module";
 import { CreatorModule } from "./creator/creator.module";
+import { ScenesModule } from "./scenes/scenes.module";
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { CreatorModule } from "./creator/creator.module";
     PublishingModule,
     ThumbnailsModule,
     CreatorModule,
+    ScenesModule,
   ],
 })
 export class AppModule {}

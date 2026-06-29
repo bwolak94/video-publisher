@@ -4,6 +4,10 @@ import { immer } from "zustand/middleware/immer";
 import type { TextOverlay, VideoStoryboardScene } from "@/types/storyboard";
 import type { PersistedScene } from "@/lib/storyboardStorage";
 
+function generateSceneId(): string {
+  return `scene-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
 export interface SceneState {
   sceneId: string;
   sequenceNumber: number;
@@ -36,6 +40,8 @@ interface TimelineState {
   updateSceneUrls: (sceneId: string, audioUrl: string, videoUrl: string) => void;
   getDirtySceneIds: () => string[];
   restoreFromDraft: (draftScenes: PersistedScene[]) => void;
+  addScene: (afterSceneId?: string) => string;
+  deleteScene: (sceneId: string) => void;
 }
 
 export const useTimelineStore = createWithEqualityFn<TimelineState>()(
@@ -133,6 +139,47 @@ export const useTimelineStore = createWithEqualityFn<TimelineState>()(
       const { scenes } = get();
       return Object.keys(scenes).filter((id) => scenes[id].isDirty);
     },
+
+    addScene: (afterSceneId) => {
+      const sceneId = generateSceneId();
+      set((draft) => {
+        const insertAt = afterSceneId
+          ? draft.sceneOrder.indexOf(afterSceneId) + 1
+          : draft.sceneOrder.length;
+        draft.scenes[sceneId] = {
+          sceneId,
+          sequenceNumber: insertAt + 1,
+          durationInSeconds: 5,
+          narrationText: "",
+          audioUrl: null,
+          audioCacheKey: null,
+          visualPrompt: "",
+          videoUrl: null,
+          visualCacheKey: null,
+          isDirty: true,
+          narrationDirty: false,
+          visualDirty: false,
+          committedNarrationText: "",
+          committedVisualPrompt: "",
+          status: "idle",
+          textOverlay: null,
+        };
+        draft.sceneOrder.splice(insertAt, 0, sceneId);
+        draft.sceneOrder.forEach((id, i) => {
+          draft.scenes[id].sequenceNumber = i + 1;
+        });
+      });
+      return sceneId;
+    },
+
+    deleteScene: (sceneId) =>
+      set((draft) => {
+        delete draft.scenes[sceneId];
+        draft.sceneOrder = draft.sceneOrder.filter((id) => id !== sceneId);
+        draft.sceneOrder.forEach((id, i) => {
+          draft.scenes[id].sequenceNumber = i + 1;
+        });
+      }),
 
     restoreFromDraft: (draftScenes) =>
       set((draft) => {

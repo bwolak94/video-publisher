@@ -1,5 +1,5 @@
 "use client";
-import React, { memo, useCallback } from "react";
+import React, { memo, useCallback, useState } from "react";
 import { useTimelineStore } from "@/store/timelineStore";
 import type { SceneState } from "@/store/timelineStore";
 import { SceneThumbnail } from "./SceneThumbnail";
@@ -13,12 +13,6 @@ export interface SceneCardProps {
   onSeekClick?: () => void;
 }
 
-/**
- * Exported for unit testing (UT-17-01, UT-17-02, UT-17-03).
- * Compares two SceneState objects field-by-field.
- */
-// sequenceNumber intentionally excluded — reorder changes sequenceNumber but not
-// scene content, so SceneCard should not re-render on reorder (TASK-19 Rule 6)
 export function areScenesEqual(a: SceneState, b: SceneState): boolean {
   return (
     a.sceneId === b.sceneId &&
@@ -28,16 +22,32 @@ export function areScenesEqual(a: SceneState, b: SceneState): boolean {
     a.videoUrl === b.videoUrl &&
     a.isDirty === b.isDirty &&
     a.status === b.status &&
-    a.durationInSeconds === b.durationInSeconds
+    a.durationInSeconds === b.durationInSeconds &&
+    a.textOverlay?.text === b.textOverlay?.text &&
+    a.textOverlay?.style === b.textOverlay?.style &&
+    a.textOverlay?.position === b.textOverlay?.position
   );
 }
 
-function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
-  // Per-scene selector with areScenesEqual equality — skips re-render when only
-  // sequenceNumber changes (reorder), satisfying TASK-19 Rule 6
-  const scene = useTimelineStore((s) => s.scenes[sceneId], areScenesEqual);
+const VOICE_OPTIONS = [
+  { voiceId: "21m00Tcm4TlvDq8ikWAM", label: "Rachel (EN)" },
+  { voiceId: "AZnzlk1XvdvUeBnXmlld", label: "Domi (EN)" },
+  { voiceId: "EXAVITQu4vr4xnSDxMaL", label: "Bella (EN)" },
+  { voiceId: "ErXwobaYiN019PkySvjV", label: "Antoni (EN)" },
+  { voiceId: "eleven_en_adam",   label: "Adam (EN)" },
+  { voiceId: "eleven_pl_marek",  label: "Marek (PL)" },
+  { voiceId: "eleven_de_lukas",  label: "Lukas (DE)" },
+  { voiceId: "eleven_fr_pierre", label: "Pierre (FR)" },
+  { voiceId: "eleven_es_carlos", label: "Carlos (ES)" },
+];
 
-  // Stable callbacks — read from store at call time to avoid stale closures (Rule 3)
+function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
+  const scene = useTimelineStore((s) => s.scenes[sceneId], areScenesEqual);
+  const [showEffects, setShowEffects] = useState(false);
+  const [showVideoUrlInput, setShowVideoUrlInput] = useState(false);
+  const [videoUrlInput, setVideoUrlInput] = useState("");
+  const [selectedVoiceId, setSelectedVoiceId] = useState(VOICE_OPTIONS[0].voiceId);
+
   const handleVisualPromptChange = useCallback(
     (value: string) => {
       useTimelineStore.getState().updateSceneField(sceneId, "visualPrompt", value);
@@ -54,12 +64,17 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
 
   const handleRegenerate = useCallback(() => {
     const store = useTimelineStore.getState();
+    const currentScene = store.scenes[sceneId];
     store.markSceneStatus(sceneId, "regenerating");
-    fetch(`/api/scenes/${sceneId}/regenerate-visual`, { method: "POST" })
+    fetch(`/api/scenes/${sceneId}/regenerate-visual`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visualPrompt: currentScene?.visualPrompt ?? "" }),
+    })
       .then((res) => res.json())
       .then((data: { videoUrl: string }) => {
-        const currentScene = useTimelineStore.getState().scenes[sceneId];
-        store.updateSceneUrls(sceneId, currentScene?.audioUrl ?? "", data.videoUrl);
+        const s = useTimelineStore.getState().scenes[sceneId];
+        store.updateSceneUrls(sceneId, s?.audioUrl ?? "", data.videoUrl);
       })
       .catch(() => {
         store.markSceneStatus(sceneId, "error");
@@ -68,17 +83,65 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
 
   const handleUpdateVoice = useCallback(() => {
     const store = useTimelineStore.getState();
+    const currentScene = store.scenes[sceneId];
     store.markSceneStatus(sceneId, "regenerating");
-    fetch(`/api/scenes/${sceneId}/update-voice`, { method: "POST" })
+    fetch(`/api/scenes/${sceneId}/update-voice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        voiceId: selectedVoiceId,
+        narrationText: currentScene?.narrationText ?? "",
+      }),
+    })
       .then((res) => res.json())
       .then((data: { audioUrl: string }) => {
-        const currentScene = useTimelineStore.getState().scenes[sceneId];
-        store.updateSceneUrls(sceneId, data.audioUrl, currentScene?.videoUrl ?? "");
+        const s = useTimelineStore.getState().scenes[sceneId];
+        store.updateSceneUrls(sceneId, data.audioUrl, s?.videoUrl ?? "");
       })
       .catch(() => {
         store.markSceneStatus(sceneId, "error");
       });
+  }, [sceneId, selectedVoiceId]);
+
+  const handleSetVideoUrl = useCallback(() => {
+    if (!videoUrlInput.trim()) return;
+    const store = useTimelineStore.getState();
+    store.markSceneStatus(sceneId, "regenerating");
+    fetch(`/api/scenes/${sceneId}/set-video-url`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ videoUrl: videoUrlInput.trim() }),
+    })
+      .then((res) => res.json())
+      .then((data: { videoUrl: string }) => {
+        const currentScene = useTimelineStore.getState().scenes[sceneId];
+        store.updateSceneUrls(sceneId, currentScene?.audioUrl ?? "", data.videoUrl);
+        setShowVideoUrlInput(false);
+        setVideoUrlInput("");
+      })
+      .catch(() => store.markSceneStatus(sceneId, "error"));
+  }, [sceneId, videoUrlInput]);
+
+  const handleDelete = useCallback(() => {
+    useTimelineStore.getState().deleteScene(sceneId);
   }, [sceneId]);
+
+  const handleAddAfter = useCallback(() => {
+    useTimelineStore.getState().addScene(sceneId);
+  }, [sceneId]);
+
+  const handleTextOverlayChange = useCallback(
+    (field: "text" | "style" | "position", value: string) => {
+      const current = useTimelineStore.getState().scenes[sceneId]?.textOverlay;
+      useTimelineStore.getState().updateSceneField(sceneId, "textOverlay", {
+        text: current?.text ?? "",
+        style: current?.style ?? "standard",
+        position: current?.position ?? "bottom",
+        [field]: value,
+      });
+    },
+    [sceneId]
+  );
 
   if (!scene) return null;
 
@@ -93,33 +156,142 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
           isRegenerating={scene.status === "regenerating"}
         />
         <div className="flex-1 space-y-2 min-w-0">
-          <SceneMetadata
-            sceneId={sceneId}
-            durationInSeconds={scene.durationInSeconds}
-            isDirty={scene.isDirty}
-            onClick={onSeekClick}
-          />
+          {/* Header row with metadata + action buttons */}
+          <div className="flex items-center justify-between">
+            <SceneMetadata
+              sceneId={sceneId}
+              durationInSeconds={scene.durationInSeconds}
+              isDirty={scene.isDirty}
+              onClick={onSeekClick}
+            />
+            <div className="flex gap-1">
+              <button
+                onClick={handleAddAfter}
+                title="Add scene after"
+                className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 border border-gray-200 rounded hover:bg-gray-200"
+              >
+                + Add
+              </button>
+              <button
+                onClick={() => setShowEffects((v) => !v)}
+                title="Text overlay / effects"
+                className={`px-2 py-0.5 text-xs border rounded ${showEffects ? "bg-purple-100 text-purple-700 border-purple-200" : "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200"}`}
+              >
+                Fx
+              </button>
+              <button
+                onClick={handleDelete}
+                title="Delete scene"
+                className="px-2 py-0.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded hover:bg-red-100"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
           <AudioPlayer audioUrl={scene.audioUrl} />
+
           <VisualPromptField
             value={scene.visualPrompt}
             onChange={handleVisualPromptChange}
             onRegenerate={handleRegenerate}
             isRegenerating={scene.status === "regenerating"}
           />
+
+          {/* Custom video URL input */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowVideoUrlInput((v) => !v)}
+              className="text-xs text-gray-500 underline hover:text-gray-700"
+            >
+              {showVideoUrlInput ? "Cancel" : "Use video URL instead"}
+            </button>
+          </div>
+          {showVideoUrlInput && (
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={videoUrlInput}
+                onChange={(e) => setVideoUrlInput(e.target.value)}
+                placeholder="https://..."
+                className="flex-1 text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              />
+              <button
+                onClick={handleSetVideoUrl}
+                disabled={scene.status === "regenerating"}
+                className="px-2 py-1 text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded hover:bg-indigo-100 disabled:opacity-50"
+              >
+                Set
+              </button>
+            </div>
+          )}
+
+          {/* Voice selector + narration */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-500">Voice:</label>
+            <select
+              value={selectedVoiceId}
+              onChange={(e) => setSelectedVoiceId(e.target.value)}
+              className="text-xs border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            >
+              {VOICE_OPTIONS.map((v) => (
+                <option key={v.voiceId} value={v.voiceId}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+
           <NarrationField
             value={scene.narrationText}
             onChange={handleNarrationChange}
             onUpdateVoice={handleUpdateVoice}
             isRegenerating={scene.status === "regenerating"}
           />
+
+          {/* Text overlay / effects panel */}
+          {showEffects && (
+            <div className="mt-2 p-3 bg-purple-50 border border-purple-200 rounded space-y-2">
+              <p className="text-xs font-medium text-purple-700">Text Overlay</p>
+              <input
+                type="text"
+                value={scene.textOverlay?.text ?? ""}
+                onChange={(e) => handleTextOverlayChange("text", e.target.value)}
+                placeholder="Overlay text (leave empty to disable)"
+                className="w-full text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-400"
+              />
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">Style</label>
+                  <select
+                    value={scene.textOverlay?.style ?? "standard"}
+                    onChange={(e) => handleTextOverlayChange("style", e.target.value)}
+                    className="w-full text-xs border rounded px-1 py-0.5 mt-0.5"
+                  >
+                    <option value="standard">Standard</option>
+                    <option value="punchy">Punchy</option>
+                    <option value="funny_sub">Funny Sub</option>
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">Position</label>
+                  <select
+                    value={scene.textOverlay?.position ?? "bottom"}
+                    onChange={(e) => handleTextOverlayChange("position", e.target.value)}
+                    className="w-full text-xs border rounded px-1 py-0.5 mt-0.5"
+                  >
+                    <option value="top">Top</option>
+                    <option value="center">Center</option>
+                    <option value="bottom">Bottom</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// React.memo with equality on sceneId — prevents parent re-renders from cascading.
-// Zustand per-scene selector handles data-change re-renders independently.
 export const SceneCard = memo(
   SceneCardInner,
   (prev, next) => prev.sceneId === next.sceneId

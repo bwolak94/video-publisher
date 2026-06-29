@@ -7,15 +7,21 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  NotFoundException,
 } from "@nestjs/common";
 import { ProjectsService } from "./projects.service";
 import { CreateProjectDto } from "./dto/create-project.dto";
+import { QueueService } from "../queue/queue.service";
+import type { VideoStoryboard } from "../storyboard/video-storyboard";
 
 // Auth is intentionally removed — single-user local dev tool.
 // Tech debt: re-add JWT auth in a future auth sprint.
-@Controller("projects")
+@Controller("api/projects")
 export class ProjectsController {
-  constructor(private readonly projectsService: ProjectsService) {}
+  constructor(
+    private readonly projectsService: ProjectsService,
+    private readonly queueService: QueueService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -36,5 +42,20 @@ export class ProjectsController {
   @Get(":id")
   findOne(@Param("id") id: string) {
     return this.projectsService.findOne(id);
+  }
+
+  @Post(":id/render")
+  @HttpCode(HttpStatus.ACCEPTED)
+  async render(@Param("id") id: string) {
+    const project = await this.projectsService.findOne(id);
+    if (!project) throw new NotFoundException(`Project ${id} not found`);
+
+    const storyboard = project.storyboard as VideoStoryboard | null;
+    const job = await this.queueService.add("render", {
+      projectId: id,
+      storyboard: storyboard ?? { meta: {}, timeline: [] },
+    });
+
+    return { jobId: job.id, message: "Render queued" };
   }
 }
