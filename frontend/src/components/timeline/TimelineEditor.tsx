@@ -4,6 +4,7 @@ import { TimelineHeader } from "./TimelineHeader";
 import { VirtualizedSceneList } from "./VirtualizedSceneList";
 import { PreviewPanel } from "./PreviewPanel";
 import { RestoreBanner } from "./RestoreBanner";
+import { MusicPanel } from "./MusicPanel";
 import { useSceneWebSocket } from "@/hooks/useSceneWebSocket";
 import { usePersistTimeline } from "@/hooks/usePersistTimeline";
 import {
@@ -92,12 +93,17 @@ export function TimelineEditor({
             onSceneClick={handleSceneClick}
           />
         </div>
-        {/* Right: live preview panel (Remotion Player) */}
+        {/* Right: live preview panel + music controls */}
         <div
-          className="w-1/3 min-w-64 max-w-2xl border-l border-gray-200 flex-shrink-0 bg-black"
+          className="w-1/3 min-w-64 max-w-2xl border-l border-gray-200 flex-shrink-0 flex flex-col"
           data-testid="preview-panel-wrapper"
         >
-          <PreviewPanel onSeekReady={handleSeekReady} />
+          <div className="flex-1 bg-black overflow-hidden">
+            <PreviewPanel onSeekReady={handleSeekReady} />
+          </div>
+          <div className="p-3 bg-gray-50 border-t border-gray-200">
+            <MusicPanel />
+          </div>
         </div>
       </div>
     </div>
