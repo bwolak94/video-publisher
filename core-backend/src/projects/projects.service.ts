@@ -73,6 +73,9 @@ export class ProjectsService {
     title: string,
     storyboard: Record<string, unknown>,
     userId?: string | null,
+    researchBrief?: Record<string, unknown> | null,
+    referenceVideoUrl?: string | null,
+    referenceAnalysis?: Record<string, unknown> | null,
   ): Promise<Project> {
     const rows = await this.db
       .insert(projects)
@@ -82,6 +85,10 @@ export class ProjectsService {
         mode: "creator",
         status: "draft",
         storyboard,
+        researchBrief: researchBrief ?? undefined,
+        researchCompletedAt: researchBrief ? new Date() : undefined,
+        referenceVideoUrl: referenceVideoUrl ?? undefined,
+        referenceAnalysis: referenceAnalysis ?? undefined,
       })
       .returning();
     return rows[0];

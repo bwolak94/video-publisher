@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     APP_VERSION: str = "0.1.0"
     # Optional — only needed when NewsAPI source is enabled on a channel
     NEWSAPI_KEY: str | None = None
+    # Optional — FEATURE-05: Web Research Phase
+    SERPAPI_KEY: str | None = None
+    REDDIT_CLIENT_ID: str | None = None      # not used for read-only search, kept for OAuth future
+    REDDIT_CLIENT_SECRET: str | None = None  # not used for read-only search, kept for OAuth future
 
 
 @lru_cache

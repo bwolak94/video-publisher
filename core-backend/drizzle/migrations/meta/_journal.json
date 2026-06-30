@@ -36,6 +36,20 @@
       "when": 1782651000000,
       "tag": "0004_music_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782737400000,
+      "tag": "0005_research_brief",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782823800000,
+      "tag": "0006_reference_analysis",
+      "breakpoints": true
     }
   ]
 }

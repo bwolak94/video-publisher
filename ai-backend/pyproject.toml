@@ -25,6 +25,8 @@ dependencies = [
     "asyncpg>=0.29.0",
     "pgvector>=0.3.0",
     "faster-whisper>=1.0.0",
+    # FEATURE-06: Reference Video Analysis
+    "yt-dlp>=2024.1.0",
 ]
 
 [dependency-groups]
