@@ -1,5 +1,18 @@
 /** VideoStoryboard — Single Source of Truth (PRD §5.1) */
 
+export type MusicMood = "cinematic" | "upbeat" | "calm" | "dramatic" | "inspiring" | "fun";
+
+export interface MusicTrack {
+  s3Url: string;
+  provider: "jamendo" | "stability_audio" | "embedded";
+  mood: MusicMood;
+  title: string;
+  artist?: string;
+  license: string;
+  durationSeconds: number;
+  generatedAt: string;
+}
+
 export interface StoryboardMeta {
   title: string;
   description?: string;
@@ -8,6 +21,12 @@ export interface StoryboardMeta {
   language: "pl" | "en" | "de" | "fr" | "es";
   voiceId: string;
   toneProfile?: "informative" | "comedic" | "edgy" | "educational";
+  /** Background music track (FEATURE-03) */
+  musicTrack?: MusicTrack | null;
+  /** Preferred music mood for generation */
+  musicMood?: MusicMood;
+  /** Music volume relative to narration (0.0-1.0, default 0.3) */
+  musicVolume?: number;
 }
 
 export interface TextOverlay {

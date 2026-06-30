@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { PlayerRef } from "@remotion/player";
 import { useTimelineStore } from "@/store/timelineStore";
+import { useProjectStore } from "@/store/projectStore";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { calculateStartFrame, calculateTotalFrames } from "@/lib/remotion-utils";
 import { VideoComposition } from "./VideoComposition";
@@ -26,8 +27,11 @@ export function PreviewPanel({ onSeekReady, playerRef: externalRef }: PreviewPan
   const activeRef = (externalRef ?? internalRef) as React.RefObject<PlayerRef | null>;
 
   const sceneOrder = useTimelineStore((s) => s.sceneOrder);
-  const scenesMap = useTimelineStore((s) => s.scenes);
-  const scenes = sceneOrder.map((id) => scenesMap[id]).filter(Boolean);
+  const scenesMap  = useTimelineStore((s) => s.scenes);
+  const scenes     = sceneOrder.map((id) => scenesMap[id]).filter(Boolean);
+
+  const musicTrack  = useProjectStore((s) => s.musicTrack);
+  const musicVolume = useProjectStore((s) => s.musicVolume);
 
   const debouncedScenes = useDebouncedValue(scenes, 150);
   const totalFrames = calculateTotalFrames(debouncedScenes, FPS);
@@ -51,7 +55,7 @@ export function PreviewPanel({ onSeekReady, playerRef: externalRef }: PreviewPan
       <Player
         ref={activeRef as React.RefObject<PlayerRef>}
         component={VideoComposition}
-        inputProps={{ scenes: debouncedScenes }}
+        inputProps={{ scenes: debouncedScenes, musicTrack, musicVolume }}
         durationInFrames={Math.max(1, totalFrames)}
         compositionWidth={1920}
         compositionHeight={1080}

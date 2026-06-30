@@ -13,6 +13,7 @@ const SENSITIVE_KEYS = new Set([
   "integrations.pexelsKey",
   "integrations.klingAccessKey",
   "integrations.klingSecretKey",
+  "integrations.stabilityKey",
   "integrations.awsAccessKey",
   "integrations.awsSecretKey",
   "alerts.slackWebhookUrl",
@@ -31,6 +32,8 @@ export interface SettingsDto {
     klingAccessKey: string;
     klingSecretKey: string;
     archivalEnabled: string;
+    stabilityKey: string;
+    jamendoClientId: string;
     awsAccessKey: string;
     awsSecretKey: string;
     awsRegion: string;
@@ -94,6 +97,8 @@ export class SettingsService {
         klingAccessKey: get("integrations.klingAccessKey", ""),
         klingSecretKey: get("integrations.klingSecretKey", ""),
         archivalEnabled: get("integrations.archivalEnabled", "true"),
+        stabilityKey: get("integrations.stabilityKey", ""),
+        jamendoClientId: get("integrations.jamendoClientId", ""),
         awsAccessKey: get("integrations.awsAccessKey", ""),
         awsSecretKey: get("integrations.awsSecretKey", ""),
         awsRegion: get("integrations.awsRegion", "eu-central-1"),

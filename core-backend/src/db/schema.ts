@@ -119,3 +119,19 @@ export const subtitleCache = pgTable("subtitle_cache", {
 
 export type SubtitleCache = typeof subtitleCache.$inferSelect;
 export type NewSubtitleCache = typeof subtitleCache.$inferInsert;
+
+export const musicCache = pgTable("music_cache", {
+  id:              uuid("id").primaryKey().defaultRandom(),
+  paramsHash:      text("params_hash").notNull().unique(),
+  s3Url:           text("s3_url").notNull(),
+  provider:        text("provider").notNull(),
+  mood:            text("mood").notNull(),
+  title:           text("title").notNull(),
+  artist:          text("artist"),
+  license:         text("license").notNull().default("CC-BY"),
+  durationSeconds: numeric("duration_seconds", { precision: 10, scale: 2 }).notNull(),
+  createdAt:       timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type MusicCache = typeof musicCache.$inferSelect;
+export type NewMusicCache = typeof musicCache.$inferInsert;

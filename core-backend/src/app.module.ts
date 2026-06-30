@@ -23,6 +23,7 @@ import { ThumbnailsModule } from "./thumbnails/thumbnails.module";
 import { CreatorModule } from "./creator/creator.module";
 import { ScenesModule } from "./scenes/scenes.module";
 import { SubtitlesModule } from "./subtitles/subtitles.module";
+import { MusicModule } from "./music/music.module";
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { SubtitlesModule } from "./subtitles/subtitles.module";
     CreatorModule,
     ScenesModule,
     SubtitlesModule,
+    MusicModule,
   ],
 })
 export class AppModule {}

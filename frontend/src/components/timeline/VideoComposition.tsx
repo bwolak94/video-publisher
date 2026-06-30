@@ -2,6 +2,7 @@
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, Video } from "remotion";
 import type { SceneState } from "@/store/timelineStore";
+import type { MusicTrack } from "@/types/music";
 import { SubtitleOverlay } from "./SubtitleOverlay";
 
 const FPS = 30;
@@ -11,13 +12,19 @@ interface VideoCompositionProps {
     SceneState,
     "sceneId" | "videoUrl" | "audioUrl" | "durationInSeconds" | "subtitleTrack"
   >[];
+  musicTrack?: MusicTrack | null;
+  musicVolume?: number;
 }
 
-export function VideoComposition({ scenes }: VideoCompositionProps) {
+export function VideoComposition({ scenes, musicTrack, musicVolume = 0.3 }: VideoCompositionProps) {
   let frameOffset = 0;
 
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
+      {/* Project-level background music — plays across all scenes (FEATURE-03) */}
+      {musicTrack?.s3Url && (
+        <Audio src={musicTrack.s3Url} volume={musicVolume} />
+      )}
       {scenes.map((scene) => {
         const durationFrames = Math.max(
           1,
