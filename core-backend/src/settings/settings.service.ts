@@ -14,6 +14,8 @@ const SENSITIVE_KEYS = new Set([
   "integrations.klingAccessKey",
   "integrations.klingSecretKey",
   "integrations.stabilityKey",
+  "integrations.serpApiKey",
+  "integrations.redditClientSecret",
   "integrations.awsAccessKey",
   "integrations.awsSecretKey",
   "alerts.slackWebhookUrl",
@@ -34,6 +36,10 @@ export interface SettingsDto {
     archivalEnabled: string;
     stabilityKey: string;
     jamendoClientId: string;
+    serpApiKey: string;
+    redditClientId: string;
+    redditClientSecret: string;
+    researchDepth: "quick" | "standard" | "deep";
     awsAccessKey: string;
     awsSecretKey: string;
     awsRegion: string;
@@ -99,6 +105,10 @@ export class SettingsService {
         archivalEnabled: get("integrations.archivalEnabled", "true"),
         stabilityKey: get("integrations.stabilityKey", ""),
         jamendoClientId: get("integrations.jamendoClientId", ""),
+        serpApiKey: get("integrations.serpApiKey", ""),
+        redditClientId: get("integrations.redditClientId", ""),
+        redditClientSecret: get("integrations.redditClientSecret", ""),
+        researchDepth: get("integrations.researchDepth", "standard") as "quick" | "standard" | "deep",
         awsAccessKey: get("integrations.awsAccessKey", ""),
         awsSecretKey: get("integrations.awsSecretKey", ""),
         awsRegion: get("integrations.awsRegion", "eu-central-1"),

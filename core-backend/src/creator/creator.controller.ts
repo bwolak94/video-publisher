@@ -6,12 +6,23 @@ import { ProjectsService } from "../projects/projects.service";
 
 const logger = pino({ level: "info" });
 
+interface ResearchBody {
+  topic: string;
+  depth?: "quick" | "standard" | "deep";
+}
+
+interface AnalyzeReferenceBody {
+  videoUrl: string;
+}
+
 interface OutlineBody {
   topic?: string;
   message?: string;
   language?: string;
   voiceId?: string;
   projectId?: string;
+  researchBrief?: Record<string, unknown>;
+  referenceAnalysis?: Record<string, unknown>;
 }
 
 interface StoryboardBody {
@@ -22,6 +33,9 @@ interface StoryboardBody {
   sceneCount?: number;
   targetDurationSeconds?: number;
   aspectRatio?: string;
+  researchBrief?: Record<string, unknown>;
+  referenceAnalysis?: Record<string, unknown>;
+  referenceVideoUrl?: string;
 }
 
 @Controller("api/creator")
@@ -30,6 +44,58 @@ export class CreatorController {
 
   constructor(private readonly projectsService: ProjectsService) {
     this.aiBackendUrl = configuration().worker.aiBackendUrl;
+  }
+
+  @Post("analyze-reference")
+  async analyzeReference(@Body() body: AnalyzeReferenceBody): Promise<unknown> {
+    const { videoUrl } = body;
+    logger.info({ videoUrl }, "Proxying analyze-reference request to ai-backend");
+
+    let aiRes: Response;
+    try {
+      aiRes = await fetch(`${this.aiBackendUrl}/api/creator/analyze-reference`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl }),
+      });
+    } catch (err) {
+      logger.error({ err }, "ai-backend unreachable for analyze-reference");
+      throw new Error("AI backend unavailable");
+    }
+
+    if (!aiRes.ok) {
+      const text = await aiRes.text().catch(() => "");
+      logger.error({ status: aiRes.status, text }, "ai-backend analyze-reference error");
+      throw new Error(`Reference analysis failed: ${text}`);
+    }
+
+    return aiRes.json();
+  }
+
+  @Post("research")
+  async research(@Body() body: ResearchBody): Promise<unknown> {
+    const { topic, depth = "standard" } = body;
+    logger.info({ topic, depth }, "Proxying research request to ai-backend");
+
+    let aiRes: Response;
+    try {
+      aiRes = await fetch(`${this.aiBackendUrl}/api/creator/research`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic, depth }),
+      });
+    } catch (err) {
+      logger.error({ err }, "ai-backend unreachable for research");
+      throw new Error("AI backend unavailable");
+    }
+
+    if (!aiRes.ok) {
+      const text = await aiRes.text().catch(() => "");
+      logger.error({ status: aiRes.status, text }, "ai-backend research error");
+      throw new Error(`Research failed: ${text}`);
+    }
+
+    return aiRes.json();
   }
 
   @Post("outline")
@@ -48,6 +114,8 @@ export class CreatorController {
           language: body.language ?? "en",
           voiceId: body.voiceId ?? "default",
           projectId: body.projectId ?? null,
+          researchBrief: body.researchBrief ?? null,
+          referenceAnalysis: body.referenceAnalysis ?? null,
         }),
       });
     } catch (err) {
@@ -97,6 +165,8 @@ export class CreatorController {
           sceneCount: body.sceneCount ?? 8,
           targetDurationSeconds: body.targetDurationSeconds ?? 40,
           aspectRatio: body.aspectRatio ?? "16:9",
+          researchBrief: body.researchBrief ?? null,
+          referenceAnalysis: body.referenceAnalysis ?? null,
         }),
       });
     } catch (err) {
@@ -114,7 +184,14 @@ export class CreatorController {
 
     // Save the project + storyboard to the DB so scene endpoints can look them up
     const title = (data.storyboard?.meta as any)?.title ?? "Untitled";
-    const project = await this.projectsService.createWithStoryboard(title, data.storyboard);
+    const project = await this.projectsService.createWithStoryboard(
+      title,
+      data.storyboard,
+      undefined,
+      body.researchBrief ?? null,
+      body.referenceVideoUrl ?? null,
+      body.referenceAnalysis ?? null,
+    );
 
     logger.info({ projectId: project.id, scenes: (data.storyboard?.timeline as any[])?.length }, "Project saved to DB");
 

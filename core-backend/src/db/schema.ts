@@ -14,6 +14,12 @@ export const projects = pgTable("projects", {
   status: text("status").default("draft"),
   storyboard: jsonb("storyboard"),
   youtubeVideoId: text("youtube_video_id"),
+  /** ResearchBrief JSON stored for audit trail and re-use (FEATURE-05) */
+  researchBrief: jsonb("research_brief"),
+  researchCompletedAt: timestamp("research_completed_at", { withTimezone: true }),
+  /** Reference video URL and analysis brief (FEATURE-06) */
+  referenceVideoUrl: text("reference_video_url"),
+  referenceAnalysis: jsonb("reference_analysis"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });

@@ -2,8 +2,10 @@ import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { Language, VoiceProfile } from "@/lib/voice-profiles";
 import { getVoiceProfile } from "@/lib/voice-profiles";
+import type { ResearchBrief, SearchDepth } from "@/types/research";
+import type { ReferenceAnalysisBrief } from "@/types/reference-analysis";
 
-export type ChatStage = "chat" | "outline" | "storyboard" | "complete";
+export type ChatStage = "chat" | "research" | "outline" | "storyboard" | "complete";
 
 export interface ChatMessage {
   id: string;
@@ -22,6 +24,15 @@ interface CreatorState {
   messages: ChatMessage[];
   stage: ChatStage;
   isStreaming: boolean;
+
+  // Research (FEATURE-05)
+  researchBrief: ResearchBrief | null;
+  researchDepth: SearchDepth;
+  isResearching: boolean;
+
+  // Reference Video Analysis (FEATURE-06)
+  referenceVideoUrl: string | null;
+  referenceAnalysis: ReferenceAnalysisBrief | null;
 
   // Outline
   outline: OutlineBullet[];
@@ -45,6 +56,10 @@ interface CreatorState {
   setLanguage: (lang: Language) => void;
   addFile: (file: File) => void;
   removeFile: (name: string) => void;
+  setResearchBrief: (brief: ResearchBrief | null) => void;
+  setResearchDepth: (depth: SearchDepth) => void;
+  setResearching: (v: boolean) => void;
+  setReferenceVideo: (url: string | null, brief: ReferenceAnalysisBrief | null) => void;
 }
 
 let messageCounter = 0;
@@ -56,6 +71,11 @@ export const useCreatorStore = create<CreatorState>()(
       messages: [],
       stage: "chat" as ChatStage,
       isStreaming: false,
+      researchBrief: null,
+      researchDepth: "standard" as SearchDepth,
+      isResearching: false,
+      referenceVideoUrl: null,
+      referenceAnalysis: null,
       outline: [],
       storyboardJson: null,
       language: "en" as Language,
@@ -103,6 +123,11 @@ export const useCreatorStore = create<CreatorState>()(
         set((s) => ({
           uploadedFiles: s.uploadedFiles.filter((f) => f.name !== name),
         })),
+
+      setResearchBrief: (brief) => set({ researchBrief: brief }),
+      setResearchDepth: (depth) => set({ researchDepth: depth }),
+      setResearching: (v) => set({ isResearching: v }),
+      setReferenceVideo: (url, brief) => set({ referenceVideoUrl: url, referenceAnalysis: brief }),
     }),
     { name: "CreatorStore", enabled: process.env.NODE_ENV === "development" }
   )
