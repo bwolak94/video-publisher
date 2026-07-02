@@ -53,12 +53,26 @@ def _classify_pacing(scene_timestamps: list[float], total_duration: float) -> st
 
 
 async def _transcribe_audio(audio_path: str) -> str:
-    """Transcribe audio using faster-whisper. Returns plain text or '' on failure."""
+    """Transcribe a local audio file using faster-whisper.
+
+    Runs the synchronous WhisperModel.transcribe() in a thread executor
+    so the FastAPI event loop is never blocked. Returns plain text or '' on failure.
+    """
     try:
-        from app.services.whisper_local import transcribe
-        result = await transcribe(f"file://{audio_path}", language=None)
-        words = result.get("words", [])
-        return " ".join(w["word"] for w in words).strip()
+        from app.services.whisper_local import _get_model
+
+        def _run_sync() -> str:
+            model = _get_model()
+            segments, _ = model.transcribe(
+                audio_path,
+                language=None,       # auto-detect
+                word_timestamps=False,
+                beam_size=5,
+            )
+            return " ".join(seg.text.strip() for seg in segments)
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _run_sync)
     except Exception as exc:
         logger.warning("reference_transcription_failed", error=str(exc))
         return ""
