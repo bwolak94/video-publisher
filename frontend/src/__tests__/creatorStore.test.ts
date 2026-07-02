@@ -1,7 +1,8 @@
 /**
- * Unit tests for creatorStore — UT-16-04..06
+ * Unit tests for creatorStore — UT-16-04..06, UT-06-03..04
  */
 import { useCreatorStore } from "@/store/creatorStore";
+import type { ReferenceAnalysisBrief } from "@/types/reference-analysis";
 
 // Reset Zustand store between tests
 beforeEach(() => {
@@ -69,5 +70,55 @@ describe("creatorStore", () => {
     useCreatorStore.getState().appendStreamToken("llo");
     const msgs = useCreatorStore.getState().messages;
     expect(msgs[0].content).toBe("Hello");
+  });
+
+  // UT-06-03: setReferenceVideo stores URL and brief
+  it("setReferenceVideo stores referenceVideoUrl and referenceAnalysis (UT-06-03)", () => {
+    const brief: ReferenceAnalysisBrief = {
+      sourceUrl: "https://youtube.com/watch?v=test",
+      totalDurationSeconds: 120,
+      sceneCount: 10,
+      avgSceneDurationSeconds: 12,
+      pacing: "fast",
+      toneProfile: "educational",
+      structurePattern: "hook → content → cta",
+      transcript: "Test transcript",
+      keyTopics: ["AI"],
+      visualStyle: "talking head",
+      audioAnalysis: { hasMusic: false, hasSpeech: true, avgLoudnessLUFS: -20 },
+      analyzedAt: null,
+    };
+
+    useCreatorStore.getState().setReferenceVideo("https://youtube.com/watch?v=test", brief);
+
+    const { referenceVideoUrl, referenceAnalysis } = useCreatorStore.getState();
+    expect(referenceVideoUrl).toBe("https://youtube.com/watch?v=test");
+    expect(referenceAnalysis).toEqual(brief);
+    expect(referenceAnalysis?.pacing).toBe("fast");
+  });
+
+  // UT-06-04: setReferenceVideo(null, null) clears the reference
+  it("setReferenceVideo(null, null) clears reference data (UT-06-04)", () => {
+    const brief: ReferenceAnalysisBrief = {
+      sourceUrl: "https://youtube.com/watch?v=old",
+      totalDurationSeconds: 60,
+      sceneCount: 5,
+      avgSceneDurationSeconds: 12,
+      pacing: "slow",
+      toneProfile: "serious",
+      structurePattern: "intro → outro",
+      transcript: "",
+      keyTopics: [],
+      visualStyle: "",
+      audioAnalysis: { hasMusic: false, hasSpeech: false, avgLoudnessLUFS: -23 },
+      analyzedAt: null,
+    };
+
+    useCreatorStore.getState().setReferenceVideo("https://youtube.com/watch?v=old", brief);
+    useCreatorStore.getState().setReferenceVideo(null, null);
+
+    const { referenceVideoUrl, referenceAnalysis } = useCreatorStore.getState();
+    expect(referenceVideoUrl).toBeNull();
+    expect(referenceAnalysis).toBeNull();
   });
 });

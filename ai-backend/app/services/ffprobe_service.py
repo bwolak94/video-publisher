@@ -197,10 +197,18 @@ async def _run(cmd: list[str], timeout: float = 60) -> tuple[bytes, bytes]:
     stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
 
     if proc.returncode not in (0, None):
-        # ffmpeg returns 1 for some filter operations (showinfo) — treat as OK
         error_text = stderr.decode(errors="replace")
-        # Only raise for truly fatal errors
-        if proc.returncode not in (0, 1) or b"Error" in stderr[:200]:
+        # returncode=1 is acceptable for ffmpeg filter commands (-f null, showinfo, ebur128)
+        # Raise only when exit code ≥ 2 or when stderr starts with a genuine error indicator
+        stderr_head = stderr[:300].lower()
+        is_fatal_message = (
+            b"no such file" in stderr_head
+            or b"invalid data" in stderr_head
+            or b"error opening input" in stderr_head
+            or b"unrecognized option" in stderr_head
+            or b"option .* not found" in stderr_head
+        )
+        if proc.returncode not in (0, 1) or (proc.returncode == 1 and is_fatal_message):
             raise RuntimeError(
                 f"Command failed (exit {proc.returncode}): {' '.join(cmd[:3])}… "
                 f"stderr: {error_text[:300]}"
