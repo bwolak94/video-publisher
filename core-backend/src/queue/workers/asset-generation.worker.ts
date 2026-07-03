@@ -153,7 +153,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
 
   private async onCompleted(job: Job<AssetGenerationPayload>) {
     await this.jobSync.syncCompleted(job.data.jobId);
-    this.gateway.broadcastJobProgress(job.data.projectId, {
+    void this.gateway.broadcastJobProgress(job.data.projectId, {
       jobId: job.data.jobId,
       step: job.data.step,
       status: "completed",
@@ -186,7 +186,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
   private async onFailed(job: Job<AssetGenerationPayload> | undefined, err: Error) {
     if (!job) return;
     await this.jobSync.syncFailed(job.data.jobId, err);
-    this.gateway.broadcastJobProgress(job.data.projectId, {
+    void this.gateway.broadcastJobProgress(job.data.projectId, {
       jobId: job.data.jobId,
       step: job.data.step,
       status: "failed",
@@ -200,7 +200,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   private onProgress(job: Job<AssetGenerationPayload>, progress: number | object) {
-    this.gateway.broadcastJobProgress(job.data.projectId, {
+    void this.gateway.broadcastJobProgress(job.data.projectId, {
       jobId: job.data.jobId,
       step: job.data.step,
       status: "progress",

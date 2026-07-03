@@ -1,6 +1,7 @@
 /**
  * Unit tests for DallE3Service — UT-11-06
  */
+import * as fs from "fs";
 import { Test } from "@nestjs/testing";
 import { DallE3Service, DALLE_HTTP } from "./dalle3.service";
 
@@ -87,7 +88,6 @@ describe("DallE3Service", () => {
     const svc = await buildService(mockFetch);
     (svc as any).s3 = { send: jest.fn().mockResolvedValue({}) };
 
-    const fs = require("fs");
     const writeSpy = jest.spyOn(fs, "writeFile");
     const writeFileSyncSpy = jest.spyOn(fs, "writeFileSync");
 

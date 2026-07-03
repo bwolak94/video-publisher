@@ -1,6 +1,7 @@
 /**
  * Unit tests for PexelsService — UT-10-07, UT-10-08, UT-10-09
  */
+import * as fs from "fs";
 import { Test } from "@nestjs/testing";
 import { PexelsService, PEXELS_HTTP } from "./pexels.service";
 import { VideoCacheService } from "./video-cache.service";
@@ -121,7 +122,6 @@ describe("PexelsService", () => {
     const svc = await buildService(cache, mockFetch);
     (svc as any).s3 = { send: jest.fn().mockResolvedValue({}) };
 
-    const fs = require("fs");
     const writeSpy = jest.spyOn(fs, "writeFile");
     const writeFileSyncSpy = jest.spyOn(fs, "writeFileSync");
 

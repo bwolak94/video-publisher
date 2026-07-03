@@ -12,6 +12,7 @@ import { ElevenLabsService } from "../../elevenlabs/elevenlabs.service";
 import { VideoAssetService } from "../../media/video-asset.service";
 import { ImageAssetService } from "../../images/image-asset.service";
 import { BudgetService } from "../../cost/budget.service";
+import { CostRecordService } from "../../cost/cost-record.service";
 import { DlqService } from "../dlq.service";
 import { MetricsService } from "../../metrics/metrics.service";
 
@@ -60,6 +61,7 @@ describe("AssetGenerationWorker — UT-08-04", () => {
         { provide: VideoAssetService, useValue: { generateVideo: jest.fn().mockResolvedValue("s3://video-url") } },
         { provide: ImageAssetService, useValue: { generateImage: jest.fn().mockResolvedValue("s3://image-url") } },
         { provide: BudgetService, useValue: { incrementSpend: jest.fn().mockResolvedValue(undefined) } },
+        { provide: CostRecordService, useValue: { record: jest.fn().mockResolvedValue(undefined) } },
         { provide: DlqService, useValue: { enqueue: jest.fn().mockResolvedValue(undefined) } },
         { provide: MetricsService, useValue: { dlqDepth: { inc: jest.fn() } } },
       ],

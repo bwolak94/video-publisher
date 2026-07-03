@@ -24,7 +24,7 @@ function makeService(overrides: {
   uploadShouldFail?: boolean;
   fetchStatus?: number;
 } = {}) {
-  const { cachedUrl = null, setCachedShouldFail = false, uploadShouldFail = false, fetchStatus = 200 } = overrides;
+  const { cachedUrl = null, setCachedShouldFail = false, fetchStatus = 200 } = overrides;
 
   const cacheMock = {
     computeCacheKey: jest.fn().mockReturnValue(CACHE_KEY),

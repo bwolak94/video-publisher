@@ -4,7 +4,6 @@ import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter, NestFastifyApplication } from "@nestjs/platform-fastify";
 import { AppModule } from "./app.module";
 import { DRIZZLE, runMigrations } from "./db/db.module";
-import { setupBullBoard } from "./queue/admin/bull-board.setup";
 import pino from "pino";
 
 import { configuration } from "./config/configuration";

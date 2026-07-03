@@ -85,7 +85,7 @@ async function buildApp() {
 
 describe("BullMQ Queue Integration (IT-08)", () => {
   let app: NestFastifyApplication;
-  let testModule: TestingModule;
+  let _testModule: TestingModule;
 
   afterEach(async () => {
     if (app) await app.close();

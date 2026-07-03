@@ -120,15 +120,13 @@ export class CreatorController {
       });
     } catch (err) {
       logger.error({ err }, "ai-backend unreachable for creator outline");
-      reply.code(503).send({ error: "AI backend unavailable" });
-      return;
+      return void reply.code(503).send({ error: "AI backend unavailable" });
     }
 
     if (!aiRes.ok || !aiRes.body) {
       const text = await aiRes.text().catch(() => "");
       logger.error({ status: aiRes.status, text }, "ai-backend outline error");
-      reply.code(aiRes.status).send({ error: text || "AI backend error" });
-      return;
+      return void reply.code(aiRes.status).send({ error: text || "AI backend error" });
     }
 
     reply.raw.setHeader("Access-Control-Allow-Origin", process.env.CORS_ORIGIN ?? "http://localhost:3000");
@@ -138,7 +136,7 @@ export class CreatorController {
 
     const reader = aiRes.body.getReader();
     try {
-      while (true) {
+      for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
         reply.raw.write(Buffer.from(value));

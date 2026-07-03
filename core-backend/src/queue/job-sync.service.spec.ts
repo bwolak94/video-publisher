@@ -9,7 +9,6 @@ import { DRIZZLE } from "../db/db.module";
 import { REDIS_CLIENT } from "../redis/redis.module";
 
 const JOB_ID = "job-uuid-001";
-const PROJECT_ID = "project-uuid-001";
 
 function makeDbMock() {
   const mock = {
@@ -22,7 +21,7 @@ function makeDbMock() {
 
 describe("JobSyncService", () => {
   let syncService: JobSyncService;
-  let dlqAlert: DlqAlertService;
+  let _dlqAlert: DlqAlertService;
   let db: ReturnType<typeof makeDbMock>;
 
   beforeEach(async () => {
@@ -38,7 +37,7 @@ describe("JobSyncService", () => {
     }).compile();
 
     syncService = module.get<JobSyncService>(JobSyncService);
-    dlqAlert = module.get<DlqAlertService>(DlqAlertService);
+    _dlqAlert = module.get<DlqAlertService>(DlqAlertService);
   });
 
   // UT-08-02: onCompleted handler updates jobs table with status="completed"

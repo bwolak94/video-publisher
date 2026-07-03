@@ -1,6 +1,7 @@
 /**
  * Unit tests for RunwayService — UT-10-03, UT-10-04, UT-10-05, UT-10-06, UT-10-08, UT-10-09
  */
+import * as fs from "fs";
 import { Test } from "@nestjs/testing";
 import { RunwayService, RUNWAY_HTTP } from "./runway.service";
 import { VideoCacheService } from "./video-cache.service";
@@ -112,7 +113,6 @@ describe("RunwayService", () => {
     // Stub S3 send
     (svc as any).s3 = { send: jest.fn().mockResolvedValue({}) };
 
-    const fs = require("fs");
     const writeSpy = jest.spyOn(fs, "writeFile");
     const writeFileSyncSpy = jest.spyOn(fs, "writeFileSync");
 

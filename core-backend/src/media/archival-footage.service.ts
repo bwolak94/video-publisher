@@ -10,7 +10,6 @@
 import { Injectable, Inject } from "@nestjs/common";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "node:stream";
-import * as crypto from "crypto";
 import pino from "pino";
 import { CircuitBreaker } from "../elevenlabs/circuit-breaker";
 import { VideoCacheService } from "./video-cache.service";

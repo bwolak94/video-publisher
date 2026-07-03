@@ -9,7 +9,6 @@ import pino from "pino";
 import { AudioCacheService } from "./audio-cache.service";
 import { CircuitBreaker, CircuitOpenError } from "./circuit-breaker";
 import { splitAtSentenceBoundary } from "./text-splitter";
-import { configuration } from "../config/configuration";
 import { SettingsService } from "../settings/settings.service";
 
 const logger = pino({ level: "info" });

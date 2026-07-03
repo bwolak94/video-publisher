@@ -6,13 +6,14 @@ import { EventsGateway } from "./events.gateway";
 import { EventCacheService } from "./event-cache.service";
 import { JwtService } from "@nestjs/jwt";
 import { ProjectsService } from "../projects/projects.service";
+import { WebhookService } from "../webhooks/webhook.service";
 
 function makeClient(overrides: Partial<any> = {}): any {
   return {
     handshake: { auth: {}, headers: {}, query: {} },
     disconnect: jest.fn(),
     emit: jest.fn(),
-    join: jest.fn(),
+    join: jest.fn().mockResolvedValue(undefined),
     userId: undefined,
     ...overrides,
   };
@@ -39,6 +40,7 @@ describe("EventsGateway", () => {
         { provide: JwtService, useValue: jwtService },
         { provide: ProjectsService, useValue: projectsService },
         { provide: EventCacheService, useValue: eventCache },
+        { provide: WebhookService, useValue: { fanOut: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 

@@ -5,7 +5,6 @@ import {
   calculateDurationInFrames,
   getCompositionWidth,
   getCompositionHeight,
-  FPS,
 } from "./render-utils";
 
 describe("render-utils", () => {
