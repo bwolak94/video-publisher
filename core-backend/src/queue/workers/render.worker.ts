@@ -69,7 +69,7 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
     logger.info({ jobId: job.id, projectId: job.data.projectId }, "Dispatching render");
 
     // ── Pre-render validation (FEATURE-07) ────────────────────────────────
-    const validation = this.preRenderValidator.validate(job.data.storyboard);
+    const validation = await this.preRenderValidator.validate(job.data.storyboard);
 
     // Persist validation result regardless of pass/fail (fire-and-forget)
     this.qualityGates

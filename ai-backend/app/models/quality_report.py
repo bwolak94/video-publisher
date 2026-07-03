@@ -3,6 +3,41 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# ── Pre-render asset validation models ────────────────────────────────────────
+
+
+class AssetToValidate(BaseModel):
+    """One asset to validate in POST /api/quality/validate-assets."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    sceneId: str
+    assetUrl: str                                       # presigned HTTPS URL
+    assetType: Literal["video", "audio"]
+    expectedMinDurationSeconds: Optional[float] = None  # from scene.durationInSeconds
+
+
+class AssetValidationResult(BaseModel):
+    """FFprobe result for one scene asset."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    sceneId: str
+    assetType: Literal["video", "audio"]
+    valid: bool
+    codec: Optional[str] = None
+    durationSeconds: Optional[float] = None
+    error: Optional[str] = None
+
+
+class AssetValidationReport(BaseModel):
+    """Batch result returned by POST /api/quality/validate-assets."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    allValid: bool
+    results: list[AssetValidationResult]
+
+
+# ── Post-render quality report models ─────────────────────────────────────────
+
 
 class QualityIssue(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
