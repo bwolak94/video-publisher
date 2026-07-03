@@ -180,9 +180,12 @@ async def get_creator_graph():
     """Return a compiled Creator Mode graph with Redis-backed checkpointer + interrupt_before.
 
     Uses AsyncRedisSaver so sessions survive process restarts and deploys.
+    The context manager is entered manually so the connection stays open for the
+    lifetime of the returned graph (app-level singleton pattern).
     """
     settings = get_settings()
-    checkpointer = AsyncRedisSaver.from_conn_string(settings.REDIS_URL)
+    _cm = AsyncRedisSaver.from_conn_string(settings.REDIS_URL)
+    checkpointer = await _cm.__aenter__()
     await checkpointer.asetup()
     return build_creator_graph().compile(
         checkpointer=checkpointer,
