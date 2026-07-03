@@ -13,10 +13,10 @@ class ProfileViralityWeights(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    recency_weight: float = Field(0.33, ge=0.0, le=1.0)
-    controversy_weight: float = Field(0.34, ge=0.0, le=1.0)
-    momentum_weight: float = Field(0.33, ge=0.0, le=1.0)
-    duplicate_penalty: float = Field(0.25, ge=0.0, le=1.0)
+    recency_weight: float = Field(default=0.33, ge=0.0, le=1.0)
+    controversy_weight: float = Field(default=0.34, ge=0.0, le=1.0)
+    momentum_weight: float = Field(default=0.33, ge=0.0, le=1.0)
+    duplicate_penalty: float = Field(default=0.25, ge=0.0, le=1.0)
 
     @model_validator(mode="after")
     def weights_sum_to_one(self) -> "ProfileViralityWeights":
@@ -46,10 +46,10 @@ class NicheProfile(BaseModel):
     captionStyle: Literal["standard", "punchy", "funny_sub"] = "standard"
     musicMood: str = "neutral"
     # Quality gate targets — used by QualityReviewer (no magic numbers, task rule #4)
-    targetSceneCount: int = Field(8, ge=3, le=90)
-    targetDurationSeconds: int = Field(40, ge=15, le=1800)
+    targetSceneCount: int = Field(default=8, ge=3, le=90)
+    targetDurationSeconds: int = Field(default=40, ge=15, le=1800)
     viralityWeights: ProfileViralityWeights = Field(
-        default_factory=ProfileViralityWeights
+        default_factory=lambda: ProfileViralityWeights()
     )
     ctaKeywords: list[str] = ["subscribe", "follow", "like", "comment"]
 
@@ -68,7 +68,7 @@ class DirectorJobPayload(BaseModel):
     researchReport: dict | None = None
     # Creator Mode: free-form user topic
     userPrompt: str | None = None
-    nicheProfile: NicheProfile = Field(default_factory=NicheProfile)
+    nicheProfile: NicheProfile = Field(default_factory=lambda: NicheProfile())
     targetSceneCount: int = Field(8, ge=1, le=20)
     targetDurationSeconds: int = Field(40, ge=10, le=3600)
     language: Literal["en", "pl", "de", "fr", "es"] = "en"

@@ -16,7 +16,7 @@ _GDELT_API = "https://api.gdeltproject.org/api/v2/doc/doc"
 
 async def fetch_gdelt(query: str, max_records: int = 10) -> list[NewsItem]:
     """Fetch recent articles matching `query` from the GDELT DOC 2.0 API."""
-    params = {
+    params: dict[str, str | int] = {
         "query": query,
         "mode": "artlist",
         "maxrecords": max_records,

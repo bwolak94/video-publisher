@@ -4,6 +4,8 @@ PRD Section 3.3. Pure function: no LLM, no HTTP, no Redis.
 All six checks run regardless of earlier failures (task rule #2).
 APPROVED only when zero non-WARN checks fail (task rule #3).
 """
+from typing import Literal
+
 import structlog
 
 from app.models.director import NicheProfile
@@ -65,7 +67,7 @@ class QualityReviewer:
             self._qc05_duration_estimate(storyboard, niche_profile, constraints)
             self._qc06_visual_prompt_quality(storyboard, constraints)
 
-        status = "APPROVED" if not constraints else "REJECTED"
+        status: Literal["APPROVED", "REJECTED"] = "APPROVED" if not constraints else "REJECTED"
 
         if status == "APPROVED" and warnings:
             logger.warning(

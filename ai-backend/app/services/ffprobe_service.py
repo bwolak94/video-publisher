@@ -42,10 +42,11 @@ async def probe_video(path: str) -> VideoStructure:
     try:
         data = json.loads(stdout)
     except json.JSONDecodeError:
-        raise RuntimeError(f"ffprobe returned unparseable output: {stdout[:200]}")
+        raise RuntimeError(f"ffprobe returned unparseable output: {stdout[:200].decode(errors='replace')}")
 
     duration = float(data.get("format", {}).get("duration", 0))
-    width = height = fps_val = 0
+    width = height = 0
+    fps_val: float = 0.0
     has_audio = False
 
     for stream in data.get("streams", []):

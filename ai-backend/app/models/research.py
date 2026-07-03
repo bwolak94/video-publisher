@@ -50,7 +50,7 @@ class ResearchReport(BaseModel):
     skipped: bool = False
     skipReason: str | None = None
     selectedTopic: str | None = None
-    viralityScore: float | None = Field(None, ge=0.0, le=1.0)
+    viralityScore: float | None = Field(default=None, ge=0.0, le=1.0)
     keyFacts: list[str] = []
     sourceUrls: list[str] = []
     rawSummary: str | None = None

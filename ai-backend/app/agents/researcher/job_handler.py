@@ -41,7 +41,7 @@ class ResearchJobHandler:
 
         articles: list[NewsItem] = []
         for url, result in zip(payload.sources, raw_results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.warning("source_fetch_failed", source=url, error=str(result))
             else:
                 articles.extend(result)

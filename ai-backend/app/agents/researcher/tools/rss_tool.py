@@ -22,7 +22,7 @@ def _parse_feed_sync(url: str) -> list[NewsItem]:
         for entry in feed.entries:
             parsed_time = entry.get("published_parsed")
             if parsed_time:
-                dt = datetime(*parsed_time[:6], tzinfo=UTC)
+                dt = datetime(*parsed_time[:6]).replace(tzinfo=UTC)
             else:
                 dt = datetime.now(UTC)
 

@@ -197,6 +197,8 @@ class DirectorRetryOrchestrator:
 
     async def _fire_alert(self, failed_job: FailedJob) -> None:
         """POST job details to ALERT_WEBHOOK_URL. Failure is logged, not re-raised."""
+        if not self._alert_webhook_url:
+            return
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 await client.post(
