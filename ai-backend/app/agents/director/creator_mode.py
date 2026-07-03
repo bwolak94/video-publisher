@@ -12,7 +12,6 @@ After the user approves (or edits), the caller:
   2. Resumes with graph.ainvoke(None, config)
 """
 import json
-from typing import Optional
 
 import structlog
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
@@ -35,11 +34,11 @@ class DirectorState(TypedDict):
     scene_count: int
     target_duration_seconds: int
     aspect_ratio: str
-    project_id: Optional[str]           # used for RAG retrieval if source material was ingested
-    outline: Optional[list[dict]]
+    project_id: str | None           # used for RAG retrieval if source material was ingested
+    outline: list[dict] | None
     outline_approved: bool
-    storyboard: Optional[dict]
-    error: Optional[str]
+    storyboard: dict | None
+    error: str | None
 
 
 # ── LLM helpers (thin wrappers — easy to mock in tests) ───────────────────────
@@ -181,9 +180,12 @@ async def get_creator_graph():
     """Return a compiled Creator Mode graph with Redis-backed checkpointer + interrupt_before.
 
     Uses AsyncRedisSaver so sessions survive process restarts and deploys.
+    The context manager is entered manually so the connection stays open for the
+    lifetime of the returned graph (app-level singleton pattern).
     """
     settings = get_settings()
-    checkpointer = AsyncRedisSaver.from_conn_string(settings.REDIS_URL)
+    _cm = AsyncRedisSaver.from_conn_string(settings.REDIS_URL)
+    checkpointer = await _cm.__aenter__()
     await checkpointer.asetup()
     return build_creator_graph().compile(
         checkpointer=checkpointer,

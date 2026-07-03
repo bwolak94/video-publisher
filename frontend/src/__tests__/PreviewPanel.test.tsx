@@ -1,6 +1,7 @@
 /**
  * Component tests for Remotion preview panel — CT-20-01..05
  */
+/* eslint-disable react/display-name */
 import React from "react";
 import { render, screen, act, renderHook } from "@testing-library/react";
 import { useTimelineStore } from "@/store/timelineStore";
@@ -23,14 +24,8 @@ jest.mock("remotion", () => ({
 const mockSeekTo = jest.fn();
 
 jest.mock("@remotion/player", () => ({
-  Player: React.forwardRef(
-    (
-      {
-        component: Comp,
-        inputProps,
-      }: { component: React.ComponentType<Record<string, unknown>>; inputProps: Record<string, unknown>; [k: string]: unknown },
-      ref: React.Ref<{ seekTo: (frame: number) => void }>
-    ) => {
+  Player: React.forwardRef<{ seekTo: (frame: number) => void }, any>(
+    ({ component: Comp, inputProps }, ref) => {
       React.useImperativeHandle(ref, () => ({ seekTo: mockSeekTo }));
       return (
         <div data-testid="remotion-player">
@@ -136,7 +131,7 @@ it("seekToScene calls playerRef.seekTo with correct frame (CT-20-04)", () => {
   let capturedSeekFn: ((sceneId: string) => void) | null = null;
 
   act(() => {
-    render(<PreviewPanel onSeekReady={(fn) => { capturedSeekFn = fn; }} />);
+    render(<PreviewPanel onSeekReady={(fn: (sceneId: string) => void) => { capturedSeekFn = fn; }} />);
   });
 
   act(() => {

@@ -45,6 +45,10 @@ const makeSceneState = (overrides: Partial<SceneState> = {}): SceneState => ({
   videoUrl: null,
   visualCacheKey: null,
   isDirty: false,
+  narrationDirty: false,
+  visualDirty: false,
+  committedNarrationText: "Hello",
+  committedVisualPrompt: "A field of flowers",
   status: "idle",
   textOverlay: null,
   ...overrides,
@@ -147,7 +151,11 @@ it("clicking Regenerate Visual marks scene as regenerating (CT-17-03)", async ()
 
   expect(global.fetch).toHaveBeenCalledWith(
     "/api/scenes/sc-1/regenerate-visual",
-    { method: "POST" }
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visualPrompt: "Visual prompt for scene 1" }),
+    }
   );
 });
 

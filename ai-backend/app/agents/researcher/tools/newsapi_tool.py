@@ -5,7 +5,7 @@ Circuit-breaker: returns [] on any exception.
 Requires NEWSAPI_KEY to be set in settings.
 """
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from newsapi import NewsApiClient
@@ -25,7 +25,7 @@ def _fetch_sync(api_key: str, query: str, page_size: int = 20) -> list[NewsItem]
             dt = (
                 datetime.fromisoformat(raw_dt.replace("Z", "+00:00"))
                 if raw_dt
-                else datetime.now(timezone.utc)
+                else datetime.now(UTC)
             )
             items.append(NewsItem(
                 title=article.get("title", "").strip(),

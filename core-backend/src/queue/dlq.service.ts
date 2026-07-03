@@ -57,7 +57,7 @@ export class DlqService implements OnModuleInit, OnModuleDestroy {
     return jobs.map((j) => ({ id: j.id!, ...(j.data as Omit<DlqEntry, "id">) }));
   }
 
-  async retryJob(dlqJobId: string, sourceQueue: string, originalData: Record<string, unknown>): Promise<void> {
+  async retryJob(dlqJobId: string, sourceQueue: string, _originalData: Record<string, unknown>): Promise<void> {
     // Remove from DLQ
     const job = await Job.fromId(this.dlqQueue, dlqJobId);
     if (job) {

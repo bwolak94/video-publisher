@@ -36,7 +36,7 @@ export default function TimelinePage() {
       .then((r) => r.ok ? r.json() : null)
       .then((project) => {
         const storyboard = project?.storyboard as VideoStoryboard | null;
-        if (storyboard?.timeline?.length > 0) {
+        if (storyboard != null && (storyboard.timeline?.length ?? 0) > 0) {
           useTimelineStore.getState().initScenes(storyboard.timeline);
         }
       })

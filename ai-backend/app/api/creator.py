@@ -5,18 +5,18 @@ POST /api/creator/outline    → generates 5-point outline (plain text, one bull
 POST /api/creator/storyboard → generates full VideoStoryboard from approved outline (JSON)
 """
 import uuid
-from typing import Literal, Optional
+from typing import Literal
 
 import structlog
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.agents.director.prompts import build_outline_prompt, build_full_storyboard_prompt
-from app.agents.director.creator_mode import _call_llm_mini, _call_llm_full, _strip_fences
+from app.agents.director.creator_mode import _call_llm_full, _call_llm_mini, _strip_fences
+from app.agents.director.prompts import build_full_storyboard_prompt, build_outline_prompt
 from app.agents.researcher.script_research_agent import run_script_research
 from app.config import get_settings
-from app.models.director import DEFAULT_NICHE_PROFILE, NicheProfile
+from app.models.director import DEFAULT_NICHE_PROFILE
 from app.models.reference_analysis import ReferenceAnalysisBrief
 from app.models.research_brief import ResearchBrief
 from app.models.storyboard import VideoStoryboard
@@ -39,22 +39,22 @@ class OutlineRequest(BaseModel):
     topic: str
     language: str = "en"
     voiceId: str = "default"
-    projectId: Optional[str] = None
-    nicheProfileId: Optional[str] = None
-    researchBrief: Optional[dict] = None    # ResearchBrief JSON (FEATURE-05)
-    referenceAnalysis: Optional[dict] = None  # ReferenceAnalysisBrief JSON (FEATURE-06)
+    projectId: str | None = None
+    nicheProfileId: str | None = None
+    researchBrief: dict | None = None    # ResearchBrief JSON (FEATURE-05)
+    referenceAnalysis: dict | None = None  # ReferenceAnalysisBrief JSON (FEATURE-06)
 
 
 class StoryboardRequest(BaseModel):
     outline: list[str]          # approved bullet strings from frontend
     language: str = "en"
     voiceId: str = "default"
-    projectId: Optional[str] = None
+    projectId: str | None = None
     sceneCount: int = 8
     targetDurationSeconds: int = 40
     aspectRatio: str = "16:9"
-    researchBrief: Optional[dict] = None      # ResearchBrief JSON (FEATURE-05)
-    referenceAnalysis: Optional[dict] = None  # ReferenceAnalysisBrief JSON (FEATURE-06)
+    researchBrief: dict | None = None      # ResearchBrief JSON (FEATURE-05)
+    referenceAnalysis: dict | None = None  # ReferenceAnalysisBrief JSON (FEATURE-06)
 
 
 @router.post("/analyze-reference", response_model=ReferenceAnalysisBrief)

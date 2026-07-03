@@ -14,9 +14,11 @@ Metrics computed:
 
 All subprocess calls delegate to ffprobe_service.py so they are fully async.
 """
+import asyncio
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import cast
 
 import httpx
 import structlog
@@ -180,7 +182,6 @@ def _safe_delete(path: str) -> None:
 
 async def _measure_true_peak(path: str) -> float:
     """Parse true peak dBFS from ebur128 stderr output."""
-    import asyncio
     cmd = [
         "ffmpeg",
         "-i", path,
@@ -228,16 +229,7 @@ async def analyze_rendered_video(video_url: str) -> QualityReport:
         loudness_task        = ffprobe.measure_audio_loudness(video_path)
         true_peak_task       = _measure_true_peak(video_path)
 
-        import asyncio
-        (
-            structure,
-            (video_kbps, audio_kbps),
-            black_frames,
-            frozen_frames,
-            scene_changes,
-            loudness_lufs,
-            true_peak_dbfs,
-        ) = await asyncio.gather(
+        _results = await asyncio.gather(
             structure_task,
             bitrates_task,
             black_frames_task,
@@ -245,8 +237,14 @@ async def analyze_rendered_video(video_url: str) -> QualityReport:
             scene_changes_task,
             loudness_task,
             true_peak_task,
-            return_exceptions=False,
         )
+        structure = cast(ffprobe.VideoStructure, _results[0])
+        video_kbps, audio_kbps = cast(tuple[float, float], _results[1])
+        black_frames = cast(int, _results[2])
+        frozen_frames = cast(int, _results[3])
+        scene_changes = cast(int, _results[4])
+        loudness_lufs = cast(float, _results[5])
+        true_peak_dbfs = cast(float, _results[6])
 
         slideshow_risk = _compute_slideshow_risk(scene_changes, structure.duration_seconds)
         issues, overall_score = _build_issues_and_score(
@@ -272,7 +270,7 @@ async def analyze_rendered_video(video_url: str) -> QualityReport:
             blackFrameCount=black_frames,
             frozenFrameCount=frozen_frames,
             issues=issues,
-            analyzedAt=datetime.now(timezone.utc).isoformat(),
+            analyzedAt=datetime.now(UTC).isoformat(),
         )
 
         logger.info(

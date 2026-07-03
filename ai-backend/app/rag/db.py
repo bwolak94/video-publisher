@@ -1,6 +1,5 @@
 """PostgreSQL + pgvector connection for RAG source material storage."""
 import os
-from functools import lru_cache
 
 import asyncpg
 import structlog

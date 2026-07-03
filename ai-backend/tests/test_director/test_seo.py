@@ -1,7 +1,6 @@
 """Unit tests for SEO timestamp generator — UT-03-05."""
 from app.agents.director.seo import append_timestamps_to_description, generate_timestamps
 
-
 # ─── UT-03-05: 8-scene storyboard > 120s → description has timestamps ─────────
 
 def _make_scenes(count: int, duration_each: int = 30) -> list[dict]:

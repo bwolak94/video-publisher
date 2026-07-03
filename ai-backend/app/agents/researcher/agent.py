@@ -8,7 +8,7 @@ The cheap model (gpt-4o-mini) is used per task rule #5.
 """
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from crewai import Agent, Crew, Task
@@ -70,7 +70,7 @@ async def synthesize_report(
         keyFacts=key_facts,
         sourceUrls=[source_url],
         rawSummary=raw_summary,
-        generatedAt=datetime.now(timezone.utc),
+        generatedAt=datetime.now(UTC),
     )
 
 

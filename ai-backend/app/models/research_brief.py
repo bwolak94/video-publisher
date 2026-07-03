@@ -1,6 +1,6 @@
 """Pydantic v2 models for FEATURE-05 — Web Research Phase Before Scripting."""
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,7 +12,7 @@ class ResearchSource(BaseModel):
     title: str
     snippet: str
     source: Literal["google", "reddit", "news", "duckduckgo"]
-    publishedAt: Optional[str] = None
+    publishedAt: str | None = None
 
 
 class ResearchBrief(BaseModel):

@@ -1,6 +1,6 @@
 import { Injectable, Inject } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import pino from "pino";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DRIZZLE } from "../db/db.module";

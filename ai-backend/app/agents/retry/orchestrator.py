@@ -16,10 +16,9 @@ Key design decisions:
 """
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 import structlog
@@ -75,8 +74,8 @@ class DirectorRetryOrchestrator:
         director_fn: DirectorFn,
         reviewer: QualityReviewer,
         redis_client: Any,
-        dlq_writer: Optional[Callable[[FailedJob], Awaitable[None]]] = None,
-        alert_webhook_url: Optional[str] = None,
+        dlq_writer: Callable[[FailedJob], Awaitable[None]] | None = None,
+        alert_webhook_url: str | None = None,
     ) -> None:
         self._director_fn = director_fn
         self._reviewer = reviewer
@@ -116,7 +115,7 @@ class DirectorRetryOrchestrator:
             except ValidationError as ve:
                 # Schema failure counts as a rejection cycle (rule #6 exception carve-out)
                 schema_constraints = [
-                    f"Schema error: {err['msg']} at {'.'.join(str(l) for l in err['loc'])}"
+                    f"Schema error: {err['msg']} at {'.'.join(str(loc) for loc in err['loc'])}"
                     for err in ve.errors()
                 ]
                 accumulated_constraints.extend(schema_constraints)
@@ -176,7 +175,7 @@ class DirectorRetryOrchestrator:
             channelId=channel_id,
             allConstraints=all_constraints,
             attemptCount=self.MAX_ATTEMPTS,
-            failedAt=datetime.now(timezone.utc),
+            failedAt=datetime.now(UTC),
             alertWebhookUrl=self._alert_webhook_url,
         )
 
@@ -198,6 +197,8 @@ class DirectorRetryOrchestrator:
 
     async def _fire_alert(self, failed_job: FailedJob) -> None:
         """POST job details to ALERT_WEBHOOK_URL. Failure is logged, not re-raised."""
+        if not self._alert_webhook_url:
+            return
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 await client.post(

@@ -175,7 +175,7 @@ describe("AssetPredownloader", () => {
       { videoUrl: "https://cdn.pexels.com/3.mp4" },
     ]);
 
-    let resolvers: Array<() => void> = [];
+    const resolvers: Array<() => void> = [];
     fetchMock.mockImplementation((url: string) => {
       const idx = parseInt(url.slice(-5, -4)) - 1;
       callOrder.push(idx);

@@ -1,5 +1,5 @@
 """Pydantic v2 models for FEATURE-07 — Quality Gates."""
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -13,7 +13,7 @@ class AssetToValidate(BaseModel):
     sceneId: str
     assetUrl: str                                       # presigned HTTPS URL
     assetType: Literal["video", "audio"]
-    expectedMinDurationSeconds: Optional[float] = None  # from scene.durationInSeconds
+    expectedMinDurationSeconds: float | None = None  # from scene.durationInSeconds
 
 
 class AssetValidationResult(BaseModel):
@@ -23,9 +23,9 @@ class AssetValidationResult(BaseModel):
     sceneId: str
     assetType: Literal["video", "audio"]
     valid: bool
-    codec: Optional[str] = None
-    durationSeconds: Optional[float] = None
-    error: Optional[str] = None
+    codec: str | None = None
+    durationSeconds: float | None = None
+    error: str | None = None
 
 
 class AssetValidationReport(BaseModel):

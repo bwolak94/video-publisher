@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { TokenCryptoService } from "./token-crypto.service";
 
 const TEST_KEY = "a".repeat(64); // 64 hex chars = 32 bytes
@@ -35,7 +36,6 @@ describe("TokenCryptoService", () => {
 
   // UT-24-03
   it("generateCodeChallenge returns SHA-256 base64url of the verifier", () => {
-    const { createHash } = require("crypto");
     const verifier = service.generateCodeVerifier();
     const expected = createHash("sha256").update(verifier).digest("base64url");
     expect(service.generateCodeChallenge(verifier)).toBe(expected);

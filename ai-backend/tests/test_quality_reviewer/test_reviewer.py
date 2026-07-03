@@ -1,10 +1,8 @@
 """Unit tests for QualityReviewer — UT-04-01 through UT-04-10."""
-import pytest
 
 from app.agents.quality_reviewer.reviewer import QualityReviewer
 from app.models.director import NicheProfile
 from app.models.storyboard import Scene, StoryboardMeta, TextOverlay, VideoStoryboard
-
 
 # ── Fixtures & Helpers ─────────────────────────────────────────────────────────
 

@@ -113,7 +113,7 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
 
   private async onCompleted(job: Job<RenderPayload>) {
     await this.jobSync.syncCompleted(job.data.jobId);
-    this.gateway.broadcastJobProgress(job.data.projectId, {
+    void this.gateway.broadcastJobProgress(job.data.projectId, {
       jobId: job.data.jobId,
       step: job.data.step,
       status: "completed",
@@ -123,7 +123,7 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
   private async onFailed(job: Job<RenderPayload> | undefined, err: Error) {
     if (!job) return;
     await this.jobSync.syncFailed(job.data.jobId, err);
-    this.gateway.broadcastJobProgress(job.data.projectId, {
+    void this.gateway.broadcastJobProgress(job.data.projectId, {
       jobId: job.data.jobId,
       step: job.data.step,
       status: "failed",

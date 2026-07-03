@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+
+# ── core-backend ──────────────────────────────────────────────────────────────
+if echo "$STAGED" | grep -q "^core-backend/src/.*\.tsx\?$"; then
+  echo "▶ core-backend: lint"
+  (cd core-backend && npm run lint)
+  echo "▶ core-backend: typecheck"
+  (cd core-backend && npm run typecheck)
+fi
+
+# ── frontend ──────────────────────────────────────────────────────────────────
+if echo "$STAGED" | grep -q "^frontend/src/.*\.tsx\?$"; then
+  echo "▶ frontend: lint"
+  (cd frontend && npm run lint)
+  echo "▶ frontend: typecheck"
+  (cd frontend && npm run typecheck)
+fi

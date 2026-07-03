@@ -75,11 +75,16 @@ it("Regenerate All dispatches fetch only for dirty scenes (CT-18-02)", async () 
 
   // fetch called exactly 3 times — only for dirty scenes
   expect(global.fetch).toHaveBeenCalledTimes(3);
-  expect(global.fetch).toHaveBeenCalledWith("/api/scenes/sc-1/regenerate", { method: "POST" });
-  expect(global.fetch).toHaveBeenCalledWith("/api/scenes/sc-3/regenerate", { method: "POST" });
-  expect(global.fetch).toHaveBeenCalledWith("/api/scenes/sc-5/regenerate", { method: "POST" });
-  expect(global.fetch).not.toHaveBeenCalledWith("/api/scenes/sc-2/regenerate", { method: "POST" });
-  expect(global.fetch).not.toHaveBeenCalledWith("/api/scenes/sc-4/regenerate", { method: "POST" });
+  const expectedOpts = {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ visualPrompt: "Visual" }),
+  };
+  expect(global.fetch).toHaveBeenCalledWith("/api/scenes/sc-1/regenerate-visual", expectedOpts);
+  expect(global.fetch).toHaveBeenCalledWith("/api/scenes/sc-3/regenerate-visual", expectedOpts);
+  expect(global.fetch).toHaveBeenCalledWith("/api/scenes/sc-5/regenerate-visual", expectedOpts);
+  expect(global.fetch).not.toHaveBeenCalledWith("/api/scenes/sc-2/regenerate-visual", expectedOpts);
+  expect(global.fetch).not.toHaveBeenCalledWith("/api/scenes/sc-4/regenerate-visual", expectedOpts);
 });
 
 // CT-18-03: Regenerate All with 8 dirty scenes → confirmation modal shown

@@ -1,5 +1,5 @@
 """Pydantic v2 models for FEATURE-06 — Reference Video Analysis."""
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -31,4 +31,4 @@ class ReferenceAnalysisBrief(BaseModel):
     keyTopics: list[str] = Field(default_factory=list)
     visualStyle: str = ""             # e.g. "talking head with b-roll cutaways"
     audioAnalysis: AudioAnalysis = Field(default_factory=AudioAnalysis)
-    analyzedAt: Optional[str] = None
+    analyzedAt: str | None = None

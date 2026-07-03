@@ -2,14 +2,13 @@
  * Unit tests for S3Service — UT-12-01..09
  */
 import { S3Service } from "./s3.service";
-import { S3UploadError, S3ObjectNotFoundError, S3PermissionError, ConfigurationError } from "./s3-errors";
+import { S3UploadError, S3PermissionError, ConfigurationError } from "./s3-errors";
 import { Readable } from "stream";
 
 jest.mock("@aws-sdk/client-s3");
 jest.mock("@aws-sdk/s3-request-presigner");
 jest.mock("@aws-sdk/lib-storage");
 
-import { S3Client, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Upload } from "@aws-sdk/lib-storage";
 

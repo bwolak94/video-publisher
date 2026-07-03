@@ -82,7 +82,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    client.join(`project:${data.projectId}`);
+    await client.join(`project:${data.projectId}`);
 
     // Emit cached events immediately for reconnection (Rule #5)
     const cached = await this.eventCache.getCachedEvents(data.projectId);

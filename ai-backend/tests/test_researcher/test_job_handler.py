@@ -1,5 +1,5 @@
 """Integration tests for ResearchJobHandler — IT-02-01, IT-02-02, IT-02-03."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import fakeredis.aioredis
@@ -8,7 +8,6 @@ import pytest
 from app.agents.researcher.dedup import DedupService
 from app.agents.researcher.job_handler import ResearchJobHandler
 from app.models.research import NewsItem, ResearchJobPayload, ResearchReport, ViralityWeights
-
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -45,7 +44,7 @@ def _make_news_item(title: str = "Breaking: AI beats experts") -> NewsItem:
     return NewsItem(
         title=title,
         url="https://example.com/article",
-        publishedAt=datetime.now(timezone.utc),
+        publishedAt=datetime.now(UTC),
         source="Test Feed",
         content="Article content here.",
     )
@@ -59,7 +58,7 @@ def _make_report(channel_id: str = "chan-test") -> ResearchReport:
         keyFacts=["AI is improving rapidly"],
         sourceUrls=["https://example.com/article"],
         rawSummary="A new AI system...",
-        generatedAt=datetime.now(timezone.utc),
+        generatedAt=datetime.now(UTC),
     )
 
 

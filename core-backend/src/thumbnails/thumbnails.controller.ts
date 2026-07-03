@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Post, Body, Param, HttpCode, HttpStatus } from "@nestjs/common";
 import { ThumbnailTestService } from "./thumbnail-test.service";
 
 interface StartExperimentBody {

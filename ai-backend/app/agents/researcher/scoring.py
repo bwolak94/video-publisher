@@ -9,7 +9,7 @@ PRD Formula (Section 3.1):
 All inputs are in [0, 1]. Output is clamped to [0, 1].
 Weights are read from the channel's NicheProfile (TASK-06); defaults are 0.25 each.
 """
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.models.research import ViralityWeights
 
@@ -21,9 +21,9 @@ def compute_recency_score(
 ) -> float:
     """Return 1.0 if published now, 0.0 if published window_hours ago or earlier."""
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
     if published_at.tzinfo is None:
-        published_at = published_at.replace(tzinfo=timezone.utc)
+        published_at = published_at.replace(tzinfo=UTC)
     age_hours = (now - published_at).total_seconds() / 3600.0
     return max(0.0, 1.0 - (age_hours / window_hours))
 

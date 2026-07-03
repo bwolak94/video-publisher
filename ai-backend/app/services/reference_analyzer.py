@@ -13,9 +13,7 @@ Each step is wrapped in try/except so partial failure degrades gracefully.
 """
 import asyncio
 import json
-import os
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import structlog
 from openai import AsyncOpenAI
@@ -23,7 +21,7 @@ from openai import AsyncOpenAI
 from app.agents.researcher.sanitizer import sanitize_content
 from app.models.reference_analysis import AudioAnalysis, ReferenceAnalysisBrief
 from app.services import ffprobe_service as ffprobe
-from app.services.video_downloader import download_reference_video, _safe_delete
+from app.services.video_downloader import _safe_delete, download_reference_video
 
 logger = structlog.get_logger(__name__)
 
@@ -168,7 +166,7 @@ async def _synthesize_brief(
             hasSpeech=parsed.get("hasSpeech", structure.has_audio),
             avgLoudnessLUFS=avg_loudness,
         ),
-        analyzedAt=datetime.now(timezone.utc).isoformat(),
+        analyzedAt=datetime.now(UTC).isoformat(),
     )
 
 
@@ -176,8 +174,8 @@ async def analyze_reference_video(url: str) -> ReferenceAnalysisBrief:
     """Full reference analysis pipeline. Always returns a brief (degrades on error)."""
     logger.info("reference_analysis_start", url=url)
 
-    video_path: Optional[str] = None
-    audio_path: Optional[str] = None
+    video_path: str | None = None
+    audio_path: str | None = None
 
     try:
         # Step 1: Download

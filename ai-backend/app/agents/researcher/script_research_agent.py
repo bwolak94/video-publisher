@@ -12,7 +12,7 @@ Pipeline:
 """
 import asyncio
 import json
-from typing import Literal, Optional
+from typing import Literal
 
 import structlog
 from openai import AsyncOpenAI
@@ -79,8 +79,8 @@ def _generate_queries(topic: str, depth: SearchDepth) -> list[str]:
 
 async def _run_searches(
     queries: list[str],
-    serpapi_key: Optional[str],
-    newsapi_key: Optional[str],
+    serpapi_key: str | None,
+    newsapi_key: str | None,
 ) -> list[ResearchSource]:
     """Run all searches in parallel; circuit-breaker per source."""
     tasks = []
@@ -178,8 +178,8 @@ async def _synthesize(topic: str, sources: list[ResearchSource], depth: SearchDe
 async def run_script_research(
     topic: str,
     depth: SearchDepth = "standard",
-    serpapi_key: Optional[str] = None,
-    newsapi_key: Optional[str] = None,
+    serpapi_key: str | None = None,
+    newsapi_key: str | None = None,
 ) -> ResearchBrief:
     """Full research pipeline: generate queries → search → dedup → synthesize.
 

@@ -3,8 +3,7 @@
  */
 import { Test } from "@nestjs/testing";
 import { VideoAssetService } from "./video-asset.service";
-import { RunwayService } from "./runway.service";
-import { PexelsService } from "./pexels.service";
+import { VideoProviderRegistry } from "./video-provider-registry";
 
 const RUNWAY_S3 = "s3://bucket/video/runway-cache.mp4";
 const PEXELS_S3 = "s3://bucket/video/pexels-cache.mp4";
@@ -14,12 +13,11 @@ const PARAMS = {
   aspectRatio: "16:9" as const,
 };
 
-async function buildService(runwayMock: any, pexelsMock: any) {
+async function buildService(registryMock: any) {
   const module = await Test.createTestingModule({
     providers: [
       VideoAssetService,
-      { provide: RunwayService, useValue: runwayMock },
-      { provide: PexelsService, useValue: pexelsMock },
+      { provide: VideoProviderRegistry, useValue: registryMock },
     ],
   }).compile();
 
@@ -27,70 +25,57 @@ async function buildService(runwayMock: any, pexelsMock: any) {
 }
 
 describe("VideoAssetService", () => {
-  // IT-10-01: Runway succeeds → Runway S3 URL
-  it("IT-10-01: Runway succeeds → returns Runway s3:// URL", async () => {
-    const runway = { generateVideo: jest.fn().mockResolvedValue(RUNWAY_S3) };
-    const pexels = { searchAndDownload: jest.fn() };
-    const svc = await buildService(runway, pexels);
+  // IT-10-01: Registry returns primary provider result
+  it("IT-10-01: registry succeeds → returns s3Url and provider name", async () => {
+    const registry = {
+      generate: jest.fn().mockResolvedValue({ s3Url: RUNWAY_S3, provider: "runway" }),
+      getProviderStatus: jest.fn(),
+    };
+    const svc = await buildService(registry);
 
-    const url = await svc.generateVideo(PARAMS);
+    const result = await svc.generateVideo(PARAMS);
 
-    expect(url).toBe(RUNWAY_S3);
-    expect(url).toMatch(/^s3:\/\//);
-    expect(pexels.searchAndDownload).not.toHaveBeenCalled();
+    expect(result.s3Url).toBe(RUNWAY_S3);
+    expect(result.s3Url).toMatch(/^s3:\/\//);
+    expect(result.provider).toBe("runway");
+    expect(registry.generate).toHaveBeenCalledWith(PARAMS);
   });
 
-  // IT-10-02: Runway fails → falls back to Pexels
-  it("IT-10-02: Runway fails → falls back to Pexels s3:// URL", async () => {
-    const runway = {
-      generateVideo: jest.fn().mockRejectedValue(new Error("Runway timeout")),
+  // IT-10-02: Registry falls back internally and returns Pexels result
+  it("IT-10-02: registry falls back → returns Pexels s3:// URL", async () => {
+    const registry = {
+      generate: jest.fn().mockResolvedValue({ s3Url: PEXELS_S3, provider: "pexels" }),
+      getProviderStatus: jest.fn(),
     };
-    const pexels = {
-      searchAndDownload: jest.fn().mockResolvedValue(PEXELS_S3),
-    };
-    const svc = await buildService(runway, pexels);
+    const svc = await buildService(registry);
 
-    const url = await svc.generateVideo(PARAMS);
+    const result = await svc.generateVideo(PARAMS);
 
-    expect(url).toBe(PEXELS_S3);
-    expect(url).toMatch(/^s3:\/\//);
-    expect(pexels.searchAndDownload).toHaveBeenCalledWith(
-      PARAMS.visualPrompt,
-      PARAMS.aspectRatio
-    );
+    expect(result.s3Url).toBe(PEXELS_S3);
+    expect(result.s3Url).toMatch(/^s3:\/\//);
+    expect(result.provider).toBe("pexels");
   });
 
-  // IT-10-03: Both fail → structured error
-  it("UT-10-10: both providers fail → structured error with sceneId", async () => {
-    const runway = {
-      generateVideo: jest.fn().mockRejectedValue(new Error("Runway 500")),
+  // UT-10-10: All providers fail → registry error propagates
+  it("UT-10-10: all providers fail → error from registry propagates", async () => {
+    const registry = {
+      generate: jest.fn().mockRejectedValue(new Error("All video providers failed.")),
+      getProviderStatus: jest.fn(),
     };
-    const pexels = {
-      searchAndDownload: jest.fn().mockRejectedValue(new Error("No Pexels results")),
-    };
-    const svc = await buildService(runway, pexels);
+    const svc = await buildService(registry);
 
-    const err: any = await svc.generateVideo(PARAMS).catch((e) => e);
-
-    expect(err.error).toBe("asset_generation_failed");
-    expect(err.sceneId).toBe(PARAMS.sceneId);
-    expect(err.reason).toBe("No Pexels results");
+    await expect(svc.generateVideo(PARAMS)).rejects.toThrow("All video providers failed.");
   });
 
-  it("passes correct aspectRatio to Pexels when Runway fails", async () => {
-    const runway = {
-      generateVideo: jest.fn().mockRejectedValue(new Error("Runway failed")),
+  it("passes correct params including aspectRatio to registry", async () => {
+    const registry = {
+      generate: jest.fn().mockResolvedValue({ s3Url: PEXELS_S3, provider: "pexels" }),
+      getProviderStatus: jest.fn(),
     };
-    const pexels = {
-      searchAndDownload: jest.fn().mockResolvedValue(PEXELS_S3),
-    };
-    const svc = await buildService(runway, pexels);
+    const svc = await buildService(registry);
 
     await svc.generateVideo({ ...PARAMS, aspectRatio: "9:16" });
 
-    expect(pexels.searchAndDownload).toHaveBeenCalledWith(
-      PARAMS.visualPrompt,
-      "9:16"
-    );
+    expect(registry.generate).toHaveBeenCalledWith({ ...PARAMS, aspectRatio: "9:16" });
   });
 });

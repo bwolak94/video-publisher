@@ -1,5 +1,4 @@
 import { INestApplication } from "@nestjs/common";
-import { BullBoardModule } from "@bull-board/nestjs";
 import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { FastifyAdapter } from "@bull-board/fastify";
 import { createBullBoard } from "@bull-board/api";

@@ -1,8 +1,9 @@
 """Unit tests for FEATURE-07 asset_validator — validate_single_asset / validate_assets."""
-import pytest
 from unittest.mock import AsyncMock, patch
 
-from app.services.asset_validator import validate_single_asset, validate_assets
+import pytest
+
+from app.services.asset_validator import validate_assets, validate_single_asset
 
 
 def _ffprobe_ok(codec_type: str, codec_name: str, duration: float = 5.0, fmt_name: str = "mp4") -> bytes:

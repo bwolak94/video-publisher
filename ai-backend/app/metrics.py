@@ -1,11 +1,11 @@
 """Prometheus metrics registry for ai-backend."""
 from prometheus_client import (
+    CONTENT_TYPE_LATEST,
     CollectorRegistry,
     Counter,
-    Histogram,
     Gauge,
+    Histogram,
     generate_latest,
-    CONTENT_TYPE_LATEST,
 )
 
 registry = CollectorRegistry()

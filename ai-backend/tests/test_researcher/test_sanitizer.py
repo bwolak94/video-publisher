@@ -4,7 +4,6 @@ from app.agents.researcher.sanitizer import (
     sanitize_content,
 )
 
-
 # ─── UT-02-07: sanitize_content wraps text in <news_content> delimiters ──────
 
 def test_sanitize_wraps_in_news_content_tags():

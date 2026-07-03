@@ -12,7 +12,6 @@ Returns the path to a temporary file; caller is responsible for deletion.
 """
 import asyncio
 import os
-import re
 import tempfile
 from urllib.parse import urlparse
 
@@ -111,7 +110,7 @@ async def _download_direct(url: str) -> str:
                     if downloaded > _MAX_BYTES:
                         tmp.close()
                         _safe_delete(tmp.name)
-                        raise ValueError(f"Video exceeds 500 MB limit")
+                        raise ValueError("Video exceeds 500 MB limit")
                     tmp.write(chunk)
 
         tmp.close()

@@ -2,10 +2,7 @@
 import time
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from app.agents.researcher.tools.rss_tool import _parse_feed_sync
-
 
 # ─── UT-02-03: Valid feed → list of NewsItems ─────────────────────────────────
 

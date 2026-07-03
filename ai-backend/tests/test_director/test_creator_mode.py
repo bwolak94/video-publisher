@@ -2,12 +2,9 @@
 import json
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 from app.agents.director.creator_mode import build_creator_graph, get_creator_graph
 from app.models.director import NicheProfile
 from app.models.storyboard import VideoStoryboard
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -61,9 +58,9 @@ def test_creator_graph_has_human_approval_node():
     assert "human_approval" in graph.nodes
 
 
-def test_creator_graph_compiled_with_interrupt():
+async def test_creator_graph_compiled_with_interrupt():
     """UT-03-07 (compiled): get_creator_graph() compiles with interrupt_before human_approval."""
-    compiled = get_creator_graph()
+    compiled = await get_creator_graph()
     # interrupt_before_nodes is the public attribute on CompiledStateGraph
     assert "human_approval" in compiled.interrupt_before_nodes
 
@@ -72,7 +69,7 @@ def test_creator_graph_compiled_with_interrupt():
 
 async def test_creator_mode_suspends_at_human_approval():
     """IT-03-03: Graph generates outline, then suspends at human_approval node."""
-    graph = get_creator_graph()
+    graph = await get_creator_graph()
     config = {"configurable": {"thread_id": "thread-it-03-03"}}
 
     with patch(
@@ -94,7 +91,7 @@ async def test_creator_mode_suspends_at_human_approval():
 
 async def test_creator_mode_resumes_after_approval():
     """IT-03-04: After aupdate_state(approved=True), graph produces VideoStoryboard."""
-    graph = get_creator_graph()
+    graph = await get_creator_graph()
     config = {"configurable": {"thread_id": "thread-it-03-04"}}
 
     # Stage 1: run until interrupt
@@ -125,7 +122,7 @@ async def test_creator_mode_resumes_after_approval():
 
 async def test_creator_mode_skips_storyboard_if_not_approved():
     """If outline_approved stays False, generate_storyboard node is not reached."""
-    graph = get_creator_graph()
+    graph = await get_creator_graph()
     config = {"configurable": {"thread_id": "thread-it-03-04b"}}
 
     with patch(

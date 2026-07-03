@@ -28,7 +28,7 @@ describe("YouTubeUploadService", () => {
     // The onProgress callback is called with bytesRead from googleapis.
     // We simulate the callback directly.
     const gateway = { broadcastUploadProgress: jest.fn() };
-    const service = makeService({ gateway });
+    const _service = makeService({ gateway });
 
     // Simulate the onProgress callback: 5MB read out of 50MB
     const totalBytes = 50 * 1024 * 1024;

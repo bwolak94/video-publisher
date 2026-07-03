@@ -8,7 +8,6 @@ export class MetricsController {
 
   @Get()
   async get(@Res() res: FastifyReply) {
-    res.header("Content-Type", this.metrics.contentType());
-    res.send(await this.metrics.getMetrics());
+    return res.header("Content-Type", this.metrics.contentType()).send(await this.metrics.getMetrics());
   }
 }

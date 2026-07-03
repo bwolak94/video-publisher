@@ -1,6 +1,5 @@
 """Job state models shared across agents."""
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -21,4 +20,4 @@ class FailedJob(BaseModel):
     attemptCount: int
     failedAt: datetime
     alertFired: bool = False
-    alertWebhookUrl: Optional[str] = None
+    alertWebhookUrl: str | None = None

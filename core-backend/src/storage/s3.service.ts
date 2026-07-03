@@ -4,7 +4,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Upload } from "@aws-sdk/lib-storage";
 import { Readable } from "stream";
 import pino from "pino";
-import { S3UploadError, S3ObjectNotFoundError, S3PermissionError, ConfigurationError } from "./s3-errors";
+import { S3UploadError, S3PermissionError, ConfigurationError } from "./s3-errors";
 
 const logger = pino({ level: "info" });
 const EXPECTED_REGION = "eu-central-1";
