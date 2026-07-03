@@ -16,9 +16,10 @@ import { DeduplicationService } from "../worker-mode/deduplication.service";
 import { CostModule } from "../cost/cost.module";
 import { AlertsModule } from "../alerts/alerts.module";
 import { MetricsModule } from "../metrics/metrics.module";
+import { QualityGatesModule } from "../quality/quality-gates.module";
 
 @Module({
-  imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule, RenderModule, CostModule, AlertsModule, MetricsModule],
+  imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule, RenderModule, CostModule, AlertsModule, MetricsModule, QualityGatesModule],
   controllers: [DlqController],
   providers: [
     QueueService,

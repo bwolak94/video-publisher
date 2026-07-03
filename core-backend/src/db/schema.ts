@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp, boolean, numeric } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, jsonb, timestamp, boolean, numeric, integer } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -20,6 +20,10 @@ export const projects = pgTable("projects", {
   /** Reference video URL and analysis brief (FEATURE-06) */
   referenceVideoUrl: text("reference_video_url"),
   referenceAnalysis: jsonb("reference_analysis"),
+  /** Quality gate results (FEATURE-07) */
+  preRenderValidation: jsonb("pre_render_validation"),
+  postRenderQuality: jsonb("post_render_quality"),
+  renderQualityScore: numeric("render_quality_score", { precision: 3, scale: 2 }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
