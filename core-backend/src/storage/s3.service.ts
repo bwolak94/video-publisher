@@ -106,4 +106,10 @@ export class S3Service {
       throw err;
     }
   }
+
+  /** Return the byte size of an S3 object via HeadObject. Throws if not found. */
+  async getObjectSize(path: string): Promise<number> {
+    const resp = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: path }));
+    return resp.ContentLength ?? 0;
+  }
 }

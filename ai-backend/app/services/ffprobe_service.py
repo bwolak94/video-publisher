@@ -187,6 +187,102 @@ async def extract_audio(path: str) -> str:
     return tmp.name
 
 
+async def probe_bitrates(path: str) -> tuple[float, float]:
+    """Return (video_kbps, audio_kbps) for a media file.
+
+    Uses ffprobe stream-level bit_rate fields. Falls back to format-level
+    bit_rate split 80/20 if per-stream values are missing.
+    """
+    cmd = [
+        "ffprobe",
+        "-v", "quiet",
+        "-print_format", "json",
+        "-show_streams",
+        "-show_format",
+        path,
+    ]
+    stdout, _ = await _run(cmd, timeout=30)
+    try:
+        data = json.loads(stdout)
+    except json.JSONDecodeError:
+        return 0.0, 0.0
+
+    video_kbps = 0.0
+    audio_kbps = 0.0
+    format_kbps = float(data.get("format", {}).get("bit_rate", 0)) / 1000.0
+
+    for stream in data.get("streams", []):
+        codec_type = stream.get("codec_type", "")
+        br = float(stream.get("bit_rate", 0)) / 1000.0
+        if codec_type == "video" and not video_kbps:
+            video_kbps = br
+        elif codec_type == "audio" and not audio_kbps:
+            audio_kbps = br
+
+    # Fallback: distribute format bitrate 80/20 if per-stream missing
+    if not video_kbps and not audio_kbps and format_kbps:
+        video_kbps = format_kbps * 0.8
+        audio_kbps = format_kbps * 0.2
+
+    return video_kbps, audio_kbps
+
+
+async def detect_black_frames(path: str, threshold: float = 0.98) -> int:
+    """Count black frame segments using FFmpeg blackdetect filter.
+
+    threshold: fraction of pixels that must be black (0.98 = 98%).
+    Each detected black segment (d ≥ 0.05s) counts as one.
+    """
+    cmd = [
+        "ffmpeg",
+        "-i", path,
+        "-vf", f"blackdetect=d=0.05:pix_th={threshold}",
+        "-an",
+        "-f", "null",
+        "-",
+    ]
+    _, stderr = await _run(cmd, timeout=120)
+
+    return sum(1 for line in stderr.splitlines() if b"black_start" in line)
+
+
+async def detect_frozen_frames(path: str, noise_db: float = -60.0, min_duration: float = 2.0) -> int:
+    """Count frozen-frame segments using FFmpeg freezedetect filter.
+
+    Returns count of continuous freeze segments (each ≥ min_duration seconds).
+    """
+    cmd = [
+        "ffmpeg",
+        "-i", path,
+        "-vf", f"freezedetect=n={noise_db}dB:d={min_duration}",
+        "-an",
+        "-f", "null",
+        "-",
+    ]
+    _, stderr = await _run(cmd, timeout=120)
+
+    return sum(1 for line in stderr.splitlines() if b"freeze_start" in line)
+
+
+async def count_scene_changes(path: str, threshold: float = 0.1) -> int:
+    """Count scene changes (cuts) using FFmpeg select filter.
+
+    Low count relative to duration → high slideshow risk.
+    """
+    cmd = [
+        "ffmpeg",
+        "-i", path,
+        "-vf", f"select='gt(scene,{threshold})',showinfo",
+        "-vsync", "vfr",
+        "-f", "null",
+        "-an",
+        "-",
+    ]
+    _, stderr = await _run(cmd, timeout=120)
+
+    return sum(1 for line in stderr.splitlines() if b"pts_time:" in line)
+
+
 async def _run(cmd: list[str], timeout: float = 60) -> tuple[bytes, bytes]:
     """Run a subprocess and return (stdout, stderr). Raises RuntimeError on non-zero exit."""
     proc = await asyncio.create_subprocess_exec(

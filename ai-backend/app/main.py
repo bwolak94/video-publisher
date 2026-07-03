@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse, Response
 from app.api.creator import router as creator_router
 from app.api.director import router as director_router
 from app.api.health import router as health_router
+from app.api.quality import router as quality_router
 from app.api.research import router as research_router
 from app.api.sources import router as sources_router
 from app.api.subtitles import router as subtitles_router
@@ -76,6 +77,7 @@ def create_app() -> FastAPI:
     app.include_router(creator_router)
     app.include_router(sources_router)
     app.include_router(subtitles_router)
+    app.include_router(quality_router)
 
     @app.get("/metrics", include_in_schema=False)
     async def metrics() -> Response:

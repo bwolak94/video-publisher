@@ -10,6 +10,8 @@ import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
 import { RenderService } from "../../render/render.service";
 import { VideoStoryboard } from "../../storyboard/video-storyboard";
 import { MetricsService } from "../../metrics/metrics.service";
+import { PreRenderValidatorService } from "../../quality/pre-render-validator.service";
+import { QualityGatesService } from "../../quality/quality-gates.service";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "render";
@@ -34,7 +36,9 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
     private readonly dlq: DlqService,
     private readonly gateway: EventsGateway,
     private readonly renderService: RenderService,
-    private readonly metrics: MetricsService
+    private readonly metrics: MetricsService,
+    private readonly preRenderValidator: PreRenderValidatorService,
+    private readonly qualityGates: QualityGatesService,
   ) {}
 
   onModuleInit() {
@@ -64,6 +68,19 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
   private async process(job: Job<RenderPayload>): Promise<void> {
     logger.info({ jobId: job.id, projectId: job.data.projectId }, "Dispatching render");
 
+    // ── Pre-render validation (FEATURE-07) ────────────────────────────────
+    const validation = await this.preRenderValidator.validate(job.data.storyboard);
+
+    // Persist validation result regardless of pass/fail (fire-and-forget)
+    this.qualityGates
+      .savePreRenderValidation(job.data.projectId, validation)
+      .catch((err) => logger.warn({ err }, "Failed to persist pre-render validation"));
+
+    if (!validation.passed) {
+      const summary = validation.errors.map((e) => e.message).join("; ");
+      throw new Error(`Pre-render validation failed: ${summary}`);
+    }
+
     // Jitter (per task rule #2)
     await this.sleep(Math.random() * 500);
 
@@ -72,9 +89,16 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
     const timeoutError = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("Render timeout (30 min)")), RENDER_TIMEOUT_MS)
     );
-    await Promise.race([this.dispatchRender(job.data), timeoutError]);
+    const renderedS3Url = await Promise.race([this.dispatchRender(job.data), timeoutError]);
 
     await job.updateProgress(100);
+
+    // ── Post-render quality analysis (FEATURE-07) — non-blocking ──────────
+    this.qualityGates
+      .analyzeAndSave(job.data.projectId, renderedS3Url)
+      .catch((err) =>
+        logger.warn({ err, projectId: job.data.projectId }, "Post-render quality analysis failed (non-blocking)")
+      );
   }
 
   protected async dispatchRender(payload: RenderPayload): Promise<string> {
