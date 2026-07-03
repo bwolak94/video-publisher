@@ -1,8 +1,8 @@
 """Source material ingestion endpoint for Creator Mode RAG."""
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status
 import structlog
+from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
-from app.rag.db import get_pool, ensure_schema
+from app.rag.db import ensure_schema, get_pool
 from app.rag.ingestion import ingest_text
 
 router = APIRouter(prefix="/api/projects", tags=["sources"])

@@ -1,5 +1,5 @@
 """Pydantic v2 models for the Director Agent pipeline."""
-from typing import Annotated, Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -39,7 +39,7 @@ class NicheProfile(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     name: str = "default"
-    extends: Optional[str] = None          # name of built-in preset to inherit from
+    extends: str | None = None          # name of built-in preset to inherit from
     toneProfile: Literal["informative", "comedic", "edgy", "educational"] = "informative"
     hookPattern: str = "Opens with a compelling statement"
     visualVocabulary: list[str] = []
@@ -65,9 +65,9 @@ class DirectorJobPayload(BaseModel):
     channelId: str
     mode: Literal["worker", "creator"] = "worker"
     # Worker Mode: research report forwarded from Researcher Agent
-    researchReport: Optional[dict] = None
+    researchReport: dict | None = None
     # Creator Mode: free-form user topic
-    userPrompt: Optional[str] = None
+    userPrompt: str | None = None
     nicheProfile: NicheProfile = Field(default_factory=NicheProfile)
     targetSceneCount: int = Field(8, ge=1, le=20)
     targetDurationSeconds: int = Field(40, ge=10, le=3600)
@@ -92,8 +92,8 @@ class StoryboardGenerationResult(BaseModel):
 
     channelId: str
     # Populated after full generation
-    storyboard: Optional[dict] = None
+    storyboard: dict | None = None
     # Populated in Creator Mode before approval
-    outline: Optional[list[OutlineItem]] = None
+    outline: list[OutlineItem] | None = None
     awaitingApproval: bool = False
-    error: Optional[str] = None
+    error: str | None = None

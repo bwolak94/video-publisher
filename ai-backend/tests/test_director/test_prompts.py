@@ -1,7 +1,10 @@
 """Unit tests for Director Agent prompt builder — UT-03-01, UT-03-02, UT-06-01, UT-06-02."""
-from app.agents.director.prompts import build_worker_prompt, build_outline_prompt, build_full_storyboard_prompt
+from app.agents.director.prompts import (
+    build_full_storyboard_prompt,
+    build_outline_prompt,
+    build_worker_prompt,
+)
 from app.models.director import DEFAULT_NICHE_PROFILE, NicheProfile
-
 
 # ─── UT-03-01: Prompt includes NicheProfile block ─────────────────────────────
 

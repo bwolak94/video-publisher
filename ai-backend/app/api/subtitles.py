@@ -4,11 +4,9 @@ FastAPI router for subtitle/transcription endpoints (FEATURE-04).
 
 from __future__ import annotations
 
-from typing import Annotated
-
 import structlog
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, HttpUrl, field_validator
+from pydantic import BaseModel, field_validator
 
 from app.services import whisper_local
 

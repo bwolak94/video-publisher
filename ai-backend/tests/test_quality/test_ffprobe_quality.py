@@ -1,13 +1,14 @@
 """Unit tests for FEATURE-07 ffprobe extensions — probe_bitrates, detect_black_frames,
 detect_frozen_frames, count_scene_changes.
 """
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from app.services.ffprobe_service import (
+    count_scene_changes,
     detect_black_frames,
     detect_frozen_frames,
-    count_scene_changes,
     probe_bitrates,
 )
 

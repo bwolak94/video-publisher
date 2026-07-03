@@ -12,7 +12,7 @@ Implements the full Worker Mode research pipeline:
 Called from POST /api/research/run (app/api/research.py).
 """
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 
@@ -51,7 +51,7 @@ class ResearchJobHandler:
             return self._skipped(payload.channelId, "no_articles_fetched")
 
         # ── Steps 2-4: Dedup + score ─────────────────────────────────────────
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         weights: ViralityWeights = payload.viralityWeights
         scored: list[tuple[float, NewsItem]] = []
 
@@ -122,5 +122,5 @@ class ResearchJobHandler:
             channelId=channel_id,
             skipped=True,
             skipReason=reason,
-            generatedAt=datetime.now(timezone.utc),
+            generatedAt=datetime.now(UTC),
         )

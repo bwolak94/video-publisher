@@ -8,7 +8,6 @@ from httpx import ASGITransport, AsyncClient
 
 from app.models.storyboard import VideoStoryboard
 
-
 # ---------------------------------------------------------------------------
 # IT-01-01: GET /health → HTTP 200, {"status": "ok"}
 # ---------------------------------------------------------------------------

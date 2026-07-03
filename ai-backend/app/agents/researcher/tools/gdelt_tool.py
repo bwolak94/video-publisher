@@ -2,7 +2,7 @@
 
 Circuit-breaker: returns [] on any exception.
 """
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 import structlog
@@ -34,7 +34,7 @@ async def fetch_gdelt(query: str, max_records: int = 10) -> list[NewsItem]:
             items.append(NewsItem(
                 title=article.get("title", "").strip(),
                 url=article.get("url", ""),
-                publishedAt=datetime.now(timezone.utc),  # GDELT timestamp format varies
+                publishedAt=datetime.now(UTC),  # GDELT timestamp format varies
                 source="GDELT",
                 content=article.get("seendate", ""),
             ))

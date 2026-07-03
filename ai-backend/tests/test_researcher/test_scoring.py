@@ -1,11 +1,10 @@
 """Unit tests for virality scoring — UT-02-01, UT-02-02."""
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from app.agents.researcher.scoring import calculate_virality_score, compute_recency_score
 from app.models.research import ViralityWeights
-
 
 # ─── UT-02-01: All weights = 0.25, known inputs → expected float ──────────────
 
@@ -96,34 +95,34 @@ def test_virality_score_high_duplicate_penalty_drops_score():
 # ─── recency_score helper ──────────────────────────────────────────────────────
 
 def test_recency_score_just_published():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     score = compute_recency_score(published_at=now, now=now)
     assert score == pytest.approx(1.0)
 
 
 def test_recency_score_48h_old_is_zero():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     old = now - timedelta(hours=48)
     score = compute_recency_score(published_at=old, now=now, window_hours=48)
     assert score == pytest.approx(0.0)
 
 
 def test_recency_score_24h_old_is_half():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     published = now - timedelta(hours=24)
     score = compute_recency_score(published_at=published, now=now, window_hours=48)
     assert score == pytest.approx(0.5)
 
 
 def test_recency_score_older_than_window_clamped_to_zero():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     old = now - timedelta(hours=100)
     score = compute_recency_score(published_at=old, now=now, window_hours=48)
     assert score == 0.0
 
 
 def test_recency_score_naive_datetime_treated_as_utc():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     naive = now.replace(tzinfo=None)
     score = compute_recency_score(published_at=naive, now=now)
     assert score == pytest.approx(1.0, abs=0.01)

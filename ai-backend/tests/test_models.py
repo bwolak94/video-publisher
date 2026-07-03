@@ -2,13 +2,11 @@
 
 Covers UT-01-01 through UT-01-08.
 """
-import os
 
 import pytest
 from pydantic import ValidationError
 
-from app.models.storyboard import Scene, StoryboardMeta, VideoStoryboard
-
+from app.models.storyboard import Scene, VideoStoryboard
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -1,6 +1,6 @@
 """Unit tests for Redis dedup service — UT-02-05, UT-02-06."""
-import pytest
 import fakeredis.aioredis
+import pytest
 
 from app.agents.researcher.dedup import DedupService
 

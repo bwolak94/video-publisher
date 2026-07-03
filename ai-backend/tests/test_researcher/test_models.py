@@ -1,11 +1,10 @@
 """Unit tests for ResearchReport model — UT-02-08."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
 
-from app.models.research import ResearchReport, ResearchJobPayload, ViralityWeights
-
+from app.models.research import ResearchJobPayload, ResearchReport, ViralityWeights
 
 # ─── UT-02-08: ResearchReport with missing required field raises ValidationError
 
@@ -14,7 +13,7 @@ def test_research_report_missing_channel_id():
     with pytest.raises(ValidationError) as exc_info:
         ResearchReport(
             # channelId intentionally omitted
-            generatedAt=datetime.now(timezone.utc),
+            generatedAt=datetime.now(UTC),
         )
     errors = exc_info.value.errors()
     assert any("channelId" in str(e["loc"]) for e in errors)
@@ -32,7 +31,7 @@ def test_research_report_virality_score_out_of_range():
         ResearchReport(
             channelId="chan-123",
             viralityScore=1.5,
-            generatedAt=datetime.now(timezone.utc),
+            generatedAt=datetime.now(UTC),
         )
 
 
@@ -42,7 +41,7 @@ def test_research_report_valid_minimal():
         channelId="chan-abc",
         skipped=True,
         skipReason="no_topic_above_threshold",
-        generatedAt=datetime.now(timezone.utc),
+        generatedAt=datetime.now(UTC),
     )
     assert report.skipped is True
     assert report.selectedTopic is None
@@ -57,7 +56,7 @@ def test_research_report_valid_full():
         keyFacts=["GPT-5 outperforms GPT-4", "Released today"],
         sourceUrls=["https://example.com/gpt5"],
         rawSummary="OpenAI announced GPT-5 today.",
-        generatedAt=datetime.now(timezone.utc),
+        generatedAt=datetime.now(UTC),
     )
     assert report.viralityScore == 0.87
     assert len(report.keyFacts) == 2

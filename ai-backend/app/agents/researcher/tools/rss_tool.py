@@ -4,7 +4,7 @@ Wraps feedparser (sync) in asyncio.to_thread so it doesn't block the event loop.
 Circuit-breaker rule: exceptions are caught and logged; returns [] on failure.
 """
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import feedparser
 import structlog
@@ -22,9 +22,9 @@ def _parse_feed_sync(url: str) -> list[NewsItem]:
         for entry in feed.entries:
             parsed_time = entry.get("published_parsed")
             if parsed_time:
-                dt = datetime(*parsed_time[:6], tzinfo=timezone.utc)
+                dt = datetime(*parsed_time[:6], tzinfo=UTC)
             else:
-                dt = datetime.now(timezone.utc)
+                dt = datetime.now(UTC)
 
             items.append(NewsItem(
                 title=entry.get("title", "").strip(),

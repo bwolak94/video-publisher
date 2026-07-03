@@ -1,6 +1,6 @@
 """Pydantic v2 models for the Researcher Agent pipeline."""
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -48,10 +48,10 @@ class ResearchReport(BaseModel):
 
     channelId: str
     skipped: bool = False
-    skipReason: Optional[str] = None
-    selectedTopic: Optional[str] = None
-    viralityScore: Optional[float] = Field(None, ge=0.0, le=1.0)
+    skipReason: str | None = None
+    selectedTopic: str | None = None
+    viralityScore: float | None = Field(None, ge=0.0, le=1.0)
     keyFacts: list[str] = []
     sourceUrls: list[str] = []
-    rawSummary: Optional[str] = None
+    rawSummary: str | None = None
     generatedAt: datetime

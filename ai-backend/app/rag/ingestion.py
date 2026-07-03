@@ -1,8 +1,8 @@
 """Source material ingestion: chunk → embed → store in pgvector."""
 import uuid
-import structlog
 
 import asyncpg
+import structlog
 
 from app.rag.chunker import chunk_text
 from app.rag.embeddings import embed_texts

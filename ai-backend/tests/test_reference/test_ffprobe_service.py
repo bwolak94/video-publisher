@@ -7,14 +7,12 @@ Tests cover:
   - detect_scenes timestamp parsing
   - measure_audio_loudness LUFS parsing
 """
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.services.ffprobe_service import VideoStructure, _run, detect_scenes, measure_audio_loudness
 from app.services.reference_analyzer import _classify_pacing
-
 
 # ─── _classify_pacing ─────────────────────────────────────────────────────────
 

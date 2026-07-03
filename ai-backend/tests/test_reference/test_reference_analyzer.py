@@ -4,15 +4,13 @@ Tests use mocked ffprobe/ffmpeg calls and mocked OpenAI so no network or
 subprocess is involved. Verifies the full pipeline assembles correctly and
 degrades gracefully on partial failures.
 """
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.models.reference_analysis import AudioAnalysis, ReferenceAnalysisBrief
 from app.services.ffprobe_service import VideoStructure
-from app.services.reference_analyzer import _classify_pacing, _synthesize_brief
-
+from app.services.reference_analyzer import _synthesize_brief
 
 # ─── _synthesize_brief ────────────────────────────────────────────────────────
 

@@ -16,7 +16,7 @@ All subprocess calls delegate to ffprobe_service.py so they are fully async.
 """
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 import structlog
@@ -180,7 +180,6 @@ def _safe_delete(path: str) -> None:
 
 async def _measure_true_peak(path: str) -> float:
     """Parse true peak dBFS from ebur128 stderr output."""
-    import asyncio
     cmd = [
         "ffmpeg",
         "-i", path,
@@ -272,7 +271,7 @@ async def analyze_rendered_video(video_url: str) -> QualityReport:
             blackFrameCount=black_frames,
             frozenFrameCount=frozen_frames,
             issues=issues,
-            analyzedAt=datetime.now(timezone.utc).isoformat(),
+            analyzedAt=datetime.now(UTC).isoformat(),
         )
 
         logger.info(

@@ -2,17 +2,17 @@
 
 All FFprobe/FFmpeg calls and HTTP downloads are mocked.
 """
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.models.quality_report import QualityReport
 from app.services.ffprobe_service import VideoStructure
 from app.services.post_render_analyzer import (
-    _compute_slideshow_risk,
     _build_issues_and_score,
+    _compute_slideshow_risk,
     analyze_rendered_video,
 )
-
 
 # ─── _compute_slideshow_risk ──────────────────────────────────────────────────
 

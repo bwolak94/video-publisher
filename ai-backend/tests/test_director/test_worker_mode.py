@@ -2,13 +2,9 @@
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-from pydantic import ValidationError
-
 from app.agents.director.job_handler import DirectorJobHandler
 from app.models.director import DirectorJobPayload, NicheProfile
 from app.models.storyboard import VideoStoryboard
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 

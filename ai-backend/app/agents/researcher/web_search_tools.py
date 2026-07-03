@@ -8,8 +8,6 @@ Tool availability:
   - RedditTool    — No key; uses public Reddit JSON search endpoint
   - DuckDuckGoTool — No key; uses DDG instant answers as baseline context
 """
-import asyncio
-import json
 from typing import Literal
 from urllib.parse import quote_plus
 

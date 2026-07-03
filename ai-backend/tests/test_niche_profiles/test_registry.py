@@ -1,9 +1,7 @@
 """Unit tests for ProfileRegistry — UT-06-01 through UT-06-08."""
 import textwrap
-from pathlib import Path
 
 import pytest
-import yaml
 from pydantic import ValidationError
 
 from app.models.director import NicheProfile, ProfileViralityWeights

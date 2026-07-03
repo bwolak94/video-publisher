@@ -1,18 +1,14 @@
 """Unit + integration tests for DirectorRetryOrchestrator — UT-05-01 through IT-05-02."""
-import asyncio
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import fakeredis.aioredis
 import pytest
-from pydantic import ValidationError
 
 from app.agents.quality_reviewer.reviewer import QualityReviewer
 from app.agents.retry.orchestrator import DirectorRetryOrchestrator, DLQEscalationError
 from app.models.director import DirectorJobPayload, NicheProfile
 from app.models.job import FailedJob
 from app.models.storyboard import Scene, StoryboardMeta, VideoStoryboard
-
 
 # ── Fixtures & helpers ─────────────────────────────────────────────────────────
 
@@ -268,7 +264,6 @@ async def test_dlq_escalation_writes_failed_job(reviewer, fake_redis):
 
 async def test_full_loop_two_rejections_dlq_escalation(reviewer, fake_redis, caplog):
     """IT-05-01: Real QualityReviewer, Director mocked to fail twice → DLQ fires."""
-    import logging
 
     dlq_calls: list[FailedJob] = []
 

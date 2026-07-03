@@ -1,6 +1,6 @@
-from contextlib import asynccontextmanager
-from typing import AsyncIterator
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI, Request
