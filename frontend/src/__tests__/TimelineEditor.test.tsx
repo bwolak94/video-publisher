@@ -57,6 +57,10 @@ const makeSceneState = (overrides: Partial<SceneState> = {}): SceneState => ({
 beforeEach(() => {
   useTimelineStore.setState({ scenes: {}, sceneOrder: [] });
   jest.clearAllMocks();
+  (global.fetch as jest.Mock).mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({}),
+  });
 });
 
 // ─── Unit Tests: SceneCard equality function ───────────────────────────────
