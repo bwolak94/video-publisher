@@ -14,6 +14,7 @@ from app.api.quality import router as quality_router
 from app.api.research import router as research_router
 from app.api.sources import router as sources_router
 from app.api.subtitles import router as subtitles_router
+from app.api.tts import router as tts_router
 from app.config import get_settings
 from app.logging_config import setup_logging
 from app.metrics import metrics_output
@@ -78,6 +79,7 @@ def create_app() -> FastAPI:
     app.include_router(sources_router)
     app.include_router(subtitles_router)
     app.include_router(quality_router)
+    app.include_router(tts_router)
 
     @app.get("/metrics", include_in_schema=False)
     async def metrics() -> Response:

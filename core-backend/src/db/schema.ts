@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp, boolean, numeric } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, jsonb, timestamp, boolean, numeric, index } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -24,6 +24,8 @@ export const projects = pgTable("projects", {
   preRenderValidation: jsonb("pre_render_validation"),
   postRenderQuality: jsonb("post_render_quality"),
   renderQualityScore: numeric("render_quality_score", { precision: 3, scale: 2 }),
+  /** Cumulative spend across all per-action approvals (FEATURE-09) */
+  totalSpentUsd: numeric("total_spent_usd", { precision: 10, scale: 4 }).default("0.0000"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
@@ -145,3 +147,24 @@ export const musicCache = pgTable("music_cache", {
 
 export type MusicCache = typeof musicCache.$inferSelect;
 export type NewMusicCache = typeof musicCache.$inferInsert;
+
+/** Per-action approval audit log (FEATURE-09). */
+export const approvalLog = pgTable(
+  "approval_log",
+  {
+    id:            uuid("id").primaryKey().defaultRandom(),
+    projectId:     uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    sceneId:       text("scene_id"),
+    action:        text("action").notNull(),    // "regenerate_visual" | "update_voice" | "render"
+    provider:      text("provider").notNull(),
+    estimatedCost: numeric("estimated_cost", { precision: 8, scale: 4 }),
+    actualCost:    numeric("actual_cost",    { precision: 8, scale: 4 }),
+    approvedBy:    text("approved_by"),        // "user" | "auto"
+    decision:      text("decision").notNull(), // "approved" | "rejected"
+    decidedAt:     timestamp("decided_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({ idx_approval_log_project_id: index("idx_approval_log_project_id").on(t.projectId) }),
+);
+
+export type ApprovalLog    = typeof approvalLog.$inferSelect;
+export type NewApprovalLog = typeof approvalLog.$inferInsert;

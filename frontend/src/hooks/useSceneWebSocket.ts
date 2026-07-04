@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useTimelineStore } from "@/store/timelineStore";
+import type { ApprovalRequest } from "@/components/timeline/BudgetApprovalModal";
 
 interface StepCompletedEvent {
   type: "step_completed";
@@ -14,17 +15,30 @@ interface StepFailedEvent {
   sceneId: string;
 }
 
-type WsEvent = StepCompletedEvent | StepFailedEvent;
+interface ApprovalRequiredEvent {
+  event: "approval_required";
+  jobId: string;
+  estimatedCost: number;
+  provider: string;
+  action: string;
+  sceneId?: string;
+}
+
+type WsEvent = StepCompletedEvent | StepFailedEvent | ApprovalRequiredEvent;
 
 const DEFAULT_WS_URL = "ws://localhost:3002";
 
 /**
  * Connects to the backend WebSocket and handles scene regeneration progress events.
  *
- * step_completed → markSceneClean (or updateSceneUrls if new URLs provided)
- * step_failed    → markSceneStatus("error") — isDirty intentionally stays true
+ * step_completed    → markSceneClean (or updateSceneUrls if new URLs provided)
+ * step_failed       → markSceneStatus("error") — isDirty stays true
+ * approval_required → calls onApprovalRequired callback (FEATURE-09)
  */
-export function useSceneWebSocket(projectId: string | null): void {
+export function useSceneWebSocket(
+  projectId: string | null,
+  onApprovalRequired?: (req: ApprovalRequest) => void,
+): void {
   useEffect(() => {
     if (!projectId) return;
 
@@ -41,7 +55,7 @@ export function useSceneWebSocket(projectId: string | null): void {
 
       const store = useTimelineStore.getState();
 
-      if (data.type === "step_completed") {
+      if ("type" in data && data.type === "step_completed") {
         if (data.audioUrl || data.videoUrl) {
           const current = store.scenes[data.sceneId];
           store.updateSceneUrls(
@@ -52,14 +66,21 @@ export function useSceneWebSocket(projectId: string | null): void {
         } else {
           store.markSceneClean(data.sceneId);
         }
-      } else if (data.type === "step_failed") {
-        // isDirty remains true — failure does not clear dirty flag (Rule 2)
+      } else if ("type" in data && data.type === "step_failed") {
         store.markSceneStatus(data.sceneId, "error");
+      } else if ("event" in data && data.event === "approval_required") {
+        onApprovalRequired?.({
+          jobId: data.jobId,
+          estimatedCost: data.estimatedCost,
+          provider: data.provider,
+          action: data.action,
+          sceneId: data.sceneId,
+        });
       }
     };
 
     return () => {
       ws.close();
     };
-  }, [projectId]);
+  }, [projectId, onApprovalRequired]);
 }

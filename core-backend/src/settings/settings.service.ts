@@ -52,6 +52,7 @@ export interface SettingsDto {
     minViralityScore: number;
     dedupWindowHours: number;
     aiBackendUrl: string;
+    piperModelsDir: string;
   };
   alerts: {
     slackWebhookUrl: string;
@@ -68,6 +69,7 @@ export interface SettingsDto {
     runwayPerScene: string;
     dalle3PerImage: string;
     lambdaPerMin: string;
+    approvalThresholdUsd: string;
   };
 }
 
@@ -121,6 +123,7 @@ export class SettingsService {
         minViralityScore: parseFloat(get("worker.minViralityScore", "0.65")),
         dedupWindowHours: parseInt(get("worker.dedupWindowHours", "48"), 10),
         aiBackendUrl: get("worker.aiBackendUrl", "http://localhost:8000"),
+        piperModelsDir: get("worker.piperModelsDir", "/models/piper"),
       },
       alerts: {
         slackWebhookUrl: get("alerts.slackWebhookUrl", ""),
@@ -137,6 +140,7 @@ export class SettingsService {
         runwayPerScene: get("costRates.runwayPerScene", "0.15"),
         dalle3PerImage: get("costRates.dalle3PerImage", "0.04"),
         lambdaPerMin: get("costRates.lambdaPerMin", "0.001"),
+        approvalThresholdUsd: get("costRates.approvalThresholdUsd", "0.50"),
       },
     };
   }

@@ -5,6 +5,7 @@ import { VirtualizedSceneList } from "./VirtualizedSceneList";
 import { PreviewPanel } from "./PreviewPanel";
 import { RestoreBanner } from "./RestoreBanner";
 import { MusicPanel } from "./MusicPanel";
+import { BudgetApprovalModal, type ApprovalRequest } from "./BudgetApprovalModal";
 import { useSceneWebSocket } from "@/hooks/useSceneWebSocket";
 import { usePersistTimeline } from "@/hooks/usePersistTimeline";
 import {
@@ -27,8 +28,23 @@ export function TimelineEditor({
   onRender,
   serverUpdatedAt,
 }: TimelineEditorProps) {
-  // Connect WS for live step_completed / step_failed events (TASK-18)
-  useSceneWebSocket(projectId ?? null);
+  // Budget approval modal state (FEATURE-09)
+  const [approvalRequest, setApprovalRequest] = useState<ApprovalRequest | null>(null);
+
+  const handleApprovalRequired = useCallback((req: ApprovalRequest) => {
+    setApprovalRequest(req);
+  }, []);
+
+  const handleApprove = useCallback((_jobId: string) => {
+    setApprovalRequest(null);
+  }, []);
+
+  const handleReject = useCallback((_jobId: string) => {
+    setApprovalRequest(null);
+  }, []);
+
+  // Connect WS for live step_completed / step_failed / approval_required events
+  useSceneWebSocket(projectId ?? null, handleApprovalRequired);
 
   // Auto-persist timeline changes to localStorage/IndexedDB (TASK-21)
   usePersistTimeline(projectId);
@@ -74,6 +90,13 @@ export function TimelineEditor({
       className="flex flex-col h-screen bg-gray-50"
       data-testid="timeline-editor"
     >
+      {approvalRequest && (
+        <BudgetApprovalModal
+          request={approvalRequest}
+          onApprove={handleApprove}
+          onReject={handleReject}
+        />
+      )}
       <TimelineHeader onRender={onRender} projectId={projectId} />
 
       {draft && (
