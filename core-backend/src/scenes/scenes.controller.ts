@@ -1,9 +1,12 @@
-import { Controller, Get, Post, Param, Body, HttpCode, HttpStatus, NotFoundException, HttpException } from "@nestjs/common";
+import { Controller, Get, Post, Param, Body, HttpCode, HttpStatus, NotFoundException, HttpException, Query } from "@nestjs/common";
 import pino from "pino";
 import { ScenesService } from "./scenes.service";
 import { VideoAssetService } from "../media/video-asset.service";
 import { ElevenLabsService } from "../elevenlabs/elevenlabs.service";
 import { TtsProviderRegistry } from "../elevenlabs/tts-provider-registry";
+import { BudgetApprovalGate, type ActionType } from "../cost/budget-approval-gate";
+import { ApprovalLogService } from "../cost/approval-log.service";
+import { EventsGateway } from "../gateway/events.gateway";
 import type { VideoStoryboard } from "../storyboard/video-storyboard";
 
 const logger = pino({ level: "info" });
@@ -39,12 +42,64 @@ export class ScenesController {
     private readonly videoAsset: VideoAssetService,
     private readonly elevenLabs: ElevenLabsService,
     private readonly ttsRegistry: TtsProviderRegistry,
+    private readonly approvalGate: BudgetApprovalGate,
+    private readonly approvalLog: ApprovalLogService,
+    private readonly gateway: EventsGateway,
   ) {}
 
   /** Returns all registered providers and their availability + scores */
   @Get("video-providers")
   async getVideoProviders() {
     return this.videoAsset.getProviderStatus();
+  }
+
+  /**
+   * Estimate cost for a scene action (FEATURE-09).
+   * GET /api/scenes/:sceneId/cost-estimate?action=regenerate_visual
+   */
+  @Get(":sceneId/cost-estimate")
+  async getCostEstimate(
+    @Param("sceneId") sceneId: string,
+    @Query("action") action: ActionType = "regenerate_visual",
+  ): Promise<{ estimatedCost: number; provider: string; requiresApproval: boolean; threshold: number }> {
+    let narrationTextLength = 0;
+    try {
+      const found = await this.scenesService.findScene(sceneId);
+      narrationTextLength = found.scene.narrationText.length;
+    } catch {
+      // Scene not in DB — use default
+    }
+
+    const estimate = this.approvalGate.estimateAction(action, { narrationTextLength });
+    return { ...estimate, threshold: this.approvalGate.getThreshold() };
+  }
+
+  /**
+   * Approve a pending action (FEATURE-09).
+   * POST /api/scenes/approval/:jobId/approve
+   */
+  @Post("approval/:jobId/approve")
+  @HttpCode(HttpStatus.OK)
+  approveAction(@Param("jobId") jobId: string): { ok: boolean } {
+    const resolved = this.approvalGate.approveJob(jobId);
+    if (!resolved) {
+      throw new HttpException({ error: "Unknown or expired jobId" }, 404);
+    }
+    return { ok: true };
+  }
+
+  /**
+   * Reject a pending action (FEATURE-09).
+   * POST /api/scenes/approval/:jobId/reject
+   */
+  @Post("approval/:jobId/reject")
+  @HttpCode(HttpStatus.OK)
+  rejectAction(@Param("jobId") jobId: string): { ok: boolean } {
+    const resolved = this.approvalGate.rejectJob(jobId);
+    if (!resolved) {
+      throw new HttpException({ error: "Unknown or expired jobId" }, 404);
+    }
+    return { ok: true };
   }
 
   @Post(":sceneId/regenerate-visual")
@@ -69,6 +124,13 @@ export class ScenesController {
 
     logger.info({ sceneId, visualPrompt }, "Regenerating visual for scene");
 
+    // Budget approval gate (FEATURE-09)
+    const estimate = this.approvalGate.estimateAction("regenerate_visual", {});
+    const approvedBy = await this.runApprovalGate(estimate, "regenerate_visual", sceneId, projectId);
+    if (approvedBy === "rejected") {
+      throw new HttpException({ error: "Action rejected by user" }, 402);
+    }
+
     let result: { s3Url: string; provider: string };
     try {
       result = await this.videoAsset.generateVideo({
@@ -90,6 +152,18 @@ export class ScenesController {
     if (projectId) {
       // Store s3:// in DB (render worker needs it); also store provider name
       await this.scenesService.updateSceneVideoUrl(projectId, sceneId, result.s3Url, result.provider);
+      await this.approvalLog.log({
+        projectId,
+        sceneId,
+        action: "regenerate_visual",
+        provider: result.provider,
+        estimatedCost: estimate.estimatedCost,
+        approvedBy: approvedBy === "auto" ? "auto" : "user",
+        decision: "approved",
+      }).catch(() => {});
+      if (estimate.estimatedCost > 0) {
+        await this.approvalLog.incrementProjectSpend(projectId, estimate.estimatedCost).catch(() => {});
+      }
     }
 
     logger.info({ sceneId, videoUrl, provider: result.provider }, "Visual regenerated");
@@ -138,6 +212,16 @@ export class ScenesController {
 
     logger.info({ sceneId, voiceId }, "Generating voice for scene");
 
+    // Budget approval gate (FEATURE-09)
+    const voiceEstimate = this.approvalGate.estimateAction("update_voice", {
+      narrationTextLength: narrationText.length,
+      provider: voiceId,
+    });
+    const approvedBy = await this.runApprovalGate(voiceEstimate, "update_voice", sceneId, projectId);
+    if (approvedBy === "rejected") {
+      throw new HttpException({ error: "Action rejected by user" }, 402);
+    }
+
     let rawUrl: string;
     try {
       rawUrl = await this.ttsRegistry.generateAudio({
@@ -166,9 +250,64 @@ export class ScenesController {
     if (projectId) {
       // Store the s3:// URL in DB so the render worker can process it
       await this.scenesService.updateSceneAudioUrl(projectId, sceneId, rawUrl);
+      await this.approvalLog.log({
+        projectId,
+        sceneId,
+        action: "update_voice",
+        provider: voiceId,
+        estimatedCost: voiceEstimate.estimatedCost,
+        approvedBy: approvedBy === "auto" ? "auto" : "user",
+        decision: "approved",
+      }).catch(() => {});
     }
 
     logger.info({ sceneId, audioUrl }, "Voice updated");
     return { audioUrl };
+  }
+
+  // ── Private ────────────────────────────────────────────────────────────────
+
+  /**
+   * Check estimate against threshold.
+   * - Under threshold → "auto" (proceed immediately)
+   * - Over threshold → emit WS event, await user decision
+   * - Returns "auto" | "user" | "rejected"
+   */
+  private async runApprovalGate(
+    estimate: { estimatedCost: number; provider: string; requiresApproval: boolean },
+    action: ActionType,
+    sceneId: string,
+    projectId: string | undefined,
+  ): Promise<"auto" | "user" | "rejected"> {
+    if (!estimate.requiresApproval) return "auto";
+    if (!projectId) return "auto"; // No project context → skip gate (e.g. stateless call)
+
+    const jobId = this.approvalGate.createJobId();
+    const pending = this.approvalGate.createPendingApproval(jobId);
+
+    this.gateway.emitApprovalRequired(projectId, {
+      jobId,
+      estimatedCost: estimate.estimatedCost,
+      provider: estimate.provider,
+      action,
+      sceneId,
+    });
+
+    try {
+      await pending;
+      return "user";
+    } catch {
+      // Rejected or timed out
+      await this.approvalLog.log({
+        projectId,
+        sceneId,
+        action,
+        provider: estimate.provider,
+        estimatedCost: estimate.estimatedCost,
+        approvedBy: "user",
+        decision: "rejected",
+      }).catch(() => {});
+      return "rejected";
+    }
   }
 }

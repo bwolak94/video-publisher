@@ -69,6 +69,7 @@ export interface SettingsDto {
     runwayPerScene: string;
     dalle3PerImage: string;
     lambdaPerMin: string;
+    approvalThresholdUsd: string;
   };
 }
 
@@ -139,6 +140,7 @@ export class SettingsService {
         runwayPerScene: get("costRates.runwayPerScene", "0.15"),
         dalle3PerImage: get("costRates.dalle3PerImage", "0.04"),
         lambdaPerMin: get("costRates.lambdaPerMin", "0.001"),
+        approvalThresholdUsd: get("costRates.approvalThresholdUsd", "0.50"),
       },
     };
   }

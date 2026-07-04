@@ -1,5 +1,5 @@
 "use client";
-import React, { memo, useCallback, useState } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { useTimelineStore } from "@/store/timelineStore";
 import type { SceneState } from "@/store/timelineStore";
 import { SceneThumbnail } from "./SceneThumbnail";
@@ -71,6 +71,19 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
   const [showVideoUrlInput, setShowVideoUrlInput] = useState(false);
   const [videoUrlInput, setVideoUrlInput] = useState("");
   const [selectedVoiceId, setSelectedVoiceId] = useState(ELEVENLABS_VOICES[0].voiceId);
+  const [visualCostEst, setVisualCostEst] = useState<string | null>(null);
+
+  // Fetch cost estimate for visual regeneration once per scene (FEATURE-09)
+  useEffect(() => {
+    fetch(`/api/scenes/${sceneId}/cost-estimate?action=regenerate_visual`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { estimatedCost?: number } | null) => {
+        if (data?.estimatedCost != null) {
+          setVisualCostEst(data.estimatedCost === 0 ? "free" : `~$${data.estimatedCost.toFixed(2)}`);
+        }
+      })
+      .catch(() => {});
+  }, [sceneId]);
 
   const handleVisualPromptChange = useCallback(
     (value: string) => {
@@ -243,6 +256,7 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
             onChange={handleVisualPromptChange}
             onRegenerate={handleRegenerate}
             isRegenerating={scene.status === "regenerating"}
+            costBadge={visualCostEst}
           />
 
           {/* Provider badge */}

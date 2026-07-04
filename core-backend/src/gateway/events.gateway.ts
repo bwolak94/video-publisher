@@ -14,6 +14,7 @@ import { ProjectsService } from "../projects/projects.service";
 import { EventCacheService } from "./event-cache.service";
 import { RateLimiter } from "./rate-limiter";
 import { WebhookService } from "../webhooks/webhook.service";
+import { BudgetApprovalGate } from "../cost/budget-approval-gate";
 
 @WebSocketGateway({ cors: true })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -26,7 +27,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @Inject(JwtService) private readonly jwtService: JwtService,
     private readonly projectsService: ProjectsService,
     private readonly eventCache: EventCacheService,
-    private readonly webhookService: WebhookService
+    private readonly webhookService: WebhookService,
+    private readonly approvalGate: BudgetApprovalGate,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -101,6 +103,36 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server
       .to(`project:${projectId}`)
       .emit("upload_progress", { type: "upload_progress", percent, projectId });
+  }
+
+  /** Push approval_required event to all sockets in the project room (FEATURE-09). */
+  emitApprovalRequired(
+    projectId: string,
+    payload: { jobId: string; estimatedCost: number; provider: string; action: string; sceneId?: string },
+  ): void {
+    this.server
+      .to(`project:${projectId}`)
+      .emit("approval_required", { event: "approval_required", ...payload });
+  }
+
+  /** Client approves a pending action (FEATURE-09). */
+  @SubscribeMessage("approve_action")
+  handleApproveAction(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: { jobId: string },
+  ) {
+    const resolved = this.approvalGate.approveJob(data?.jobId ?? "");
+    return { event: "approval_ack", jobId: data?.jobId, resolved };
+  }
+
+  /** Client rejects a pending action (FEATURE-09). */
+  @SubscribeMessage("reject_action")
+  handleRejectAction(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: { jobId: string },
+  ) {
+    const resolved = this.approvalGate.rejectJob(data?.jobId ?? "");
+    return { event: "rejection_ack", jobId: data?.jobId, resolved };
   }
 
   async broadcastJobProgress(
