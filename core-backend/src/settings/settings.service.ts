@@ -52,6 +52,7 @@ export interface SettingsDto {
     minViralityScore: number;
     dedupWindowHours: number;
     aiBackendUrl: string;
+    piperModelsDir: string;
   };
   alerts: {
     slackWebhookUrl: string;
@@ -121,6 +122,7 @@ export class SettingsService {
         minViralityScore: parseFloat(get("worker.minViralityScore", "0.65")),
         dedupWindowHours: parseInt(get("worker.dedupWindowHours", "48"), 10),
         aiBackendUrl: get("worker.aiBackendUrl", "http://localhost:8000"),
+        piperModelsDir: get("worker.piperModelsDir", "/models/piper"),
       },
       alerts: {
         slackWebhookUrl: get("alerts.slackWebhookUrl", ""),

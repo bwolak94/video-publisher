@@ -3,6 +3,7 @@ import pino from "pino";
 import { ScenesService } from "./scenes.service";
 import { VideoAssetService } from "../media/video-asset.service";
 import { ElevenLabsService } from "../elevenlabs/elevenlabs.service";
+import { TtsProviderRegistry } from "../elevenlabs/tts-provider-registry";
 import type { VideoStoryboard } from "../storyboard/video-storyboard";
 
 const logger = pino({ level: "info" });
@@ -37,6 +38,7 @@ export class ScenesController {
     private readonly scenesService: ScenesService,
     private readonly videoAsset: VideoAssetService,
     private readonly elevenLabs: ElevenLabsService,
+    private readonly ttsRegistry: TtsProviderRegistry,
   ) {}
 
   /** Returns all registered providers and their availability + scores */
@@ -138,7 +140,7 @@ export class ScenesController {
 
     let rawUrl: string;
     try {
-      rawUrl = await this.elevenLabs.generateAudio({
+      rawUrl = await this.ttsRegistry.generateAudio({
         narrationText,
         voiceId,
         standardVoiceId: DEFAULT_VOICE_ID,
@@ -146,8 +148,15 @@ export class ScenesController {
     } catch (err: any) {
       const msg = err?.message ?? "tts_failed";
       logger.error({ sceneId, err: msg }, "TTS generation failed");
+      const isPiper = voiceId.startsWith("piper_");
       throw new HttpException(
-        { error: "Voice generation failed", detail: msg, hint: "Check ElevenLabs API key in Settings." },
+        {
+          error: "Voice generation failed",
+          detail: msg,
+          hint: isPiper
+            ? "Check that piper is installed and PIPER_MODELS_DIR contains the requested .onnx model."
+            : "Check ElevenLabs API key in Settings.",
+        },
         503,
       );
     }

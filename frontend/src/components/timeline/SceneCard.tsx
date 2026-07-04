@@ -44,7 +44,7 @@ const PROVIDER_BADGE_STYLES: Record<string, string> = {
   archival: "bg-amber-100 text-amber-700",
 };
 
-const VOICE_OPTIONS = [
+const ELEVENLABS_VOICES = [
   { voiceId: "21m00Tcm4TlvDq8ikWAM", label: "Rachel (EN)" },
   { voiceId: "AZnzlk1XvdvUeBnXmlld", label: "Domi (EN)" },
   { voiceId: "EXAVITQu4vr4xnSDxMaL", label: "Bella (EN)" },
@@ -56,12 +56,21 @@ const VOICE_OPTIONS = [
   { voiceId: "eleven_es_carlos", label: "Carlos (ES)" },
 ];
 
+const PIPER_VOICES = [
+  { voiceId: "piper_en_us_lessac_medium", label: "Amy (Local EN-US, free)" },
+  { voiceId: "piper_en_gb_alan_medium",   label: "Alan (Local EN-GB, free)" },
+  { voiceId: "piper_de_de_thorsten_medium", label: "Thorsten (Local DE, free)" },
+  { voiceId: "piper_fr_fr_upmc_pierre_medium", label: "Pierre (Local FR, free)" },
+  { voiceId: "piper_es_es_carlfm_x_low", label: "Carlos (Local ES, free)" },
+  { voiceId: "piper_pl_pl_gosia_medium",  label: "Gosia (Local PL, free)" },
+];
+
 function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
   const scene = useTimelineStore((s) => s.scenes[sceneId], areScenesEqual);
   const [showEffects, setShowEffects] = useState(false);
   const [showVideoUrlInput, setShowVideoUrlInput] = useState(false);
   const [videoUrlInput, setVideoUrlInput] = useState("");
-  const [selectedVoiceId, setSelectedVoiceId] = useState(VOICE_OPTIONS[0].voiceId);
+  const [selectedVoiceId, setSelectedVoiceId] = useState(ELEVENLABS_VOICES[0].voiceId);
 
   const handleVisualPromptChange = useCallback(
     (value: string) => {
@@ -281,9 +290,16 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
               onChange={(e) => setSelectedVoiceId(e.target.value)}
               className="text-xs border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
             >
-              {VOICE_OPTIONS.map((v) => (
-                <option key={v.voiceId} value={v.voiceId}>{v.label}</option>
-              ))}
+              <optgroup label="ElevenLabs (cloud)">
+                {ELEVENLABS_VOICES.map((v) => (
+                  <option key={v.voiceId} value={v.voiceId}>{v.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Piper (local, free)">
+                {PIPER_VOICES.map((v) => (
+                  <option key={v.voiceId} value={v.voiceId}>{v.label}</option>
+                ))}
+              </optgroup>
             </select>
           </div>
 
