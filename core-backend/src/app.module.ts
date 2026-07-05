@@ -24,6 +24,7 @@ import { CreatorModule } from "./creator/creator.module";
 import { ScenesModule } from "./scenes/scenes.module";
 import { SubtitlesModule } from "./subtitles/subtitles.module";
 import { MusicModule } from "./music/music.module";
+import { LocalizationModule } from "./localization/localization.module";
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { MusicModule } from "./music/music.module";
     ScenesModule,
     SubtitlesModule,
     MusicModule,
+    LocalizationModule,
   ],
 })
 export class AppModule {}

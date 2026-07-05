@@ -115,6 +115,15 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       .emit("approval_required", { event: "approval_required", ...payload });
   }
 
+  /** Broadcast a localization pipeline event to all sockets in a project room (FEATURE-10). */
+  emitLocalizationEvent(
+    projectId: string,
+    event: "localization_complete" | "localization_failed",
+    payload: Record<string, unknown>,
+  ): void {
+    this.server.to(`project:${projectId}`).emit(event, { event, ...payload });
+  }
+
   /** Client approves a pending action (FEATURE-09). */
   @SubscribeMessage("approve_action")
   handleApproveAction(

@@ -4,6 +4,7 @@ import { useTimelineStore } from "@/store/timelineStore";
 import { RegenerateAllButton } from "./RegenerateAllButton";
 import { GenerateAllButton } from "./GenerateAllButton";
 import { CostBreakdown } from "./CostBreakdown";
+import { LocalizeButton } from "./LocalizeButton";
 
 interface TimelineHeaderProps {
   onRender?: () => void;
@@ -45,6 +46,7 @@ export function TimelineHeader({ onRender, budgetExceeded = false, projectId }: 
       </div>
       <div className="flex items-center gap-2">
         <CostBreakdown budgetExceeded={budgetExceeded} />
+        {projectId && <LocalizeButton projectId={projectId} />}
         <GenerateAllButton projectId={projectId} />
         <RegenerateAllButton budgetExceeded={budgetExceeded} />
         <button
