@@ -3,9 +3,9 @@ import { Queue } from "bullmq";
 import { REDIS_CLIENT } from "../redis/redis.module";
 import { QUEUE_OPTIONS } from "./queue.config";
 
-export type QueueName = "research" | "asset-generation" | "render";
+export type QueueName = "research" | "asset-generation" | "render" | "localization";
 
-const QUEUE_NAMES: QueueName[] = ["research", "asset-generation", "render"];
+const QUEUE_NAMES: QueueName[] = ["research", "asset-generation", "render", "localization"];
 
 @Injectable()
 export class QueueService implements OnModuleInit, OnModuleDestroy {

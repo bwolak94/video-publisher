@@ -6,29 +6,39 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
-export const projects = pgTable("projects", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id").references(() => users.id),
-  title: text("title").notNull(),
-  mode: text("mode").notNull(),
-  status: text("status").default("draft"),
-  storyboard: jsonb("storyboard"),
-  youtubeVideoId: text("youtube_video_id"),
-  /** ResearchBrief JSON stored for audit trail and re-use (FEATURE-05) */
-  researchBrief: jsonb("research_brief"),
-  researchCompletedAt: timestamp("research_completed_at", { withTimezone: true }),
-  /** Reference video URL and analysis brief (FEATURE-06) */
-  referenceVideoUrl: text("reference_video_url"),
-  referenceAnalysis: jsonb("reference_analysis"),
-  /** Quality gate results (FEATURE-07) */
-  preRenderValidation: jsonb("pre_render_validation"),
-  postRenderQuality: jsonb("post_render_quality"),
-  renderQualityScore: numeric("render_quality_score", { precision: 3, scale: 2 }),
-  /** Cumulative spend across all per-action approvals (FEATURE-09) */
-  totalSpentUsd: numeric("total_spent_usd", { precision: 10, scale: 4 }).default("0.0000"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").references(() => users.id),
+    title: text("title").notNull(),
+    mode: text("mode").notNull(),
+    status: text("status").default("draft"),
+    storyboard: jsonb("storyboard"),
+    youtubeVideoId: text("youtube_video_id"),
+    /** ResearchBrief JSON stored for audit trail and re-use (FEATURE-05) */
+    researchBrief: jsonb("research_brief"),
+    researchCompletedAt: timestamp("research_completed_at", { withTimezone: true }),
+    /** Reference video URL and analysis brief (FEATURE-06) */
+    referenceVideoUrl: text("reference_video_url"),
+    referenceAnalysis: jsonb("reference_analysis"),
+    /** Quality gate results (FEATURE-07) */
+    preRenderValidation: jsonb("pre_render_validation"),
+    postRenderQuality: jsonb("post_render_quality"),
+    renderQualityScore: numeric("render_quality_score", { precision: 3, scale: 2 }),
+    /** Cumulative spend across all per-action approvals (FEATURE-09) */
+    totalSpentUsd: numeric("total_spent_usd", { precision: 10, scale: 4 }).default("0.0000"),
+    /** Localization & Dubbing (FEATURE-10) — parent/child project relationship */
+    parentProjectId: uuid("parent_project_id").references((): any => projects.id, { onDelete: "set null" }),
+    language: text("language").default("en"),
+    isLocalization: boolean("is_localization").default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_projects_parent_project_id: index("idx_projects_parent_project_id").on(t.parentProjectId),
+  }),
+);
 
 export const jobs = pgTable("jobs", {
   id: uuid("id").primaryKey().defaultRandom(),

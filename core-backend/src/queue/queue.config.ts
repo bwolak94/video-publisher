@@ -5,6 +5,7 @@ export const QUEUE_CONCURRENCY: Record<string, number> = {
   research: 2,
   "asset-generation": 10,
   render: 3,
+  localization: 2,
 };
 
 const researchJobOptions: DefaultJobOptions = {
@@ -29,6 +30,13 @@ const renderJobOptions: DefaultJobOptions = {
   // timeout: 1_800_000 — set per-job when calling queue.add() (BullMQ 5 removed it from DefaultJobOptions)
 };
 
+const localizationJobOptions: DefaultJobOptions = {
+  attempts: 2,
+  backoff: { type: "exponential", delay: 5000 },
+  removeOnComplete: { count: 100 },
+  removeOnFail: false,
+};
+
 // Per-queue BullMQ Queue options
 export const QUEUE_OPTIONS: Record<string, Partial<QueueOptions>> = {
   research: {
@@ -39,6 +47,9 @@ export const QUEUE_OPTIONS: Record<string, Partial<QueueOptions>> = {
   },
   render: {
     defaultJobOptions: renderJobOptions,
+  },
+  localization: {
+    defaultJobOptions: localizationJobOptions,
   },
 };
 

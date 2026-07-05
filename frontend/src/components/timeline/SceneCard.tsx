@@ -75,14 +75,18 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
 
   // Fetch cost estimate for visual regeneration once per scene (FEATURE-09)
   useEffect(() => {
-    fetch(`/api/scenes/${sceneId}/cost-estimate?action=regenerate_visual`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data: { estimatedCost?: number } | null) => {
+    void (async () => {
+      try {
+        const r = await fetch(`/api/scenes/${sceneId}/cost-estimate?action=regenerate_visual`);
+        if (!r?.ok) return;
+        const data = await r.json() as { estimatedCost?: number } | null;
         if (data?.estimatedCost != null) {
           setVisualCostEst(data.estimatedCost === 0 ? "free" : `~$${data.estimatedCost.toFixed(2)}`);
         }
-      })
-      .catch(() => {});
+      } catch {
+        // ignore network errors or test environment
+      }
+    })();
   }, [sceneId]);
 
   const handleVisualPromptChange = useCallback(
