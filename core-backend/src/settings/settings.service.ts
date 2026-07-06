@@ -18,6 +18,8 @@ const SENSITIVE_KEYS = new Set([
   "integrations.redditClientSecret",
   "integrations.awsAccessKey",
   "integrations.awsSecretKey",
+  "integrations.heygenKey",
+  "integrations.didKey",
   "alerts.slackWebhookUrl",
   "alerts.smtpPass",
 ]);
@@ -44,6 +46,10 @@ export interface SettingsDto {
     awsSecretKey: string;
     awsRegion: string;
     s3Bucket: string;
+    /** Avatar providers (FEATURE-11) */
+    heygenKey: string;
+    didKey: string;
+    wav2lipEnabled: string; // "true" | "false"
   };
   worker: {
     enabled: boolean;
@@ -115,6 +121,9 @@ export class SettingsService {
         awsSecretKey: get("integrations.awsSecretKey", ""),
         awsRegion: get("integrations.awsRegion", "eu-central-1"),
         s3Bucket: get("integrations.s3Bucket", ""),
+        heygenKey: get("integrations.heygenKey", ""),
+        didKey: get("integrations.didKey", ""),
+        wav2lipEnabled: get("integrations.wav2lipEnabled", "true"),
       },
       worker: {
         enabled: get("worker.enabled", "false") === "true",
