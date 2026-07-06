@@ -14,6 +14,11 @@ describe("CronWorkerService", () => {
     );
   });
 
+  afterEach(() => {
+    const job = mockSchedulerRegistry.addCronJob.mock.calls[0]?.[1];
+    job?.stop();
+  });
+
   it("registers a cron job on module init", () => {
     service.onModuleInit();
     expect(mockSchedulerRegistry.addCronJob).toHaveBeenCalledWith(

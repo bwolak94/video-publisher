@@ -7,6 +7,7 @@ import { EventCacheService } from "./event-cache.service";
 import { JwtService } from "@nestjs/jwt";
 import { ProjectsService } from "../projects/projects.service";
 import { WebhookService } from "../webhooks/webhook.service";
+import { BudgetApprovalGate } from "../cost/budget-approval-gate";
 
 function makeClient(overrides: Partial<any> = {}): any {
   return {
@@ -41,6 +42,7 @@ describe("EventsGateway", () => {
         { provide: ProjectsService, useValue: projectsService },
         { provide: EventCacheService, useValue: eventCache },
         { provide: WebhookService, useValue: { fanOut: jest.fn().mockResolvedValue(undefined) } },
+        { provide: BudgetApprovalGate, useValue: { approveJob: jest.fn(), rejectJob: jest.fn() } },
       ],
     }).compile();
 

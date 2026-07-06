@@ -55,6 +55,6 @@ describe("QueueService", () => {
   });
 
   it("getAllQueues() returns 3 queues", () => {
-    expect(service.getAllQueues()).toHaveLength(3);
+    expect(service.getAllQueues()).toHaveLength(4);
   });
 });
