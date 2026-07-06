@@ -1,5 +1,12 @@
 import { CronWorkerService } from "./cron-worker.service";
 
+jest.mock("cron", () => ({
+  CronJob: jest.fn().mockImplementation(() => ({
+    start: jest.fn(),
+    stop: jest.fn(),
+  })),
+}));
+
 describe("CronWorkerService", () => {
   let service: CronWorkerService;
   let mockWorkerMode: { triggerCycle: jest.Mock };

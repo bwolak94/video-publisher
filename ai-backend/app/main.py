@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
+from app.api.avatar import router as avatar_router
 from app.api.creator import router as creator_router
 from app.api.director import router as director_router
 from app.api.health import router as health_router
@@ -15,7 +16,6 @@ from app.api.research import router as research_router
 from app.api.sources import router as sources_router
 from app.api.subtitles import router as subtitles_router
 from app.api.tts import router as tts_router
-from app.api.avatar import router as avatar_router
 from app.config import get_settings
 from app.logging_config import setup_logging
 from app.metrics import metrics_output
