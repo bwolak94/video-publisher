@@ -1,12 +1,11 @@
 """Unit tests for PiperTTSService and /api/tts/piper endpoint (FEATURE-08)."""
 from unittest.mock import AsyncMock, patch
 
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.services.piper_tts import PiperTTSService
-
 
 # ── UT-08-10: synthesize() raises FileNotFoundError for missing model ─────────
 
