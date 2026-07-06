@@ -1,5 +1,12 @@
 import { BudgetResetService } from "./budget-reset.service";
 
+jest.mock("cron", () => ({
+  CronJob: jest.fn().mockImplementation(() => ({
+    start: jest.fn(),
+    stop: jest.fn(),
+  })),
+}));
+
 describe("BudgetResetService", () => {
   let service: BudgetResetService;
   let mockDb: { update: jest.Mock; set: jest.Mock };
