@@ -15,7 +15,7 @@ from __future__ import annotations
 import structlog
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import Response
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 
 from app.services.wav2lip_service import Wav2LipService
 

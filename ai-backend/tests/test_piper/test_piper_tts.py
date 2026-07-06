@@ -1,8 +1,7 @@
 """Unit tests for PiperTTSService and /api/tts/piper endpoint (FEATURE-08)."""
 from __future__ import annotations
 
-import os
-from unittest.mock import AsyncMock, MagicMock, mock_open, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
