@@ -53,6 +53,18 @@ export interface SubtitleTrack {
   generatedAt: string;
 }
 
+/** Avatar / talking-head configuration for a scene (FEATURE-11) */
+export interface AvatarConfig {
+  /** Provider to use for avatar generation */
+  provider: "heygen" | "did" | "wav2lip_local";
+  /** s3:// URL of the presenter photo / avatar image */
+  avatarImageUrl: string;
+  /** HeyGen avatar_id (required for HeyGen provider) */
+  avatarId?: string;
+  /** Override the scene voice for dubbing (if not set, uses scene voiceId) */
+  voiceId?: string;
+}
+
 export interface StoryboardScene {
   sceneId: string;
   sequenceNumber: number;
@@ -68,6 +80,8 @@ export interface StoryboardScene {
   videoProvider?: string;
   /** Auto-generated subtitle track (FEATURE-04) */
   subtitleTrack?: SubtitleTrack | null;
+  /** Talking-head avatar configuration (FEATURE-11) */
+  avatarConfig?: AvatarConfig | null;
 }
 
 export interface VideoStoryboard {

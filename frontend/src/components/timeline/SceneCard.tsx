@@ -7,9 +7,11 @@ import { AudioPlayer } from "./AudioPlayer";
 import { VisualPromptField } from "./VisualPromptField";
 import { NarrationField } from "./NarrationField";
 import { SceneMetadata } from "./SceneMetadata";
+import { AvatarConfigPanel } from "./AvatarConfigPanel";
 
 export interface SceneCardProps {
   sceneId: string;
+  projectId?: string;
   onSeekClick?: () => void;
 }
 
@@ -65,9 +67,10 @@ const PIPER_VOICES = [
   { voiceId: "piper_pl_pl_gosia_medium",  label: "Gosia (Local PL, free)" },
 ];
 
-function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
+function SceneCardInner({ sceneId, projectId, onSeekClick }: SceneCardProps) {
   const scene = useTimelineStore((s) => s.scenes[sceneId], areScenesEqual);
   const [showEffects, setShowEffects] = useState(false);
+  const [showAvatar, setShowAvatar] = useState(false);
   const [showVideoUrlInput, setShowVideoUrlInput] = useState(false);
   const [videoUrlInput, setVideoUrlInput] = useState("");
   const [selectedVoiceId, setSelectedVoiceId] = useState(ELEVENLABS_VOICES[0].voiceId);
@@ -244,6 +247,14 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
                 Fx
               </button>
               <button
+                onClick={() => setShowAvatar((v) => !v)}
+                title="Talking head / avatar"
+                data-testid="avatar-toggle-btn"
+                className={`px-2 py-0.5 text-xs border rounded ${showAvatar ? "bg-violet-100 text-violet-700 border-violet-200" : "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200"}`}
+              >
+                Avatar
+              </button>
+              <button
                 onClick={handleDelete}
                 title="Delete scene"
                 className="px-2 py-0.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded hover:bg-red-100"
@@ -362,6 +373,18 @@ function SceneCardInner({ sceneId, onSeekClick }: SceneCardProps) {
               </a>
             )}
           </div>
+
+          {/* Avatar / talking-head panel (FEATURE-11) */}
+          {showAvatar && (
+            <AvatarConfigPanel
+              sceneId={sceneId}
+              projectId={projectId}
+              onGenerated={(videoUrl, provider) => {
+                const s = useTimelineStore.getState().scenes[sceneId];
+                useTimelineStore.getState().updateSceneUrls(sceneId, s?.audioUrl ?? "", videoUrl, provider);
+              }}
+            />
+          )}
 
           {/* Text overlay / effects panel */}
           {showEffects && (

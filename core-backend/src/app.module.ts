@@ -25,6 +25,7 @@ import { ScenesModule } from "./scenes/scenes.module";
 import { SubtitlesModule } from "./subtitles/subtitles.module";
 import { MusicModule } from "./music/music.module";
 import { LocalizationModule } from "./localization/localization.module";
+import { AvatarModule } from "./avatar/avatar.module";
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { LocalizationModule } from "./localization/localization.module";
     SubtitlesModule,
     MusicModule,
     LocalizationModule,
+    AvatarModule,
   ],
 })
 export class AppModule {}
