@@ -1,5 +1,12 @@
 import { CronWorkerService } from "./cron-worker.service";
 
+jest.mock("cron", () => ({
+  CronJob: jest.fn().mockImplementation(() => ({
+    start: jest.fn(),
+    stop: jest.fn(),
+  })),
+}));
+
 describe("CronWorkerService", () => {
   let service: CronWorkerService;
   let mockWorkerMode: { triggerCycle: jest.Mock };
@@ -12,11 +19,6 @@ describe("CronWorkerService", () => {
       mockWorkerMode as any,
       mockSchedulerRegistry as any
     );
-  });
-
-  afterEach(() => {
-    const job = mockSchedulerRegistry.addCronJob.mock.calls[0]?.[1];
-    job?.stop();
   });
 
   it("registers a cron job on module init", () => {
