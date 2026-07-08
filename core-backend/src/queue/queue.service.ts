@@ -3,9 +3,9 @@ import { Queue } from "bullmq";
 import { REDIS_CLIENT } from "../redis/redis.module";
 import { QUEUE_OPTIONS } from "./queue.config";
 
-export type QueueName = "research" | "asset-generation" | "render" | "localization";
+export type QueueName = "research" | "asset-generation" | "render" | "localization" | "publish" | "webhook";
 
-const QUEUE_NAMES: QueueName[] = ["research", "asset-generation", "render", "localization"];
+const QUEUE_NAMES: QueueName[] = ["research", "asset-generation", "render", "localization", "publish", "webhook"];
 
 @Injectable()
 export class QueueService implements OnModuleInit, OnModuleDestroy {
@@ -31,13 +31,20 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async add(queueName: QueueName, payload: Record<string, unknown>) {
+  async add(
+    queueName: QueueName,
+    payload: Record<string, unknown>,
+    options?: { delay?: number },
+  ) {
     const queue = this.queues.get(queueName);
     if (!queue) {
       throw new Error(`Unknown queue: ${queueName}`);
     }
     // Note: render jobs have a 30-min max runtime per task spec; BullMQ 5 removed the
     // `timeout` job option — enforce in the render worker process via a Promise.race() with a timer.
+    if (options?.delay !== undefined) {
+      return queue.add(queueName, payload, { delay: options.delay });
+    }
     return queue.add(queueName, payload);
   }
 

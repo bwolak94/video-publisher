@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Param, Body, HttpCode, HttpStatus, NotFoundException, HttpException, Query } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Param, Body, HttpCode, HttpStatus, NotFoundException, HttpException, Query, UseGuards } from "@nestjs/common";
 import pino from "pino";
+import { ThrottleGuard, Throttle } from "../common/throttle.guard";
 import { ScenesService } from "./scenes.service";
 import { VideoAssetService } from "../media/video-asset.service";
 import { ElevenLabsService } from "../elevenlabs/elevenlabs.service";
@@ -7,6 +8,7 @@ import { TtsProviderRegistry } from "../elevenlabs/tts-provider-registry";
 import { BudgetApprovalGate, type ActionType } from "../cost/budget-approval-gate";
 import { ApprovalLogService } from "../cost/approval-log.service";
 import { EventsGateway } from "../gateway/events.gateway";
+import { configuration } from "../config/configuration";
 import type { VideoStoryboard } from "../storyboard/video-storyboard";
 
 const logger = pino({ level: "info" });
@@ -37,6 +39,8 @@ function toPublicUrl(url: string): string {
 
 @Controller("api/scenes")
 export class ScenesController {
+  private readonly aiBackendUrl: string;
+
   constructor(
     private readonly scenesService: ScenesService,
     private readonly videoAsset: VideoAssetService,
@@ -45,7 +49,9 @@ export class ScenesController {
     private readonly approvalGate: BudgetApprovalGate,
     private readonly approvalLog: ApprovalLogService,
     private readonly gateway: EventsGateway,
-  ) {}
+  ) {
+    this.aiBackendUrl = configuration().worker.aiBackendUrl;
+  }
 
   /** Returns all registered providers and their availability + scores */
   @Get("video-providers")
@@ -104,6 +110,8 @@ export class ScenesController {
 
   @Post(":sceneId/regenerate-visual")
   @HttpCode(HttpStatus.OK)
+  @UseGuards(ThrottleGuard)
+  @Throttle({ limit: 10, windowMs: 60_000 })
   async regenerateVisual(
     @Param("sceneId") sceneId: string,
     @Body() body?: { visualPrompt?: string; projectId?: string; aspectRatio?: "16:9" | "9:16" },
@@ -188,6 +196,8 @@ export class ScenesController {
 
   @Post(":sceneId/update-voice")
   @HttpCode(HttpStatus.OK)
+  @UseGuards(ThrottleGuard)
+  @Throttle({ limit: 20, windowMs: 60_000 })
   async updateVoice(
     @Param("sceneId") sceneId: string,
     @Body() body?: { voiceId?: string; narrationText?: string; projectId?: string },
@@ -263,6 +273,131 @@ export class ScenesController {
 
     logger.info({ sceneId, audioUrl }, "Voice updated");
     return { audioUrl };
+  }
+
+  /**
+   * Patch narrationText and/or visualPrompt directly — marks scene as dirty.
+   * PATCH /api/scenes/:sceneId
+   */
+  @Patch(":sceneId")
+  @HttpCode(HttpStatus.OK)
+  async patchScene(
+    @Param("sceneId") sceneId: string,
+    @Body() body: { narrationText?: string; visualPrompt?: string; projectId?: string },
+  ) {
+    const { narrationText, visualPrompt, projectId: bodyProjectId } = body;
+    if (!narrationText && !visualPrompt) {
+      throw new HttpException({ error: "Provide at least narrationText or visualPrompt" }, HttpStatus.BAD_REQUEST);
+    }
+
+    let projectId: string;
+    try {
+      const found = await this.scenesService.findScene(sceneId);
+      projectId = found.project.id;
+    } catch (err) {
+      if (!(err instanceof NotFoundException)) throw err;
+      if (!bodyProjectId) throw new NotFoundException(`Scene ${sceneId} not found`);
+      projectId = bodyProjectId;
+    }
+
+    const fields: Partial<{ narrationText: string; visualPrompt: string }> = {};
+    if (narrationText !== undefined) fields.narrationText = narrationText;
+    if (visualPrompt !== undefined) fields.visualPrompt = visualPrompt;
+
+    return this.scenesService.updateSceneFields(projectId, sceneId, fields);
+  }
+
+  /**
+   * Re-run the AI polish pass on a single scene's narration text.
+   * POST /api/scenes/:sceneId/regenerate-script
+   */
+  @Post(":sceneId/regenerate-script")
+  @HttpCode(HttpStatus.OK)
+  async regenerateScript(
+    @Param("sceneId") sceneId: string,
+    @Body() body?: { tone?: string; projectId?: string },
+  ): Promise<{ narrationText: string; changesSummary: string }> {
+    let narrationText = "";
+    let projectId: string | undefined = body?.projectId;
+
+    try {
+      const found = await this.scenesService.findScene(sceneId);
+      narrationText = found.scene.narrationText;
+      projectId = found.project.id;
+    } catch (err) {
+      if (!(err instanceof NotFoundException)) throw err;
+    }
+
+    if (!narrationText) {
+      throw new HttpException({ error: "Scene has no narration text to polish" }, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    let aiRes: Response;
+    try {
+      aiRes = await fetch(`${this.aiBackendUrl}/api/creator/polish-script`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ script: narrationText, tone: body?.tone ?? "engaging" }),
+      });
+    } catch (err) {
+      throw new HttpException({ error: "AI backend unavailable" }, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    if (!aiRes.ok) {
+      const text = await aiRes.text().catch(() => "");
+      throw new HttpException({ error: "Script regeneration failed", detail: text }, aiRes.status);
+    }
+
+    const result = await aiRes.json() as { polishedScript: string; changesSummary: string };
+
+    // Persist polished script back to storyboard if project is known
+    if (projectId) {
+      await this.scenesService.updateSceneFields(projectId, sceneId, { narrationText: result.polishedScript }).catch(() => {});
+    }
+
+    return { narrationText: result.polishedScript, changesSummary: result.changesSummary };
+  }
+
+  /**
+   * Suggest a cinematic b-roll visual prompt for a scene's narration text.
+   * POST /api/scenes/:sceneId/suggest-visual-prompt
+   */
+  @Post(":sceneId/suggest-visual-prompt")
+  @HttpCode(HttpStatus.OK)
+  async suggestVisualPrompt(
+    @Param("sceneId") sceneId: string,
+    @Body() body?: { topic?: string; aspectRatio?: string },
+  ): Promise<{ visualPrompt: string }> {
+    let narrationText = "";
+    let aspectRatio = body?.aspectRatio ?? "16:9";
+
+    try {
+      const { scene, project } = await this.scenesService.findScene(sceneId);
+      narrationText = scene.narrationText ?? "";
+      const storyboard = project.storyboard as VideoStoryboard | null;
+      aspectRatio = body?.aspectRatio ?? storyboard?.meta?.aspectRatio ?? "16:9";
+    } catch (err) {
+      if (!(err instanceof NotFoundException)) throw err;
+    }
+
+    let aiRes: Response;
+    try {
+      aiRes = await fetch(`${this.aiBackendUrl}/api/creator/suggest-visual-prompt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ narrationText, topic: body?.topic ?? "", aspectRatio }),
+      });
+    } catch (err) {
+      logger.error({ err }, "ai-backend unreachable for suggest-visual-prompt");
+      throw new HttpException({ error: "AI backend unavailable" }, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    if (!aiRes.ok) {
+      const text = await aiRes.text().catch(() => "");
+      throw new HttpException({ error: "Visual prompt generation failed", detail: text }, aiRes.status);
+    }
+
+    return aiRes.json() as Promise<{ visualPrompt: string }>;
   }
 
   // ── Private ────────────────────────────────────────────────────────────────

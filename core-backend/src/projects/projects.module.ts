@@ -3,9 +3,10 @@ import { ProjectsService } from "./projects.service";
 import { ProjectsController } from "./projects.controller";
 import { AuthModule } from "../auth/auth.module";
 import { QueueModule } from "../queue/queue.module";
+import { MetricsModule } from "../metrics/metrics.module";
 
 @Module({
-  imports: [AuthModule, forwardRef(() => QueueModule)],
+  imports: [AuthModule, forwardRef(() => QueueModule), MetricsModule],
   providers: [ProjectsService],
   controllers: [ProjectsController],
   exports: [ProjectsService],

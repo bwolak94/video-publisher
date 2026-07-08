@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Upload } from "@aws-sdk/lib-storage";
 import { Readable } from "stream";
@@ -111,5 +111,22 @@ export class S3Service {
   async getObjectSize(path: string): Promise<number> {
     const resp = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: path }));
     return resp.ContentLength ?? 0;
+  }
+
+  /**
+   * Return the S3 key of the most recently uploaded render for a project.
+   * Scans `renders/{projectId}/` and picks the object with the latest LastModified.
+   * Returns null when no render exists yet.
+   */
+  async getLatestRenderKey(projectId: string): Promise<string | null> {
+    const prefix = `renders/${projectId}/`;
+    const resp = await this.client.send(
+      new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix }),
+    );
+    if (!resp.Contents || resp.Contents.length === 0) return null;
+    const latest = resp.Contents.sort(
+      (a, b) => (b.LastModified?.getTime() ?? 0) - (a.LastModified?.getTime() ?? 0),
+    )[0];
+    return latest.Key ?? null;
   }
 }

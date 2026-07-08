@@ -176,6 +176,17 @@ export class SettingsService {
     }
   }
 
+  /** Upsert a single setting row. Pass isEncrypted=true for pre-encrypted values. */
+  async set(key: string, value: string, isEncrypted: boolean): Promise<void> {
+    await this.db
+      .insert(appSettings)
+      .values({ key, value, isEncrypted, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: appSettings.key,
+        set: { value, isEncrypted, updatedAt: new Date() },
+      });
+  }
+
   // ── Read plaintext (internal use only — never returned to frontend) ──────────
 
   async getPlaintext(key: string): Promise<string | null> {

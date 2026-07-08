@@ -105,6 +105,13 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       .emit("upload_progress", { type: "upload_progress", percent, projectId });
   }
 
+  /** Emit granular render progress (0-100) during Remotion Lambda render (IMPROVEMENT-6). */
+  broadcastRenderProgress(projectId: string, percent: number): void {
+    this.server
+      .to(`project:${projectId}`)
+      .emit("render_progress", { type: "render_progress", percent, projectId });
+  }
+
   /** Push approval_required event to all sockets in the project room (FEATURE-09). */
   emitApprovalRequired(
     projectId: string,

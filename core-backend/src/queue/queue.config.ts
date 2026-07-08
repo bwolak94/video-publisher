@@ -6,6 +6,8 @@ export const QUEUE_CONCURRENCY: Record<string, number> = {
   "asset-generation": 10,
   render: 3,
   localization: 2,
+  publish: 3,
+  webhook: 5,
 };
 
 const researchJobOptions: DefaultJobOptions = {
@@ -37,6 +39,20 @@ const localizationJobOptions: DefaultJobOptions = {
   removeOnFail: false,
 };
 
+const publishJobOptions: DefaultJobOptions = {
+  attempts: 3,
+  backoff: { type: "exponential", delay: 10_000 },
+  removeOnComplete: { count: 200 },
+  removeOnFail: false,
+};
+
+const webhookJobOptions: DefaultJobOptions = {
+  attempts: 3,
+  backoff: { type: "exponential", delay: 5_000 }, // 5s, 25s, 125s
+  removeOnComplete: { count: 500 },
+  removeOnFail: { count: 200 },
+};
+
 // Per-queue BullMQ Queue options
 export const QUEUE_OPTIONS: Record<string, Partial<QueueOptions>> = {
   research: {
@@ -50,6 +66,12 @@ export const QUEUE_OPTIONS: Record<string, Partial<QueueOptions>> = {
   },
   localization: {
     defaultJobOptions: localizationJobOptions,
+  },
+  publish: {
+    defaultJobOptions: publishJobOptions,
+  },
+  webhook: {
+    defaultJobOptions: webhookJobOptions,
   },
 };
 

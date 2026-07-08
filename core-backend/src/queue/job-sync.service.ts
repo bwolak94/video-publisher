@@ -1,7 +1,7 @@
 import { Injectable, Inject } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { DRIZZLE } from "../db/db.module";
-import { jobs } from "../db/schema";
+import { jobs, type Job } from "../db/schema";
 
 export interface JobProgressPayload {
   jobId: string;
@@ -49,5 +49,11 @@ export class JobSyncService {
       .update(jobs)
       .set({ status: "stalled", updatedAt: new Date() })
       .where(eq(jobs.id, jobId));
+  }
+
+  /** Retrieve a single job record by ID. Returns null when not found. */
+  async findById(jobId: string): Promise<Job | null> {
+    const rows = await this.db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1);
+    return rows[0] ?? null;
   }
 }

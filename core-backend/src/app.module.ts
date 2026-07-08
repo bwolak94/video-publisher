@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
+import { APP_GUARD } from "@nestjs/core";
+import { ThrottleGuard } from "./common/throttle.guard";
 import { ScheduleModule } from "@nestjs/schedule";
 import { DbModule } from "./db/db.module";
 import { RedisModule } from "./redis/redis.module";
@@ -26,8 +28,10 @@ import { SubtitlesModule } from "./subtitles/subtitles.module";
 import { MusicModule } from "./music/music.module";
 import { LocalizationModule } from "./localization/localization.module";
 import { AvatarModule } from "./avatar/avatar.module";
+import { TemplatesModule } from "./storyboard/templates.module";
 
 @Module({
+  providers: [{ provide: APP_GUARD, useClass: ThrottleGuard }],
   imports: [
     ScheduleModule.forRoot(),
     DbModule,
@@ -56,6 +60,7 @@ import { AvatarModule } from "./avatar/avatar.module";
     MusicModule,
     LocalizationModule,
     AvatarModule,
+    TemplatesModule,
   ],
 })
 export class AppModule {}

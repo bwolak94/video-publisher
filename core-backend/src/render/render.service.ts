@@ -10,6 +10,8 @@ import {
   MEMORY_MB,
   calculateDurationInFrames,
   getFramesPerLambda,
+  getCompositionWidth,
+  getCompositionHeight,
 } from "../remotion/render-utils";
 
 const logger = pino({ level: "info" });
@@ -41,9 +43,12 @@ export class RenderService {
     const totalFrames = calculateDurationInFrames(preparedStoryboard.timeline, FPS);
     const framesPerLambda = getFramesPerLambda(totalFrames, FPS);
     const outName = `renders/${projectId}/${Date.now()}.mp4`;
+    const aspectRatio = preparedStoryboard.meta.aspectRatio ?? "16:9";
+    const width = getCompositionWidth(aspectRatio);
+    const height = getCompositionHeight(aspectRatio);
 
     logger.info(
-      { projectId, totalFrames, framesPerLambda, outName },
+      { projectId, totalFrames, framesPerLambda, outName, width, height, aspectRatio },
       "Dispatching render to Lambda"
     );
 
@@ -59,6 +64,8 @@ export class RenderService {
       architecture: "arm64",
       memorySizeInMb: MEMORY_MB,
       overwrite: true,
+      width,
+      height,
     });
 
     const s3Url = `s3://${this.bucket}/${outName}`;

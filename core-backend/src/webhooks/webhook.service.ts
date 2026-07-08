@@ -1,11 +1,13 @@
 import { Injectable, Inject } from "@nestjs/common";
-import { createHmac, randomBytes } from "crypto";
+import { randomBytes } from "crypto";
 import { eq, and } from "drizzle-orm";
 import pino from "pino";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DRIZZLE } from "../db/db.module";
 import * as schema from "../db/schema";
 import { webhooks } from "../db/schema";
+import { QueueService } from "../queue/queue.service";
+import type { WebhookDeliveryPayload } from "../queue/workers/webhook-delivery.worker";
 
 const logger = pino({ level: "info" });
 
@@ -24,7 +26,10 @@ export interface WebhookPayload {
 
 @Injectable()
 export class WebhookService {
-  constructor(@Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
+    private readonly queue: QueueService,
+  ) {}
 
   async create(userId: string, url: string, events: WebhookEvent[]): Promise<schema.Webhook> {
     const secret = randomBytes(32).toString("hex");
@@ -51,6 +56,10 @@ export class WebhookService {
     logger.info({ id, userId }, "Webhook deactivated");
   }
 
+  /**
+   * Enqueue a delivery job for every active webhook subscribed to `event`.
+   * BullMQ will retry up to 3× with exponential backoff on failures.
+   */
   async fanOut(event: WebhookEvent, payload: Omit<WebhookPayload, "event" | "timestamp">): Promise<void> {
     const active = await this.db
       .select()
@@ -60,34 +69,22 @@ export class WebhookService {
     const matching = active.filter((w) => (w.events as string[]).includes(event));
     if (matching.length === 0) return;
 
-    const body: WebhookPayload = { event, timestamp: new Date().toISOString(), ...payload };
-    const bodyStr = JSON.stringify(body);
+    const body = JSON.stringify({ event, timestamp: new Date().toISOString(), ...payload });
 
-    await Promise.allSettled(
-      matching.map((w) => this.deliver(w.url, w.secret, bodyStr, event))
+    await Promise.all(
+      matching.map((w) => {
+        const deliveryPayload: WebhookDeliveryPayload = {
+          url: w.url,
+          secret: w.secret,
+          body,
+          event,
+        };
+        return this.queue
+          .add("webhook", deliveryPayload as unknown as Record<string, unknown>)
+          .catch((err) => logger.error({ url: w.url, event, err }, "Failed to enqueue webhook delivery"));
+      }),
     );
-  }
 
-  private async deliver(url: string, secret: string, body: string, event: WebhookEvent): Promise<void> {
-    const signature = createHmac("sha256", secret).update(body).digest("hex");
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Signature-256": `sha256=${signature}`,
-          "X-Event": event,
-        },
-        body,
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!res.ok) {
-        logger.warn({ url, status: res.status, event }, "Webhook delivery non-2xx");
-      } else {
-        logger.info({ url, event }, "Webhook delivered");
-      }
-    } catch (err) {
-      logger.error({ url, event, err }, "Webhook delivery failed");
-    }
+    logger.info({ event, count: matching.length }, "Webhook deliveries enqueued");
   }
 }
