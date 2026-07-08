@@ -5,6 +5,8 @@ import { WhisperProviderRegistry } from "./whisper-provider-registry";
 import { SubtitleCacheService } from "./subtitle-cache.service";
 import { SubtitleService } from "./subtitle.service";
 import { SubtitlesController } from "./subtitles.controller";
+import { SubtitleStylePresetsService } from "./subtitle-style-presets.service";
+import { SubtitlePresetsController } from "./subtitle-presets.controller";
 import { SettingsModule } from "../settings/settings.module";
 import { StorageModule } from "../storage/storage.module";
 import { ScenesModule } from "../scenes/scenes.module";
@@ -22,9 +24,10 @@ import { ScenesModule } from "../scenes/scenes.module";
     WhisperProviderRegistry,
     SubtitleCacheService,
     SubtitleService,
+    SubtitleStylePresetsService,
   ],
-  controllers: [SubtitlesController],
-  exports: [SubtitleService],
+  controllers: [SubtitlesController, SubtitlePresetsController],
+  exports: [SubtitleService, SubtitleStylePresetsService],
 })
 export class SubtitlesModule implements OnModuleInit {
   constructor(

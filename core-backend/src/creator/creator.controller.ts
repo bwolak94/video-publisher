@@ -38,6 +38,13 @@ interface StoryboardBody {
   referenceVideoUrl?: string;
 }
 
+interface PolishScriptBody {
+  script: string;
+  tone?: string;
+  targetDurationSeconds?: number;
+  language?: string;
+}
+
 @Controller("api/creator")
 export class CreatorController {
   private readonly aiBackendUrl: string;
@@ -194,5 +201,37 @@ export class CreatorController {
     logger.info({ projectId: project.id, scenes: (data.storyboard?.timeline as any[])?.length }, "Project saved to DB");
 
     return { storyboard: data.storyboard, projectId: project.id };
+  }
+
+  @Post("polish-script")
+  async polishScript(@Body() body: PolishScriptBody): Promise<unknown> {
+    if (!body.script) throw new Error("script is required");
+
+    logger.info({ tone: body.tone, chars: body.script.length }, "Proxying polish-script to ai-backend");
+
+    let aiRes: Response;
+    try {
+      aiRes = await fetch(`${this.aiBackendUrl}/api/creator/polish-script`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          script: body.script,
+          tone: body.tone ?? "engaging",
+          targetDurationSeconds: body.targetDurationSeconds ?? 40,
+          language: body.language ?? "en",
+        }),
+      });
+    } catch (err) {
+      logger.error({ err }, "ai-backend unreachable for polish-script");
+      throw new Error("AI backend unavailable");
+    }
+
+    if (!aiRes.ok) {
+      const text = await aiRes.text().catch(() => "");
+      logger.error({ status: aiRes.status, text }, "ai-backend polish-script error");
+      throw new Error(`Polish script failed: ${text}`);
+    }
+
+    return aiRes.json();
   }
 }

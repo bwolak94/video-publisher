@@ -8,10 +8,12 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  BadRequestException,
 } from "@nestjs/common";
 import { ProjectsService } from "./projects.service";
 import { CreateProjectDto } from "./dto/create-project.dto";
 import { QueueService } from "../queue/queue.service";
+import { VideoAnalyticsService } from "../metrics/video-analytics.service";
 import type { VideoStoryboard } from "../storyboard/video-storyboard";
 
 // Auth is intentionally removed — single-user local dev tool.
@@ -21,6 +23,7 @@ export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly queueService: QueueService,
+    private readonly analytics: VideoAnalyticsService,
   ) {}
 
   @Post()
@@ -57,5 +60,23 @@ export class ProjectsController {
     });
 
     return { jobId: job.id, message: "Render queued" };
+  }
+
+  @Post(":id/fork")
+  @HttpCode(HttpStatus.CREATED)
+  fork(@Param("id") id: string) {
+    return this.projectsService.fork(id);
+  }
+
+  @Get(":id/analytics")
+  getAnalytics(@Param("id") id: string) {
+    return this.analytics.getLatest(id);
+  }
+
+  @Post("import-csv")
+  @HttpCode(HttpStatus.CREATED)
+  async importCsv(@Req() req: any, @Body() body: { csv: string }) {
+    if (!body.csv) throw new BadRequestException("csv field is required");
+    return this.projectsService.importFromCsv(body.csv, req.headers["x-user-id"] ?? null);
   }
 }

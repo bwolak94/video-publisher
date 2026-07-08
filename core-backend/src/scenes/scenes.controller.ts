@@ -7,6 +7,7 @@ import { TtsProviderRegistry } from "../elevenlabs/tts-provider-registry";
 import { BudgetApprovalGate, type ActionType } from "../cost/budget-approval-gate";
 import { ApprovalLogService } from "../cost/approval-log.service";
 import { EventsGateway } from "../gateway/events.gateway";
+import { configuration } from "../config/configuration";
 import type { VideoStoryboard } from "../storyboard/video-storyboard";
 
 const logger = pino({ level: "info" });
@@ -37,6 +38,8 @@ function toPublicUrl(url: string): string {
 
 @Controller("api/scenes")
 export class ScenesController {
+  private readonly aiBackendUrl: string;
+
   constructor(
     private readonly scenesService: ScenesService,
     private readonly videoAsset: VideoAssetService,
@@ -45,7 +48,9 @@ export class ScenesController {
     private readonly approvalGate: BudgetApprovalGate,
     private readonly approvalLog: ApprovalLogService,
     private readonly gateway: EventsGateway,
-  ) {}
+  ) {
+    this.aiBackendUrl = configuration().worker.aiBackendUrl;
+  }
 
   /** Returns all registered providers and their availability + scores */
   @Get("video-providers")
@@ -263,6 +268,48 @@ export class ScenesController {
 
     logger.info({ sceneId, audioUrl }, "Voice updated");
     return { audioUrl };
+  }
+
+  /**
+   * Suggest a cinematic b-roll visual prompt for a scene's narration text.
+   * POST /api/scenes/:sceneId/suggest-visual-prompt
+   */
+  @Post(":sceneId/suggest-visual-prompt")
+  @HttpCode(HttpStatus.OK)
+  async suggestVisualPrompt(
+    @Param("sceneId") sceneId: string,
+    @Body() body?: { topic?: string; aspectRatio?: string },
+  ): Promise<{ visualPrompt: string }> {
+    let narrationText = "";
+    let aspectRatio = body?.aspectRatio ?? "16:9";
+
+    try {
+      const { scene, project } = await this.scenesService.findScene(sceneId);
+      narrationText = scene.narrationText ?? "";
+      const storyboard = project.storyboard as VideoStoryboard | null;
+      aspectRatio = body?.aspectRatio ?? storyboard?.meta?.aspectRatio ?? "16:9";
+    } catch (err) {
+      if (!(err instanceof NotFoundException)) throw err;
+    }
+
+    let aiRes: Response;
+    try {
+      aiRes = await fetch(`${this.aiBackendUrl}/api/creator/suggest-visual-prompt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ narrationText, topic: body?.topic ?? "", aspectRatio }),
+      });
+    } catch (err) {
+      logger.error({ err }, "ai-backend unreachable for suggest-visual-prompt");
+      throw new HttpException({ error: "AI backend unavailable" }, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    if (!aiRes.ok) {
+      const text = await aiRes.text().catch(() => "");
+      throw new HttpException({ error: "Visual prompt generation failed", detail: text }, aiRes.status);
+    }
+
+    return aiRes.json() as Promise<{ visualPrompt: string }>;
   }
 
   // ── Private ────────────────────────────────────────────────────────────────

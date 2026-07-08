@@ -100,4 +100,54 @@ export class ProjectsService {
       .set({ storyboard, updatedAt: new Date() })
       .where(eq(projects.id, id));
   }
+
+  /**
+   * Duplicate a project — copies title (with " (copy)" suffix), storyboard,
+   * and metadata into a new draft project.
+   */
+  async fork(id: string): Promise<Project> {
+    const source = await this.findOne(id);
+    const rows = await this.db
+      .insert(projects)
+      .values({
+        userId: source.userId ?? undefined,
+        title: `${source.title} (copy)`,
+        mode: source.mode,
+        status: "draft",
+        storyboard: source.storyboard as Record<string, unknown> ?? undefined,
+        researchBrief: source.researchBrief as Record<string, unknown> ?? undefined,
+        referenceVideoUrl: source.referenceVideoUrl ?? undefined,
+        referenceAnalysis: source.referenceAnalysis as Record<string, unknown> ?? undefined,
+      })
+      .returning();
+    return rows[0];
+  }
+
+  /**
+   * Batch-import projects from a CSV string.
+   * Expected columns (header required): title,mode
+   * Additional columns are ignored. Blank rows are skipped.
+   */
+  async importFromCsv(csv: string, userId?: string | null): Promise<Project[]> {
+    const lines = csv.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length < 2) return []; // header only or empty
+
+    const [headerLine, ...dataLines] = lines;
+    const headers = headerLine.split(",").map((h) => h.trim().toLowerCase());
+    const titleIdx = headers.indexOf("title");
+    const modeIdx = headers.indexOf("mode");
+
+    if (titleIdx === -1) throw new Error("CSV must have a 'title' column");
+
+    const created: Project[] = [];
+    for (const line of dataLines) {
+      const cols = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+      const title = cols[titleIdx];
+      if (!title) continue;
+      const mode = (modeIdx >= 0 ? cols[modeIdx] : "") || "creator";
+      const row = await this.create(userId ?? null, { title, mode: mode as "creator" | "worker" });
+      created.push(row);
+    }
+    return created;
+  }
 }

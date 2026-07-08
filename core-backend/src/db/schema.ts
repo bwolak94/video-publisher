@@ -158,6 +158,30 @@ export const musicCache = pgTable("music_cache", {
 export type MusicCache = typeof musicCache.$inferSelect;
 export type NewMusicCache = typeof musicCache.$inferInsert;
 
+/** YouTube / TikTok / Instagram post analytics (fetched hourly by VideoAnalyticsService). */
+export const videoAnalytics = pgTable(
+  "video_analytics",
+  {
+    id:                      uuid("id").primaryKey().defaultRandom(),
+    projectId:               uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    platform:                text("platform").notNull(),          // "youtube" | "tiktok" | "instagram"
+    platformVideoId:         text("platform_video_id").notNull(),
+    views:                   text("views").default("0"),           // stored as text to avoid int overflow
+    likes:                   text("likes").default("0"),
+    comments:                text("comments").default("0"),
+    impressionCtr:           numeric("impression_ctr", { precision: 6, scale: 4 }),
+    avgViewDurationSeconds:  text("avg_view_duration_seconds"),
+    fetchedAt:               timestamp("fetched_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_video_analytics_project_id:    index("idx_video_analytics_project_id").on(t.projectId),
+    idx_video_analytics_platform_vid:  index("idx_video_analytics_platform_vid").on(t.platformVideoId),
+  }),
+);
+
+export type VideoAnalytics    = typeof videoAnalytics.$inferSelect;
+export type NewVideoAnalytics = typeof videoAnalytics.$inferInsert;
+
 /** Per-action approval audit log (FEATURE-09). */
 export const approvalLog = pgTable(
   "approval_log",

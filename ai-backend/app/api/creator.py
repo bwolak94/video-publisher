@@ -57,6 +57,19 @@ class StoryboardRequest(BaseModel):
     referenceAnalysis: dict | None = None  # ReferenceAnalysisBrief JSON (FEATURE-06)
 
 
+class PolishScriptRequest(BaseModel):
+    script: str
+    tone: str = "engaging"        # e.g. "engaging", "professional", "casual", "educational"
+    targetDurationSeconds: int = 40
+    language: str = "en"
+
+
+class SuggestVisualPromptRequest(BaseModel):
+    narrationText: str
+    topic: str = ""
+    aspectRatio: str = "16:9"
+
+
 @router.post("/analyze-reference", response_model=ReferenceAnalysisBrief)
 async def analyze_reference(req: AnalyzeReferenceRequest) -> ReferenceAnalysisBrief:
     """Download + analyze a reference video (YouTube or direct URL) and return ReferenceAnalysisBrief.
@@ -186,3 +199,72 @@ async def generate_storyboard(req: StoryboardRequest):
     logger.info("creator_storyboard_done", scenes=len(storyboard.timeline))
 
     return {"storyboard": storyboard.model_dump(), "projectId": project_id}
+
+
+@router.post("/polish-script")
+async def polish_script(req: PolishScriptRequest):
+    """Rewrite a narration script for better pacing, clarity, and engagement.
+
+    Returns { polishedScript: str, changesSummary: str }.
+    """
+    prompt = (
+        f"You are an expert video scriptwriter. Polish the following narration script.\n\n"
+        f"Tone: {req.tone}\n"
+        f"Target duration: ~{req.targetDurationSeconds}s of spoken audio\n"
+        f"Language: {req.language}\n\n"
+        f"Rules:\n"
+        f"- Keep all key facts and messages from the original\n"
+        f"- Improve sentence flow, remove filler words, and tighten phrasing\n"
+        f"- Aim for natural spoken language (not written prose)\n"
+        f"- Do NOT add new facts or change the meaning\n\n"
+        f"Original script:\n{req.script}\n\n"
+        f"Respond with a JSON object: {{ \"polishedScript\": \"...\", \"changesSummary\": \"one sentence describing main changes\" }}"
+    )
+
+    logger.info("creator_polish_script_start", tone=req.tone, chars=len(req.script))
+    raw = await _call_llm_mini(prompt)
+    clean = _strip_fences(raw)
+
+    import json
+    try:
+        data = json.loads(clean)
+    except json.JSONDecodeError:
+        # Fallback: return raw as polished script
+        data = {"polishedScript": clean, "changesSummary": "Script polished"}
+
+    logger.info("creator_polish_script_done", tone=req.tone)
+    return data
+
+
+@router.post("/suggest-visual-prompt")
+async def suggest_visual_prompt(req: SuggestVisualPromptRequest):
+    """Generate a cinematic b-roll visual prompt for a scene's narration text.
+
+    Returns { visualPrompt: str }.
+    """
+    aspect_note = "vertical 9:16" if req.aspectRatio == "9:16" else "widescreen 16:9"
+    prompt = (
+        f"You are a video director. Given a narration sentence, write a single cinematic b-roll shot description.\n\n"
+        f"Narration: \"{req.narrationText}\"\n"
+        f"Topic context: {req.topic or 'general'}\n"
+        f"Aspect ratio: {aspect_note}\n\n"
+        f"Rules:\n"
+        f"- Describe a specific, visually rich scene (lighting, camera angle, action, mood)\n"
+        f"- Do NOT include text overlays, subtitles, or people speaking directly to camera\n"
+        f"- Keep it under 40 words\n"
+        f"- Focus on B-roll (supporting footage), not talking head\n\n"
+        f"Respond with a JSON object: {{ \"visualPrompt\": \"...\" }}"
+    )
+
+    logger.info("creator_suggest_visual_prompt_start", chars=len(req.narrationText))
+    raw = await _call_llm_mini(prompt)
+    clean = _strip_fences(raw)
+
+    import json
+    try:
+        data = json.loads(clean)
+    except json.JSONDecodeError:
+        data = {"visualPrompt": clean.strip()}
+
+    logger.info("creator_suggest_visual_prompt_done")
+    return data
