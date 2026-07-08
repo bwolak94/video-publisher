@@ -4,6 +4,7 @@ import { ArchivalFootageCacheService } from "./archival-footage-db-cache.service
 import { RunwayService, RUNWAY_HTTP } from "./runway.service";
 import { PexelsService, PEXELS_HTTP } from "./pexels.service";
 import { KlingService, KLING_HTTP } from "./kling.service";
+import { VeoService, VEO_HTTP } from "./veo.service";
 import { ArchivalFootageService, ARCHIVAL_HTTP } from "./archival-footage.service";
 import { RunwayProvider } from "./runway-provider";
 import { PexelsProvider } from "./pexels-provider";
@@ -25,6 +26,8 @@ import { MetricsModule } from "../metrics/metrics.module";
     { provide: PEXELS_HTTP, useValue: fetch },
     KlingService,
     { provide: KLING_HTTP, useValue: fetch },
+    VeoService,
+    { provide: VEO_HTTP, useValue: fetch },
     ArchivalFootageService,
     { provide: ARCHIVAL_HTTP, useValue: fetch },
 
@@ -44,6 +47,7 @@ export class MediaModule implements OnModuleInit {
     private readonly runway: RunwayProvider,
     private readonly pexels: PexelsProvider,
     private readonly kling: KlingService,
+    private readonly veo: VeoService,
     private readonly archival: ArchivalFootageService,
   ) {}
 
@@ -54,6 +58,7 @@ export class MediaModule implements OnModuleInit {
   onModuleInit() {
     this.registry.register(this.runway);   // quality=5, cost=1
     this.registry.register(this.kling);    // quality=5, cost=2
+    this.registry.register(this.veo);      // quality=5, cost=2, slower
     this.registry.register(this.pexels);   // quality=3, cost=4
     this.registry.register(this.archival); // quality=3, cost=5 (free)
   }

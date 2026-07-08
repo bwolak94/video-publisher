@@ -26,6 +26,7 @@ import { SubtitlesModule } from "./subtitles/subtitles.module";
 import { MusicModule } from "./music/music.module";
 import { LocalizationModule } from "./localization/localization.module";
 import { AvatarModule } from "./avatar/avatar.module";
+import { TemplatesModule } from "./storyboard/templates.module";
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { AvatarModule } from "./avatar/avatar.module";
     MusicModule,
     LocalizationModule,
     AvatarModule,
+    TemplatesModule,
   ],
 })
 export class AppModule {}

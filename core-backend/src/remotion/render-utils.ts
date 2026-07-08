@@ -18,12 +18,16 @@ export function calculateDurationInFrames(
   );
 }
 
-export function getCompositionWidth(aspectRatio: "16:9" | "9:16"): number {
-  return aspectRatio === "9:16" ? 1080 : 1920;
+export function getCompositionWidth(aspectRatio: "16:9" | "9:16" | "1:1"): number {
+  if (aspectRatio === "9:16") return 1080;
+  if (aspectRatio === "1:1") return 1080;
+  return 1920;
 }
 
-export function getCompositionHeight(aspectRatio: "16:9" | "9:16"): number {
-  return aspectRatio === "9:16" ? 1920 : 1080;
+export function getCompositionHeight(aspectRatio: "16:9" | "9:16" | "1:1"): number {
+  if (aspectRatio === "9:16") return 1920;
+  if (aspectRatio === "1:1") return 1080;
+  return 1080;
 }
 
 export function getFramesPerLambda(totalFrames: number, fps: number): number {

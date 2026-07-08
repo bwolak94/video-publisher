@@ -84,21 +84,43 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
     // Jitter (per task rule #2)
     await this.sleep(Math.random() * 500);
 
-    // Enforce 30-min timeout (task spec) — BullMQ 5 removed job-level timeout option
+    // Emit render_started at 0 % so the frontend shows progress immediately
+    void this.gateway.broadcastRenderProgress(job.data.projectId, 0);
+    await job.updateProgress(0);
+
+    // ── Progress heartbeat ─────────────────────────────────────────────────
+    // Remotion Lambda renders asynchronously; we emit a time-based progress
+    // estimate every 30 s so the UI doesn't stall at 0 % for the full duration.
     const RENDER_TIMEOUT_MS = 1_800_000;
-    const timeoutError = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Render timeout (30 min)")), RENDER_TIMEOUT_MS)
-    );
-    const renderedS3Url = await Promise.race([this.dispatchRender(job.data), timeoutError]);
+    const startTime = Date.now();
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      // Approach 90 % asymptotically; final 100 % is emitted on completion.
+      const estimated = Math.min(90, Math.round((elapsed / RENDER_TIMEOUT_MS) * 100));
+      void job.updateProgress(estimated);
+      void this.gateway.broadcastRenderProgress(job.data.projectId, estimated);
+    }, 30_000);
 
-    await job.updateProgress(100);
-
-    // ── Post-render quality analysis (FEATURE-07) — non-blocking ──────────
-    this.qualityGates
-      .analyzeAndSave(job.data.projectId, renderedS3Url)
-      .catch((err) =>
-        logger.warn({ err, projectId: job.data.projectId }, "Post-render quality analysis failed (non-blocking)")
+    try {
+      const timeoutError = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Render timeout (30 min)")), RENDER_TIMEOUT_MS)
       );
+      const renderedS3Url = await Promise.race([this.dispatchRender(job.data), timeoutError]);
+
+      clearInterval(progressInterval);
+      void this.gateway.broadcastRenderProgress(job.data.projectId, 100);
+      await job.updateProgress(100);
+
+      // ── Post-render quality analysis (FEATURE-07) — non-blocking ──────────
+      this.qualityGates
+        .analyzeAndSave(job.data.projectId, renderedS3Url)
+        .catch((err) =>
+          logger.warn({ err, projectId: job.data.projectId }, "Post-render quality analysis failed (non-blocking)")
+        );
+    } catch (err) {
+      clearInterval(progressInterval);
+      throw err;
+    }
   }
 
   protected async dispatchRender(payload: RenderPayload): Promise<string> {

@@ -17,7 +17,7 @@ export interface StoryboardMeta {
   title: string;
   description?: string;
   tags?: string[];
-  aspectRatio: "16:9" | "9:16";
+  aspectRatio: "16:9" | "9:16" | "1:1";
   language: "pl" | "en" | "de" | "fr" | "es";
   voiceId: string;
   toneProfile?: "informative" | "comedic" | "edgy" | "educational";
