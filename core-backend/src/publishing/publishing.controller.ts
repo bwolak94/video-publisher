@@ -2,6 +2,7 @@ import { Controller, Post, Body, HttpCode, HttpStatus } from "@nestjs/common";
 import pino from "pino";
 import { PublisherRegistry } from "./publisher.registry";
 import { QueueService } from "../queue/queue.service";
+import { VideoAnalyticsService } from "../metrics/video-analytics.service";
 import type { Platform, PublishOptions, PublishResult } from "./video-publisher.interface";
 
 const logger = pino({ level: "info" });
@@ -17,6 +18,7 @@ export class PublishingController {
   constructor(
     private readonly registry: PublisherRegistry,
     private readonly queue: QueueService,
+    private readonly analytics: VideoAnalyticsService,
   ) {}
 
   /**
@@ -59,7 +61,7 @@ export class PublishingController {
       platforms.map((platform) => this.registry.get(platform).upload(options)),
     );
 
-    return results.map((r, i) => {
+    const output = results.map((r, i) => {
       if (r.status === "fulfilled") return r.value;
       return {
         platform: platforms[i],
@@ -67,5 +69,16 @@ export class PublishingController {
         error: (r.reason as Error).message,
       } as any;
     });
+
+    // Seed zero-row analytics for each successful publish so the hourly cron has entries to update
+    if (options.projectId) {
+      for (const result of output) {
+        if (!result.error && result.platformVideoId) {
+          this.analytics.record(options.projectId, result.platform, result.platformVideoId).catch(() => {});
+        }
+      }
+    }
+
+    return output;
   }
 }
