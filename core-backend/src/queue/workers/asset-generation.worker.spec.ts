@@ -13,8 +13,10 @@ import { VideoAssetService } from "../../media/video-asset.service";
 import { ImageAssetService } from "../../images/image-asset.service";
 import { BudgetService } from "../../cost/budget.service";
 import { CostRecordService } from "../../cost/cost-record.service";
+import { CostConfigService } from "../../cost/cost-config.service";
 import { DlqService } from "../dlq.service";
 import { MetricsService } from "../../metrics/metrics.service";
+import { AssetDedupService } from "../asset-dedup.service";
 
 // Prevent actual BullMQ worker from starting
 jest.mock("bullmq", () => ({
@@ -62,8 +64,10 @@ describe("AssetGenerationWorker — UT-08-04", () => {
         { provide: ImageAssetService, useValue: { generateImage: jest.fn().mockResolvedValue("s3://image-url") } },
         { provide: BudgetService, useValue: { incrementSpend: jest.fn().mockResolvedValue(undefined) } },
         { provide: CostRecordService, useValue: { record: jest.fn().mockResolvedValue(undefined) } },
+        { provide: CostConfigService, useValue: { get: jest.fn().mockReturnValue({ elevenlabsPerCharUsd: 0.0003, runwayPerSceneUsd: 0.15, pexelsPerSceneUsd: 0, dalle3PerImageUsd: 0.04, lambdaRenderPerMinUsd: 0.001 }) } },
         { provide: DlqService, useValue: { enqueue: jest.fn().mockResolvedValue(undefined) } },
         { provide: MetricsService, useValue: { dlqDepth: { inc: jest.fn() } } },
+        { provide: AssetDedupService, useValue: { acquireOrSkip: jest.fn().mockResolvedValue("acquired"), release: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 

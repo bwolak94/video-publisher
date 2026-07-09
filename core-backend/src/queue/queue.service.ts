@@ -45,7 +45,10 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     const jobOptions: Record<string, unknown> = {};
     if (options?.delay !== undefined) jobOptions.delay = options.delay;
     if (options?.priority !== undefined) jobOptions.priority = options.priority;
-    return queue.add(queueName, payload, Object.keys(jobOptions).length ? jobOptions : undefined);
+    if (Object.keys(jobOptions).length) {
+      return queue.add(queueName, payload, jobOptions);
+    }
+    return queue.add(queueName, payload);
   }
 
   getQueue(name: QueueName): Queue | undefined {
