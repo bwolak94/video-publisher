@@ -81,6 +81,20 @@ export class PreRenderValidatorService {
       errors.push({ field: "integrity", message: "Storyboard has no scenes", severity: "error" });
     }
 
+    // ── I7: Total duration deviation check (±20% of targetDurationSeconds) ──
+    const targetDuration = storyboard.meta.targetDurationSeconds;
+    if (targetDuration && targetDuration > 0) {
+      const totalActual = storyboard.timeline.reduce((sum, s) => sum + (s.durationInSeconds ?? 0), 0);
+      if (totalActual > 0) {
+        const deviation = Math.abs(totalActual - targetDuration) / targetDuration;
+        if (deviation > 0.2) {
+          warnings.push(
+            `Total scene duration ${totalActual.toFixed(1)}s deviates ${(deviation * 100).toFixed(0)}% from target ${targetDuration}s (threshold: 20%)`,
+          );
+        }
+      }
+    }
+
     // ── 3. Zero-byte check (S3 HeadObject) ───────────────────────────────
     if (validScenes.length > 0) {
       const sizeErrors = await this.checkAssetSizes(validScenes);

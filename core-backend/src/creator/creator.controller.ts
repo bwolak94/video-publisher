@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Res } from "@nestjs/common";
+import { Controller, Post, Get, Body, Res, Query } from "@nestjs/common";
 import type { FastifyReply } from "fastify";
 import pino from "pino";
 import { configuration } from "../config/configuration";
 import { ProjectsService } from "../projects/projects.service";
+import { ClonedVoiceService } from "./cloned-voice.service";
 
 const logger = pino({ level: "info" });
 
@@ -61,7 +62,10 @@ interface ScoreHookBody {
 export class CreatorController {
   private readonly aiBackendUrl: string;
 
-  constructor(private readonly projectsService: ProjectsService) {
+  constructor(
+    private readonly projectsService: ProjectsService,
+    private readonly clonedVoiceService: ClonedVoiceService,
+  ) {
     this.aiBackendUrl = configuration().worker.aiBackendUrl;
   }
 
@@ -217,6 +221,12 @@ export class CreatorController {
     return { storyboard: data.storyboard, projectId: project.id };
   }
 
+  /** I8: List persisted cloned voices. Optional ?userId= filter. */
+  @Get("voices")
+  async listVoices(@Query("userId") userId?: string): Promise<unknown> {
+    return this.clonedVoiceService.findAll(userId ?? null);
+  }
+
   /** F01: Clone a speaker's voice from a reference video URL. Returns { voiceId, voiceName }. */
   @Post("clone-voice")
   async cloneVoice(@Body() body: CloneVoiceBody): Promise<unknown> {
@@ -239,7 +249,17 @@ export class CreatorController {
       const text = await aiRes.text().catch(() => "");
       throw new Error(`Voice cloning failed: ${text}`);
     }
-    return aiRes.json();
+
+    const result = await aiRes.json() as { voiceId: string; voiceName: string };
+
+    // I8: Persist the cloned voice to DB for reuse across projects
+    if (result.voiceId) {
+      await this.clonedVoiceService.persist(result.voiceId, result.voiceName ?? body.voiceName ?? "cloned-voice", body.videoUrl).catch((err) => {
+        logger.warn({ err, voiceId: result.voiceId }, "Failed to persist cloned voice — non-fatal");
+      });
+    }
+
+    return result;
   }
 
   /** F02: Score the viral hook strength of a script's opening lines. */

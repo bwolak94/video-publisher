@@ -18,6 +18,7 @@ import { CostModule } from "../cost/cost.module";
 import { AlertsModule } from "../alerts/alerts.module";
 import { MetricsModule } from "../metrics/metrics.module";
 import { QualityGatesModule } from "../quality/quality-gates.module";
+import { AssetDedupService } from "./asset-dedup.service";
 
 @Module({
   imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule, RenderModule, CostModule, AlertsModule, MetricsModule, QualityGatesModule],
@@ -31,6 +32,7 @@ import { QualityGatesModule } from "../quality/quality-gates.module";
     RenderWorker,
     ResearchWorker,
     DeduplicationService,
+    AssetDedupService,
   ],
   exports: [QueueService, JobSyncService, DlqAlertService, DlqService],
 })

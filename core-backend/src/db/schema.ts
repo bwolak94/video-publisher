@@ -155,10 +155,26 @@ export const musicCache = pgTable("music_cache", {
   license:         text("license").notNull().default("CC-BY"),
   durationSeconds: numeric("duration_seconds", { precision: 10, scale: 2 }).notNull(),
   createdAt:       timestamp("created_at", { withTimezone: true }).defaultNow(),
+  /** I1: SWR TTL — null means unexpired, past value triggers background refresh */
+  expiresAt:       timestamp("expires_at", { withTimezone: true }),
 });
 
 export type MusicCache = typeof musicCache.$inferSelect;
 export type NewMusicCache = typeof musicCache.$inferInsert;
+
+/** I8: Persisted ElevenLabs instant voice clones — reusable across projects. */
+export const clonedVoices = pgTable("cloned_voices", {
+  id:             uuid("id").primaryKey().defaultRandom(),
+  userId:         uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  voiceId:        text("voice_id").notNull(),
+  voiceName:      text("voice_name").notNull(),
+  sourceVideoUrl: text("source_video_url"),
+  provider:       text("provider").notNull().default("elevenlabs"),
+  createdAt:      timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type ClonedVoice    = typeof clonedVoices.$inferSelect;
+export type NewClonedVoice = typeof clonedVoices.$inferInsert;
 
 /** YouTube / TikTok / Instagram post analytics (fetched hourly by VideoAnalyticsService). */
 export const videoAnalytics = pgTable(

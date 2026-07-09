@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Cron } from "@nestjs/schedule";
 import pino from "pino";
 import { MusicProviderRegistry } from "./music-provider-registry";
 import { MusicCacheService } from "./music-cache.service";
@@ -51,6 +52,35 @@ export class MusicService {
 
   async getProviderStatus() {
     return this.registry.getProviderStatus();
+  }
+
+  /**
+   * I1: Stale-while-revalidate refresh cron.
+   * Runs daily at 03:00 UTC — refreshes any cached track expiring in the next 24h
+   * so callers never block on a cold regeneration during peak hours.
+   */
+  @Cron("0 3 * * *")
+  async refreshExpiringTracks(): Promise<void> {
+    try {
+      const hashes = await this.cache.getSoonToExpireHashes();
+      if (hashes.length === 0) return;
+      logger.info({ count: hashes.length }, "I1: Refreshing expiring music tracks");
+      for (const hash of hashes) {
+        // Treat as cache miss to trigger regeneration and reset TTL
+        const cached = await this.cache.get(hash);
+        if (!cached) continue; // already expired
+        // Re-generate via provider and overwrite (hash encodes mood + duration bucket)
+        try {
+          const fresh = await this.registry.generate({ mood: cached.mood, durationSeconds: cached.durationSeconds, projectId: "refresh" });
+          await this.cache.save(hash, this.annotateBpm(fresh));
+          logger.info({ hash, provider: fresh.provider }, "I1: Music track refreshed");
+        } catch (err) {
+          logger.warn({ hash, err }, "I1: Failed to refresh music track — will retry next cycle");
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, "I1: Music refresh cron failed");
+    }
   }
 
   // ── I04: BPM annotation ───────────────────────────────────────────────────
