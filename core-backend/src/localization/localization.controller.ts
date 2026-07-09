@@ -11,6 +11,7 @@
 import { Controller, Post, Get, Param, Body, HttpCode, HttpStatus } from "@nestjs/common";
 import pino from "pino";
 import { LocalizationService } from "./localization.service";
+import { DubbingExportService } from "./dubbing-export.service";
 import { QueueService } from "../queue/queue.service";
 import { LocalizeProjectDto } from "./dto/localize-project.dto";
 import type { VideoStoryboard } from "../storyboard/video-storyboard";
@@ -22,6 +23,7 @@ const logger = pino({ level: "info" });
 export class LocalizationController {
   constructor(
     private readonly localization: LocalizationService,
+    private readonly dubbingExport: DubbingExportService,
     private readonly queue: QueueService,
   ) {}
 
@@ -66,6 +68,23 @@ export class LocalizationController {
     logger.info({ projectId, childProjectId, targetLanguage, jobId: job.id }, "Localization job enqueued");
 
     return { jobId: job.id as string, childProjectId };
+  }
+
+  /**
+   * F03: One-click multi-language dubbing export.
+   * Translates narration → re-generates audio in target language → auto-triggers render.
+   * POST /api/projects/:projectId/dubbing
+   * Body: { targetLanguage: string; targetVoiceId?: string }
+   */
+  @Post("dubbing")
+  @HttpCode(HttpStatus.ACCEPTED)
+  async startDubbing(
+    @Param("projectId") projectId: string,
+    @Body() body: { targetLanguage: string; targetVoiceId?: string },
+  ): Promise<{ childProjectId: string }> {
+    const { targetLanguage, targetVoiceId } = body;
+    logger.info({ projectId, targetLanguage }, "F03: Starting dubbing export");
+    return this.dubbingExport.startDubbing(projectId, targetLanguage, targetVoiceId);
   }
 
   /**

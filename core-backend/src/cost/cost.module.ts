@@ -7,8 +7,10 @@ import { CostRecordService } from "./cost-record.service";
 import { CostController } from "./cost.controller";
 import { BudgetApprovalGate } from "./budget-approval-gate";
 import { ApprovalLogService } from "./approval-log.service";
+import { ProjectBudgetService } from "./project-budget.service";
 
 @Module({
+  imports: [],
   controllers: [CostController],
   providers: [
     CostConfigService,
@@ -18,7 +20,8 @@ import { ApprovalLogService } from "./approval-log.service";
     CostRecordService,
     BudgetApprovalGate,
     ApprovalLogService,
+    ProjectBudgetService,
   ],
-  exports: [BudgetService, CostEstimatorService, CostRecordService, BudgetApprovalGate, ApprovalLogService],
+  exports: [BudgetService, CostEstimatorService, CostRecordService, BudgetApprovalGate, ApprovalLogService, ProjectBudgetService],
 })
 export class CostModule {}

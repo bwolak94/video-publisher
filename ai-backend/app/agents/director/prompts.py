@@ -71,6 +71,18 @@ Key topics covered: {key_topics}
 </reference_analysis>
 """
 
+# ── Analytics insights injection (F05) ────────────────────────────────────────
+
+_ANALYTICS_INSIGHTS_TEMPLATE = """
+Past video performance insights (use these to inform content strategy):
+<analytics_insights>
+Top-performing formats: {top_performing_formats}
+Audience retention tips: {audience_retention_tips}
+High-CTR content angles: {content_angles_with_high_ctr}
+Overall takeaway: {summary}
+</analytics_insights>
+"""
+
 # ── Research brief injection (FEATURE-05) ──────────────────────────────────────
 
 _RESEARCH_BRIEF_TEMPLATE = """
@@ -179,6 +191,24 @@ def _build_reference_brief_block(reference_brief: dict | None) -> str:
     )
 
 
+def _build_analytics_insights_block(analytics_insights: dict | None) -> str:
+    """Render F05 analytics insights as a delimited prompt block."""
+    if not analytics_insights:
+        return ""
+    formats = ", ".join(analytics_insights.get("topPerformingFormats", []))
+    retention = ", ".join(analytics_insights.get("audienceRetentionTips", []))
+    angles = ", ".join(analytics_insights.get("contentAnglesWithHighCtr", []))
+    summary = analytics_insights.get("summary", "")
+    if not any([formats, retention, angles, summary]):
+        return ""
+    return _ANALYTICS_INSIGHTS_TEMPLATE.format(
+        top_performing_formats=formats or "No data yet",
+        audience_retention_tips=retention or "No data yet",
+        content_angles_with_high_ctr=angles or "No data yet",
+        summary=summary or "No data yet",
+    )
+
+
 def _build_research_brief_block(research_brief: dict | None) -> str:
     """Render a ResearchBrief as a delimited block for prompt injection (FEATURE-05)."""
     if not research_brief:
@@ -201,19 +231,22 @@ def build_outline_prompt(
     source_chunks: list[str] | None = None,
     research_brief: dict | None = None,
     reference_brief: dict | None = None,
+    analytics_insights: dict | None = None,
 ) -> str:
     """Build the cheap-model outline prompt with NicheProfile injected.
 
     If research_brief is provided (FEATURE-05), key findings are injected.
     If reference_brief is provided (FEATURE-06), reference style is injected.
+    If analytics_insights is provided (F05), past performance patterns are injected.
     """
     source_block    = _build_source_context_block(source_chunks)
     research_block  = _build_research_brief_block(research_brief)
     reference_block = _build_reference_brief_block(reference_brief)
+    analytics_block = _build_analytics_insights_block(analytics_insights)
     return _OUTLINE_TEMPLATE.format(
         niche_profile_json=json.dumps(niche_profile.model_dump(), indent=2),
         topic=topic,
-        source_context_block=reference_block + research_block + source_block,
+        source_context_block=analytics_block + reference_block + research_block + source_block,
     )
 
 
@@ -226,12 +259,14 @@ def build_full_storyboard_prompt(
     source_chunks: list[str] | None = None,
     research_brief: dict | None = None,
     reference_brief: dict | None = None,
+    analytics_insights: dict | None = None,
 ) -> str:
     """Build the expensive-model full storyboard prompt after outline approval."""
     schema = VideoStoryboard.model_json_schema()
     source_block    = _build_source_context_block(source_chunks)
     research_block  = _build_research_brief_block(research_brief)
     reference_block = _build_reference_brief_block(reference_brief)
+    analytics_block = _build_analytics_insights_block(analytics_insights)
     return _FULL_STORYBOARD_TEMPLATE.format(
         niche_profile_json=json.dumps(niche_profile.model_dump(), indent=2),
         outline_json=json.dumps(outline, indent=2),
@@ -239,5 +274,5 @@ def build_full_storyboard_prompt(
         scene_count=scene_count,
         target_duration_seconds=target_duration_seconds,
         aspect_ratio=aspect_ratio,
-        source_context_block=reference_block + research_block + source_block,
+        source_context_block=analytics_block + reference_block + research_block + source_block,
     )

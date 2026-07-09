@@ -15,9 +15,21 @@ const logger = pino({ level: "info" });
  *  4. Try providers in order; on failure fall through to next
  *  5. Emit Prometheus metrics for every attempt, success, and fallback
  */
+interface RollingWindow {
+  success: number;
+  failure: number;
+  windowStartMs: number;
+}
+
+const ROLLING_WINDOW_MS = 10 * 60 * 1_000; // 10 minutes
+
 @Injectable()
 export class VideoProviderRegistry {
   private readonly providers: VideoProvider[] = [];
+  /** I02: last error timestamp per provider (epoch ms) */
+  private readonly lastErrorAt = new Map<string, number>();
+  /** I02: rolling 10-min success/failure counts per provider */
+  private readonly rolling = new Map<string, RollingWindow>();
 
   constructor(private readonly metrics: MetricsService) {}
 
@@ -66,6 +78,7 @@ export class VideoProviderRegistry {
 
         timer({ status: "success" });
         this.metrics.videoProviderRequestsTotal.labels({ provider: provider.name, status: "success" }).inc();
+        this.recordRolling(provider.name, "success"); // I02
 
         logger.info({ sceneId: params.sceneId, provider: provider.name, s3Url }, "Video generated successfully");
         return { s3Url, provider: provider.name };
@@ -74,6 +87,8 @@ export class VideoProviderRegistry {
         timer({ status: "error" });
         this.metrics.videoProviderRequestsTotal.labels({ provider: provider.name, status: "error" }).inc();
         this.metrics.externalApiErrorsTotal.labels({ service: provider.name }).inc();
+        this.lastErrorAt.set(provider.name, Date.now()); // I02
+        this.recordRolling(provider.name, "failure");   // I02
 
         logger.error(
           { sceneId: params.sceneId, provider: provider.name, error: err.message },
@@ -109,15 +124,46 @@ export class VideoProviderRegistry {
     return scores.quality * 3 + scores.cost * 2 + scores.reliability * 2 + scores.latency * 1;
   }
 
-  /** For health checks / debugging */
-  async getProviderStatus(): Promise<Array<{ name: string; available: boolean; score: number; scores: ProviderScores }>> {
+  /** I02: For health checks — includes live circuit state, last error, and rolling success rate. */
+  async getProviderStatus(): Promise<Array<{
+    name: string;
+    available: boolean;
+    score: number;
+    scores: ProviderScores;
+    lastErrorAt: string | null;
+    successRatePct: number | null;
+  }>> {
     return Promise.all(
-      this.providers.map(async (p) => ({
-        name: p.name,
-        available: await p.isAvailable().catch(() => false),
-        score: this.composite(p.scores),
-        scores: p.scores,
-      }))
+      this.providers.map(async (p) => {
+        const errTs = this.lastErrorAt.get(p.name);
+        const win = this.rollingWindow(p.name);
+        const total = win.success + win.failure;
+        return {
+          name: p.name,
+          available: await p.isAvailable().catch(() => false),
+          score: this.composite(p.scores),
+          scores: p.scores,
+          lastErrorAt: errTs ? new Date(errTs).toISOString() : null,
+          successRatePct: total > 0 ? Math.round((win.success / total) * 100) : null,
+        };
+      })
     );
+  }
+
+  // ── I02: Rolling window helpers ────────────────────────────────────────────
+
+  private recordRolling(name: string, outcome: "success" | "failure"): void {
+    const win = this.rollingWindow(name);
+    if (outcome === "success") win.success++; else win.failure++;
+  }
+
+  private rollingWindow(name: string): RollingWindow {
+    const now = Date.now();
+    let win = this.rolling.get(name);
+    if (!win || now - win.windowStartMs > ROLLING_WINDOW_MS) {
+      win = { success: 0, failure: 0, windowStartMs: now };
+      this.rolling.set(name, win);
+    }
+    return win;
   }
 }

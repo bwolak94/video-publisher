@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     SERPAPI_KEY: str | None = None
     REDDIT_CLIENT_ID: str | None = None      # not used for read-only search, kept for OAuth future
     REDDIT_CLIENT_SECRET: str | None = None  # not used for read-only search, kept for OAuth future
+    # Optional — F01: Voice Cloning via ElevenLabs
+    ELEVENLABS_API_KEY: str | None = None
+    # Optional — S3 for voice clone audio upload
+    S3_ENDPOINT: str | None = None
+    S3_BUCKET: str | None = None
+    AWS_ACCESS_KEY_ID: str | None = None
+    AWS_SECRET_ACCESS_KEY: str | None = None
+    AWS_REGION: str = "us-east-1"
 
 
 @lru_cache

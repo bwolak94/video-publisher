@@ -28,6 +28,8 @@ export const projects = pgTable(
     renderQualityScore: numeric("render_quality_score", { precision: 3, scale: 2 }),
     /** Cumulative spend across all per-action approvals (FEATURE-09) */
     totalSpentUsd: numeric("total_spent_usd", { precision: 10, scale: 4 }).default("0.0000"),
+    /** Per-project cost budget (I05). 0 = unlimited. Triggers webhook at 80% and pauses at 100%. */
+    projectBudgetUsd: numeric("project_budget_usd", { precision: 10, scale: 2 }).default("0"),
     /** Localization & Dubbing (FEATURE-10) — parent/child project relationship */
     parentProjectId: uuid("parent_project_id").references((): any => projects.id, { onDelete: "set null" }),
     language: text("language").default("en"),
@@ -202,3 +204,52 @@ export const approvalLog = pgTable(
 
 export type ApprovalLog    = typeof approvalLog.$inferSelect;
 export type NewApprovalLog = typeof approvalLog.$inferInsert;
+
+/** Brand kits — per-user reusable branding presets applied at render time (F04). */
+export const brandKits = pgTable("brand_kits", {
+  id:               uuid("id").primaryKey().defaultRandom(),
+  userId:           uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  name:             text("name").notNull(),
+  logoUrl:          text("logo_url"),
+  primaryColor:     text("primary_color").default("#ffffff"),
+  secondaryColor:   text("secondary_color").default("#000000"),
+  fontFamily:       text("font_family").default("Inter"),
+  lowerThirdStyle:  jsonb("lower_third_style").default({}),  // Remotion override JSON
+  introClipS3Url:   text("intro_clip_s3_url"),
+  outroClipS3Url:   text("outro_clip_s3_url"),
+  createdAt:        timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt:        timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export type BrandKit    = typeof brandKits.$inferSelect;
+export type NewBrandKit = typeof brandKits.$inferInsert;
+
+/**
+ * Periodic analytics snapshots fetched at 24h / 72h / 7d after publish (F05).
+ * Distinct from video_analytics (live fetches) — these are archival data points
+ * used by PublishAnalyticsService to surface "what worked" patterns.
+ */
+export const publishAnalyticsSnapshots = pgTable(
+  "publish_analytics_snapshots",
+  {
+    id:                     uuid("id").primaryKey().defaultRandom(),
+    projectId:              uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    platform:               text("platform").notNull(),          // "youtube" | "tiktok" | "instagram"
+    platformVideoId:        text("platform_video_id").notNull(),
+    snapshotType:           text("snapshot_type").notNull(),     // "24h" | "72h" | "7d"
+    views:                  text("views").default("0"),
+    likes:                  text("likes").default("0"),
+    comments:               text("comments").default("0"),
+    impressionCtr:          numeric("impression_ctr", { precision: 6, scale: 4 }),
+    avgViewDurationSeconds: text("avg_view_duration_seconds"),
+    retentionPct:           numeric("retention_pct", { precision: 5, scale: 2 }),
+    capturedAt:             timestamp("captured_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_pub_analytics_project:   index("idx_pub_analytics_project").on(t.projectId),
+    idx_pub_analytics_snap_type: index("idx_pub_analytics_snap_type").on(t.snapshotType),
+  }),
+);
+
+export type PublishAnalyticsSnapshot    = typeof publishAnalyticsSnapshots.$inferSelect;
+export type NewPublishAnalyticsSnapshot = typeof publishAnalyticsSnapshots.$inferInsert;

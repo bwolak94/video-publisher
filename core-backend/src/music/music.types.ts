@@ -25,4 +25,8 @@ export interface MusicTrack {
   license: string;
   durationSeconds: number;
   generatedAt: string;
+  /** I04: Estimated tempo in beats per minute, derived from mood */
+  bpm?: number;
+  /** I04: Beat timestamps in seconds — usable by Remotion to cut scenes on beat */
+  beatTimestamps?: number[];
 }

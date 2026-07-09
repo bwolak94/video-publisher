@@ -1,10 +1,11 @@
-import { Injectable, Inject } from "@nestjs/common";
+import { Injectable, Inject, Optional } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import pino from "pino";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DRIZZLE } from "../db/db.module";
 import * as schema from "../db/schema";
 import { costRecords } from "../db/schema";
+import { ProjectBudgetService } from "./project-budget.service";
 
 const logger = pino({ level: "info" });
 
@@ -34,7 +35,10 @@ export interface CostBreakdownResult {
 
 @Injectable()
 export class CostRecordService {
-  constructor(@Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
+    @Optional() private readonly projectBudget?: ProjectBudgetService,
+  ) {}
 
   async record(opts: RecordCostOptions): Promise<void> {
     await this.db.insert(costRecords).values({
@@ -50,6 +54,12 @@ export class CostRecordService {
       { projectId: opts.projectId, sceneId: opts.sceneId, provider: opts.provider, estimatedCostUsd: opts.estimatedCostUsd },
       "Cost record saved"
     );
+
+    // I05: increment project spend and check budget thresholds
+    if (this.projectBudget) {
+      await this.projectBudget.incrementSpend(opts.projectId, opts.estimatedCostUsd).catch(() => {});
+      await this.projectBudget.checkAfterRecord(opts.projectId).catch(() => {});
+    }
   }
 
   async getBreakdown(projectId: string): Promise<CostBreakdownResult> {

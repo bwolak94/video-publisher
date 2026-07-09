@@ -23,6 +23,7 @@ interface OutlineBody {
   projectId?: string;
   researchBrief?: Record<string, unknown>;
   referenceAnalysis?: Record<string, unknown>;
+  analyticsInsights?: Record<string, unknown>;
 }
 
 interface StoryboardBody {
@@ -36,6 +37,7 @@ interface StoryboardBody {
   researchBrief?: Record<string, unknown>;
   referenceAnalysis?: Record<string, unknown>;
   referenceVideoUrl?: string;
+  analyticsInsights?: Record<string, unknown>;
 }
 
 interface PolishScriptBody {
@@ -43,6 +45,16 @@ interface PolishScriptBody {
   tone?: string;
   targetDurationSeconds?: number;
   language?: string;
+}
+
+interface CloneVoiceBody {
+  videoUrl: string;
+  voiceName?: string;
+}
+
+interface ScoreHookBody {
+  openingLines: string;
+  targetDurationSeconds?: number;
 }
 
 @Controller("api/creator")
@@ -123,6 +135,7 @@ export class CreatorController {
           projectId: body.projectId ?? null,
           researchBrief: body.researchBrief ?? null,
           referenceAnalysis: body.referenceAnalysis ?? null,
+          analyticsInsights: body.analyticsInsights ?? null,
         }),
       });
     } catch (err) {
@@ -172,6 +185,7 @@ export class CreatorController {
           aspectRatio: body.aspectRatio ?? "16:9",
           researchBrief: body.researchBrief ?? null,
           referenceAnalysis: body.referenceAnalysis ?? null,
+          analyticsInsights: body.analyticsInsights ?? null,
         }),
       });
     } catch (err) {
@@ -201,6 +215,59 @@ export class CreatorController {
     logger.info({ projectId: project.id, scenes: (data.storyboard?.timeline as any[])?.length }, "Project saved to DB");
 
     return { storyboard: data.storyboard, projectId: project.id };
+  }
+
+  /** F01: Clone a speaker's voice from a reference video URL. Returns { voiceId, voiceName }. */
+  @Post("clone-voice")
+  async cloneVoice(@Body() body: CloneVoiceBody): Promise<unknown> {
+    if (!body.videoUrl) throw new Error("videoUrl is required");
+    logger.info({ videoUrl: body.videoUrl }, "Proxying clone-voice to ai-backend");
+
+    let aiRes: Response;
+    try {
+      aiRes = await fetch(`${this.aiBackendUrl}/api/creator/clone-voice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl: body.videoUrl, voiceName: body.voiceName ?? "cloned-voice" }),
+      });
+    } catch (err) {
+      logger.error({ err }, "ai-backend unreachable for clone-voice");
+      throw new Error("AI backend unavailable");
+    }
+
+    if (!aiRes.ok) {
+      const text = await aiRes.text().catch(() => "");
+      throw new Error(`Voice cloning failed: ${text}`);
+    }
+    return aiRes.json();
+  }
+
+  /** F02: Score the viral hook strength of a script's opening lines. */
+  @Post("score-hook")
+  async scoreHook(@Body() body: ScoreHookBody): Promise<unknown> {
+    if (!body.openingLines) throw new Error("openingLines is required");
+    logger.info({ chars: body.openingLines.length }, "Proxying score-hook to ai-backend");
+
+    let aiRes: Response;
+    try {
+      aiRes = await fetch(`${this.aiBackendUrl}/api/creator/score-hook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          openingLines: body.openingLines,
+          targetDurationSeconds: body.targetDurationSeconds ?? 40,
+        }),
+      });
+    } catch (err) {
+      logger.error({ err }, "ai-backend unreachable for score-hook");
+      throw new Error("AI backend unavailable");
+    }
+
+    if (!aiRes.ok) {
+      const text = await aiRes.text().catch(() => "");
+      throw new Error(`Hook scoring failed: ${text}`);
+    }
+    return aiRes.json();
   }
 
   @Post("polish-script")
