@@ -271,11 +271,11 @@ async def clone_voice(req: CloneVoiceRequest) -> dict:
 
     logger.info("clone_voice_start", url=req.videoUrl, voice_name=req.voiceName)
 
-    from app.services.video_downloader import download_video
+    from app.services.video_downloader import download_reference_video
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Download video (reuses FEATURE-06 downloader)
-        video_path = await download_video(req.videoUrl, tmpdir)
+        video_path = await download_reference_video(req.videoUrl)
 
         # Extract first 60s of audio as mp3
         audio_path = os.path.join(tmpdir, "voice_sample.mp3")
