@@ -27,6 +27,8 @@ export interface StoryboardMeta {
   musicMood?: MusicMood;
   /** Music volume relative to narration (0.0-1.0, default 0.3) */
   musicVolume?: number;
+  /** Target total duration for the video in seconds — used for pre-render duration validation (I7) */
+  targetDurationSeconds?: number;
 }
 
 export interface TextOverlay {
@@ -82,6 +84,8 @@ export interface StoryboardScene {
   subtitleTrack?: SubtitleTrack | null;
   /** Talking-head avatar configuration (FEATURE-11) */
   avatarConfig?: AvatarConfig | null;
+  /** I9: Per-scene subtitle style override — overrides project-level default at render time */
+  subtitleStyle?: "standard" | "punchy" | "karaoke";
 }
 
 export interface VideoStoryboard {

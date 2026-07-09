@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Patch, Param, Body, HttpCode, HttpStatus, NotFoundException, HttpException, Query, UseGuards } from "@nestjs/common";
 import pino from "pino";
+import { wordDiff } from "./word-diff";
 import { ThrottleGuard, Throttle } from "../common/throttle.guard";
 import { ScenesService } from "./scenes.service";
 import { VideoAssetService } from "../media/video-asset.service";
@@ -398,6 +399,23 @@ export class ScenesController {
     }
 
     return aiRes.json() as Promise<{ visualPrompt: string }>;
+  }
+
+  /**
+   * I03: Compute a word-level diff between original and current text for a scene field.
+   * POST /api/scenes/:sceneId/diff
+   * Body: { original: string; current: string; field?: "narrationText" | "visualPrompt" }
+   */
+  @Post(":sceneId/diff")
+  @HttpCode(HttpStatus.OK)
+  async computeDiff(
+    @Param("sceneId") _sceneId: string,
+    @Body() body: { original: string; current: string; field?: string },
+  ) {
+    if (typeof body.original !== "string" || typeof body.current !== "string") {
+      throw new HttpException({ error: "original and current are required strings" }, HttpStatus.BAD_REQUEST);
+    }
+    return wordDiff(body.original, body.current);
   }
 
   // ── Private ────────────────────────────────────────────────────────────────

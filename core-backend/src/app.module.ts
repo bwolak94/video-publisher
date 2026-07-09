@@ -29,6 +29,8 @@ import { MusicModule } from "./music/music.module";
 import { LocalizationModule } from "./localization/localization.module";
 import { AvatarModule } from "./avatar/avatar.module";
 import { TemplatesModule } from "./storyboard/templates.module";
+import { BrandKitModule } from "./brand-kit/brand-kit.module";
+import { AnalyticsModule } from "./analytics/analytics.module";
 
 @Module({
   providers: [{ provide: APP_GUARD, useClass: ThrottleGuard }],
@@ -61,6 +63,8 @@ import { TemplatesModule } from "./storyboard/templates.module";
     LocalizationModule,
     AvatarModule,
     TemplatesModule,
+    BrandKitModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule {}

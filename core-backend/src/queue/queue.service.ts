@@ -34,7 +34,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   async add(
     queueName: QueueName,
     payload: Record<string, unknown>,
-    options?: { delay?: number },
+    options?: { delay?: number; priority?: number },
   ) {
     const queue = this.queues.get(queueName);
     if (!queue) {
@@ -42,8 +42,11 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     }
     // Note: render jobs have a 30-min max runtime per task spec; BullMQ 5 removed the
     // `timeout` job option — enforce in the render worker process via a Promise.race() with a timer.
-    if (options?.delay !== undefined) {
-      return queue.add(queueName, payload, { delay: options.delay });
+    const jobOptions: Record<string, unknown> = {};
+    if (options?.delay !== undefined) jobOptions.delay = options.delay;
+    if (options?.priority !== undefined) jobOptions.priority = options.priority;
+    if (Object.keys(jobOptions).length) {
+      return queue.add(queueName, payload, jobOptions);
     }
     return queue.add(queueName, payload);
   }

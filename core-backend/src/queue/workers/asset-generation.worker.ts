@@ -1,5 +1,6 @@
 import { Injectable, Inject, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { Worker, Job } from "bullmq";
+import { createHash } from "crypto";
 import pino from "pino";
 import type Redis from "ioredis";
 import { REDIS_CLIENT } from "../../redis/redis.module";
@@ -12,8 +13,10 @@ import { VideoAssetService } from "../../media/video-asset.service";
 import { ImageAssetService } from "../../images/image-asset.service";
 import { BudgetService } from "../../cost/budget.service";
 import { CostRecordService } from "../../cost/cost-record.service";
+import { CostConfigService } from "../../cost/cost-config.service";
 import { DlqService } from "../dlq.service";
 import { MetricsService } from "../../metrics/metrics.service";
+import { AssetDedupService } from "../asset-dedup.service";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "asset-generation";
@@ -36,8 +39,15 @@ export interface AssetGenerationPayload {
   // Budget tracking (TASK-25)
   channelId?: string;
   estimatedCostUsd?: number;
-  // Observability — threaded through from originating HTTP request
+  // Observability
   correlationId?: string;
+  /** I6: W3C Trace Context traceparent header, propagated from originating HTTP request */
+  traceparent?: string;
+}
+
+/** I10: Return value from process() carrying the actual provider used. */
+export interface AssetGenerationResult {
+  videoProvider?: string;
 }
 
 @Injectable()
@@ -54,8 +64,10 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     private readonly imageAsset: ImageAssetService,
     private readonly budget: BudgetService,
     private readonly costRecord: CostRecordService,
+    private readonly costConfig: CostConfigService,
     private readonly dlq: DlqService,
-    private readonly metrics: MetricsService
+    private readonly metrics: MetricsService,
+    private readonly dedup: AssetDedupService,
   ) {}
 
   onModuleInit() {
@@ -71,7 +83,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     );
 
     this.worker.on("active", (job) => this.onActive(job));
-    this.worker.on("completed", (job) => this.onCompleted(job));
+    this.worker.on("completed", (job, result) => this.onCompleted(job, result));
     this.worker.on("failed", (job, err) => this.onFailed(job, err));
     this.worker.on("progress", (job, progress) => this.onProgress(job, progress as number | object));
     this.worker.on("stalled", (jobId) => this.onStalled(jobId));
@@ -83,31 +95,51 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
 
   // ── Job processor ──────────────────────────────────────────────────────────
 
-  private async process(job: Job<AssetGenerationPayload>): Promise<void> {
+  private async process(job: Job<AssetGenerationPayload>): Promise<AssetGenerationResult> {
     const {
       sceneId, assetType, narrationText, voiceId, standardVoiceId,
       visualPrompt, aspectRatio, stability, similarityBoost, style,
-      correlationId,
+      correlationId, traceparent,
     } = job.data;
 
-    logger.info({ jobId: job.id, sceneId, assetType, correlationId }, "Processing asset generation");
+    logger.info({ jobId: job.id, sceneId, assetType, correlationId, traceparent }, "Processing asset generation");
 
     // Jitter before starting (per task rule #2)
     await this.sleep(Math.random() * 500);
 
-    // Parallel: audio (ElevenLabs) + visual (image or video based on assetType)
-    await Promise.all([
-      narrationText && voiceId && standardVoiceId
-        ? this.generateAudio(narrationText, voiceId, standardVoiceId, { stability, similarityBoost, style })
-        : Promise.resolve(),
-      assetType === "image" && visualPrompt
-        ? this.generateImage(visualPrompt, sceneId, aspectRatio)
-        : visualPrompt
-          ? this.generateVideo(visualPrompt, sceneId, aspectRatio)
-          : Promise.resolve(),
-    ]);
+    let videoProvider: string | undefined;
+
+    // I2: Acquire distributed lock per content hash to prevent duplicate generation
+    const contentHash = this.computeContentHash(job.data);
+    const holderId = `worker-${job.id}`;
+    const lockResult = await this.dedup.acquireOrSkip(contentHash, holderId);
+
+    if (lockResult === "skip") {
+      logger.info({ sceneId, contentHash }, "I2: Duplicate generation skipped — cache should be warm");
+      await job.updateProgress(100);
+      return {};
+    }
+
+    try {
+      // Parallel: audio (ElevenLabs) + visual (image or video based on assetType)
+      const [, visualResult] = await Promise.all([
+        narrationText && voiceId && standardVoiceId
+          ? this.generateAudio(narrationText, voiceId, standardVoiceId, { stability, similarityBoost, style })
+          : Promise.resolve(null),
+        assetType === "image" && visualPrompt
+          ? this.generateImage(visualPrompt, sceneId, aspectRatio).then((url) => ({ s3Url: url, provider: "dalle3" }))
+          : visualPrompt
+            ? this.generateVideoWithProvider(visualPrompt, sceneId, aspectRatio)
+            : Promise.resolve(null),
+      ]);
+
+      videoProvider = visualResult?.provider;
+    } finally {
+      await this.dedup.release(contentHash, holderId);
+    }
 
     await job.updateProgress(100);
+    return { videoProvider };
   }
 
   protected async generateAudio(
@@ -124,16 +156,25 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** I10: Returns both s3Url and provider name for cost reconciliation. */
+  protected async generateVideoWithProvider(
+    prompt: string,
+    sceneId: string,
+    aspectRatio?: "16:9" | "9:16" | "1:1"
+  ): Promise<{ s3Url: string; provider: string }> {
+    return this.videoAsset.generateVideo({
+      visualPrompt: prompt,
+      sceneId,
+      aspectRatio: aspectRatio === "1:1" ? "16:9" : aspectRatio,
+    });
+  }
+
   protected async generateVideo(
     prompt: string,
     sceneId: string,
     aspectRatio?: "16:9" | "9:16" | "1:1"
   ): Promise<string> {
-    const result = await this.videoAsset.generateVideo({
-      visualPrompt: prompt,
-      sceneId,
-      aspectRatio: aspectRatio === "1:1" ? "16:9" : aspectRatio, // video doesn't support 1:1
-    });
+    const result = await this.generateVideoWithProvider(prompt, sceneId, aspectRatio);
     return result.s3Url;
   }
 
@@ -151,7 +192,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     await this.jobSync.syncActive(job.data.jobId);
   }
 
-  private async onCompleted(job: Job<AssetGenerationPayload>) {
+  private async onCompleted(job: Job<AssetGenerationPayload>, result: AssetGenerationResult) {
     await this.jobSync.syncCompleted(job.data.jobId);
     void this.gateway.broadcastJobProgress(job.data.projectId, {
       jobId: job.data.jobId,
@@ -165,20 +206,18 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
       await this.budget.incrementSpend(job.data.channelId, job.data.estimatedCostUsd);
     }
 
-    // Record per-asset cost for project breakdown
+    // I10: Record per-asset cost using actual provider and its real rate
     if (job.data.projectId && job.data.estimatedCostUsd) {
-      const provider = job.data.assetType === "audio"
-        ? "elevenlabs"
-        : job.data.assetType === "image"
-          ? "dalle3"
-          : "runway";
+      const actualProvider = this.resolveActualProvider(job.data, result);
+      const actualCostUsd = this.computeActualCost(job.data, actualProvider);
+
       await this.costRecord.record({
-        projectId: job.data.projectId,
-        sceneId: job.data.sceneId,
-        assetType: job.data.assetType ?? "video",
-        provider,
+        projectId:       job.data.projectId,
+        sceneId:         job.data.sceneId,
+        assetType:       job.data.assetType ?? "video",
+        provider:        actualProvider,
         estimatedCostUsd: job.data.estimatedCostUsd,
-        actualCostUsd: job.data.estimatedCostUsd, // actual = estimated (fixed per-unit pricing)
+        actualCostUsd,
       });
     }
   }
@@ -211,6 +250,39 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
   private async onStalled(jobId: string) {
     logger.warn({ jobId, queue: QUEUE_NAME }, "Job stalled — will be re-queued");
     await this.jobSync.syncStalled(jobId);
+  }
+
+  // ── I2: Content hash ────────────────────────────────────────────────────────
+
+  private computeContentHash(data: AssetGenerationPayload): string {
+    const key = data.assetType === "audio"
+      ? `audio:${data.narrationText ?? ""}:${data.voiceId ?? ""}`
+      : `video:${data.visualPrompt ?? ""}:${data.aspectRatio ?? "16:9"}`;
+    return createHash("sha256").update(key).digest("hex").slice(0, 16);
+  }
+
+  // ── I10: Cost reconciliation ────────────────────────────────────────────────
+
+  /** Determine the provider actually used (video may differ from estimate if fallback occurred). */
+  private resolveActualProvider(data: AssetGenerationPayload, result: AssetGenerationResult): string {
+    if (data.assetType === "audio") return "elevenlabs";
+    if (data.assetType === "image") return "dalle3";
+    return result.videoProvider ?? "runway"; // fallback to runway if not captured
+  }
+
+  /** Look up the per-unit rate for the actual provider and compute cost. */
+  private computeActualCost(data: AssetGenerationPayload, provider: string): number {
+    const config = this.costConfig.get();
+    if (data.assetType === "audio") {
+      return (data.narrationText?.length ?? 0) * config.elevenlabsPerCharUsd;
+    }
+    if (data.assetType === "image") {
+      return config.dalle3PerImageUsd;
+    }
+    // Video: pexels is free, everything else uses runway rate
+    return provider === "pexels" || provider === "archival"
+      ? config.pexelsPerSceneUsd
+      : config.runwayPerSceneUsd;
   }
 
   private sleep(ms: number) {

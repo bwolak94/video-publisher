@@ -1,9 +1,14 @@
 import { Injectable, Inject } from "@nestjs/common";
 import { createHash } from "crypto";
-import { eq } from "drizzle-orm";
+import { eq, lt } from "drizzle-orm";
 import { DRIZZLE } from "../db/db.module";
 import { musicCache } from "../db/schema";
 import type { MusicGenerateParams, MusicMood, MusicProviderName, MusicTrack } from "./music.types";
+
+/** I1: Cache TTL — 30 days. Tracks approaching this age trigger background refresh. */
+const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1_000;
+/** I1: Refresh window — refresh within 24h of expiry without blocking the caller. */
+const REFRESH_WINDOW_MS = 24 * 60 * 60 * 1_000;
 
 @Injectable()
 export class MusicCacheService {
@@ -25,6 +30,12 @@ export class MusicCacheService {
 
     if (!rows[0]) return null;
     const row = rows[0];
+
+    // I1: Treat expired entries as a cache miss (force regeneration)
+    if (row.expiresAt && new Date(row.expiresAt) < new Date()) {
+      return null;
+    }
+
     return {
       s3Url:           row.s3Url,
       provider:        row.provider as MusicProviderName,
@@ -32,12 +43,26 @@ export class MusicCacheService {
       title:           row.title,
       artist:          row.artist ?? undefined,
       license:         row.license,
-      durationSeconds: parseFloat(row.durationSeconds),
+      durationSeconds: parseFloat(row.durationSeconds as string),
       generatedAt:     row.createdAt?.toISOString() ?? new Date().toISOString(),
     };
   }
 
+  /**
+   * I1: Return hashes for tracks expiring within the next 24h.
+   * Used by the background refresh cron in MusicService.
+   */
+  async getSoonToExpireHashes(): Promise<string[]> {
+    const threshold = new Date(Date.now() + REFRESH_WINDOW_MS);
+    const rows = await this.db
+      .select({ paramsHash: musicCache.paramsHash })
+      .from(musicCache)
+      .where(lt(musicCache.expiresAt, threshold));
+    return rows.map((r) => r.paramsHash);
+  }
+
   async save(hash: string, track: MusicTrack): Promise<void> {
+    const expiresAt = new Date(Date.now() + CACHE_TTL_MS); // I1: 30-day TTL
     await this.db
       .insert(musicCache)
       .values({
@@ -49,6 +74,7 @@ export class MusicCacheService {
         artist:          track.artist ?? null,
         license:         track.license,
         durationSeconds: String(track.durationSeconds),
+        expiresAt,
       })
       .onConflictDoUpdate({
         target: musicCache.paramsHash,
@@ -58,6 +84,7 @@ export class MusicCacheService {
           title:           track.title,
           artist:          track.artist ?? null,
           durationSeconds: String(track.durationSeconds),
+          expiresAt,
         },
       });
   }

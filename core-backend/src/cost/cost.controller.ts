@@ -1,7 +1,8 @@
-import { Controller, Post, Get, Body, Param, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Post, Get, Put, Body, Param, HttpCode, HttpStatus } from "@nestjs/common";
 import { CostEstimatorService, type SceneSummary } from "./cost-estimator.service";
 import { BudgetService } from "./budget.service";
 import { CostRecordService } from "./cost-record.service";
+import { ProjectBudgetService } from "./project-budget.service";
 
 interface EstimateBody {
   scenes: SceneSummary[];
@@ -12,7 +13,8 @@ export class CostController {
   constructor(
     private readonly estimator: CostEstimatorService,
     private readonly budget: BudgetService,
-    private readonly costRecord: CostRecordService
+    private readonly costRecord: CostRecordService,
+    private readonly projectBudget: ProjectBudgetService,
   ) {}
 
   @Post("estimate")
@@ -34,5 +36,24 @@ export class CostController {
   @Get("projects/:projectId/breakdown")
   async getProjectCostBreakdown(@Param("projectId") projectId: string) {
     return this.costRecord.getBreakdown(projectId);
+  }
+
+  /** I05: Set a monthly cost budget for a project. 0 = unlimited. */
+  @Put("projects/:projectId/budget")
+  @HttpCode(HttpStatus.OK)
+  async setProjectBudget(
+    @Param("projectId") projectId: string,
+    @Body() body: { budgetUsd: number },
+  ) {
+    await this.projectBudget.setBudget(projectId, body.budgetUsd ?? 0);
+    return { ok: true, projectId, budgetUsd: body.budgetUsd };
+  }
+
+  /** I05: Resume a project that was paused due to budget exceeded. */
+  @Post("projects/:projectId/resume-budget")
+  @HttpCode(HttpStatus.OK)
+  async resumeProjectBudget(@Param("projectId") projectId: string) {
+    await this.projectBudget.resumeProject(projectId);
+    return { ok: true, projectId };
   }
 }

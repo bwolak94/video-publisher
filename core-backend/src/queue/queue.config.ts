@@ -25,8 +25,9 @@ const assetGenerationJobOptions: DefaultJobOptions = {
 };
 
 const renderJobOptions: DefaultJobOptions = {
-  attempts: 3,
-  backoff: { type: "exponential", delay: 5000 },
+  // I01: render = 2 retries max — renders are expensive (Remotion Lambda cost); cap to avoid runaway spend
+  attempts: 2,
+  backoff: { type: "exponential", delay: 10_000 }, // 10s, 100s
   removeOnComplete: { count: 50 },
   removeOnFail: false,
   // timeout: 1_800_000 — set per-job when calling queue.add() (BullMQ 5 removed it from DefaultJobOptions)
@@ -40,8 +41,9 @@ const localizationJobOptions: DefaultJobOptions = {
 };
 
 const publishJobOptions: DefaultJobOptions = {
-  attempts: 3,
-  backoff: { type: "exponential", delay: 10_000 },
+  // I01: publish = 5 retries — social APIs are flaky; more retries prevents missed uploads
+  attempts: 5,
+  backoff: { type: "exponential", delay: 10_000 }, // 10s, 100s, 1000s (capped by platform rate limits)
   removeOnComplete: { count: 200 },
   removeOnFail: false,
 };

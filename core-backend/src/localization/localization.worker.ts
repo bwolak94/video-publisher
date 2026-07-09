@@ -12,6 +12,7 @@
  */
 import { Injectable, Inject, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { Worker, Job } from "bullmq";
+import * as crypto from "crypto";
 import pino from "pino";
 import type Redis from "ioredis";
 import { REDIS_CLIENT } from "../redis/redis.module";
@@ -19,6 +20,7 @@ import { QUEUE_CONCURRENCY } from "../queue/queue.config";
 import { LocalizationService } from "./localization.service";
 import { DubbingService } from "./dubbing.service";
 import { EventsGateway } from "../gateway/events.gateway";
+import { QueueService } from "../queue/queue.service";
 import type { VideoStoryboard } from "../storyboard/video-storyboard";
 
 const logger = pino({ level: "info" });
@@ -41,6 +43,7 @@ export class LocalizationWorker implements OnModuleInit, OnModuleDestroy {
     private readonly localization: LocalizationService,
     private readonly dubbing: DubbingService,
     private readonly gateway: EventsGateway,
+    private readonly queue: QueueService,
   ) {}
 
   onModuleInit() {
@@ -90,9 +93,19 @@ export class LocalizationWorker implements OnModuleInit, OnModuleDestroy {
       // 4. Persist to child project, mark ready
       await this.localization.finalizeLocalization(childProjectId, dubbed);
 
+      await job.updateProgress(95);
+
+      // 5. F03: Auto-trigger render for the dubbed child project
+      await this.queue.add("render", {
+        jobId: `render-dub-${childProjectId}-${crypto.randomUUID().slice(0, 8)}`,
+        projectId: childProjectId,
+        step: "render",
+        storyboard: dubbed,
+      }).catch((err) => logger.error({ childProjectId, err }, "Failed to enqueue render for dubbed project"));
+
       await job.updateProgress(100);
 
-      // 5. Notify frontend
+      // 6. Notify frontend
       this.gateway.emitLocalizationEvent(originalProjectId, "localization_complete", {
         childProjectId,
         targetLanguage,
