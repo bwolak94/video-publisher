@@ -1,11 +1,11 @@
-import { Injectable, Inject } from "@nestjs/common";
+import { Injectable, Inject, NotFoundException } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import pino from "pino";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DRIZZLE } from "../db/db.module";
 import * as schema from "../db/schema";
-import { thumbnailExperiments } from "../db/schema";
+import { thumbnailExperiments, videoAnalytics } from "../db/schema";
 import { DallE3Service } from "../images/dalle3.service";
 import { YouTubeAuthService } from "../youtube/youtube-auth.service";
 
@@ -151,6 +151,58 @@ export class ThumbnailTestService {
       { experimentId: experiment.id, youtubeVideoId: experiment.youtubeVideoId, variantIndex: index },
       "Thumbnail variant activated on YouTube"
     );
+  }
+
+  /** F1: Get the latest running or completed experiment for a project. */
+  async getCurrent(projectId: string): Promise<schema.ThumbnailExperiment | null> {
+    const rows = await this.db
+      .select()
+      .from(thumbnailExperiments)
+      .where(eq(thumbnailExperiments.projectId, projectId))
+      .orderBy(desc(thumbnailExperiments.createdAt))
+      .limit(1);
+    return rows[0] ?? null;
+  }
+
+  /**
+   * F1: Pull latest impressionCtr from the video_analytics table and write it
+   * back into each variant's `ctr` field in the experiment JSON.
+   */
+  async syncCtr(experimentId: string): Promise<schema.ThumbnailExperiment> {
+    const rows = await this.db
+      .select()
+      .from(thumbnailExperiments)
+      .where(eq(thumbnailExperiments.id, experimentId))
+      .limit(1);
+
+    const experiment = rows[0] as schema.ThumbnailExperiment | undefined;
+    if (!experiment) throw new NotFoundException(`Experiment ${experimentId} not found`);
+
+    // Fetch the latest analytics row for this video
+    const analyticsRows = await this.db
+      .select()
+      .from(videoAnalytics)
+      .where(eq(videoAnalytics.platformVideoId, experiment.youtubeVideoId))
+      .orderBy(desc(videoAnalytics.fetchedAt))
+      .limit(1);
+
+    const ctr = analyticsRows[0]?.impressionCtr ? parseFloat(analyticsRows[0].impressionCtr) : undefined;
+
+    if (ctr !== undefined) {
+      const variants = (experiment.variants as ThumbnailVariant[]).map((v, i) =>
+        i === parseInt(experiment.currentVariantIndex ?? "0", 10) ? { ...v, ctr } : v,
+      );
+
+      await this.db
+        .update(thumbnailExperiments)
+        .set({ variants } as any)
+        .where(eq(thumbnailExperiments.id, experimentId));
+
+      logger.info({ experimentId, ctr }, "F1: Thumbnail CTR synced from analytics");
+      return { ...experiment, variants } as schema.ThumbnailExperiment;
+    }
+
+    return experiment;
   }
 
   private variantStyle(index: number): string {

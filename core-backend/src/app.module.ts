@@ -31,6 +31,7 @@ import { AvatarModule } from "./avatar/avatar.module";
 import { TemplatesModule } from "./storyboard/templates.module";
 import { BrandKitModule } from "./brand-kit/brand-kit.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
+import { ReviewModule } from "./review/review.module";
 
 @Module({
   providers: [{ provide: APP_GUARD, useClass: ThrottleGuard }],
@@ -65,6 +66,7 @@ import { AnalyticsModule } from "./analytics/analytics.module";
     TemplatesModule,
     BrandKitModule,
     AnalyticsModule,
+    ReviewModule,
   ],
 })
 export class AppModule {}

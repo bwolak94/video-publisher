@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Inject } from "@nestjs/common";
 import { eq, sql, ilike, and, ne } from "drizzle-orm";
 import { DRIZZLE } from "../db/db.module";
-import { projects, type Project } from "../db/schema";
+import { projects, projectVersions, type Project } from "../db/schema";
 import { CreateProjectDto } from "./dto/create-project.dto";
 
 @Injectable()
@@ -135,7 +135,16 @@ export class ProjectsService {
     return rows[0];
   }
 
-  async updateStoryboard(id: string, storyboard: Record<string, unknown>): Promise<void> {
+  async updateStoryboard(id: string, storyboard: Record<string, unknown>, label?: string): Promise<void> {
+    // F5: Snapshot current storyboard before overwriting
+    const rows = await this.db.select().from(projects).where(eq(projects.id, id)).limit(1);
+    if (rows[0]?.storyboard) {
+      await this.db
+        .insert(projectVersions)
+        .values({ projectId: id, storyboard: rows[0].storyboard, label: label ?? null })
+        .catch(() => {}); // non-fatal — version capture should not block the update
+    }
+
     await this.db
       .update(projects)
       .set({ storyboard, updatedAt: new Date() })

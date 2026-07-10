@@ -7,12 +7,16 @@ import {
   Param,
   Query,
   Req,
+  Res,
   HttpCode,
   HttpStatus,
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
 import { ProjectsService } from "./projects.service";
+import { ProjectVersionsService } from "./project-versions.service";
+import { ShortsSlicerService } from "./shorts-slicer.service";
+import { SubtitleExportService } from "../subtitles/subtitle-export.service";
 import { CreateProjectDto } from "./dto/create-project.dto";
 import { QueueService } from "../queue/queue.service";
 import { VideoAnalyticsService } from "../metrics/video-analytics.service";
@@ -27,6 +31,9 @@ export class ProjectsController {
     private readonly queueService: QueueService,
     private readonly analytics: VideoAnalyticsService,
     private readonly s3: S3Service,
+    private readonly versions: ProjectVersionsService,
+    private readonly slicer: ShortsSlicerService,
+    private readonly subtitleExport: SubtitleExportService,
   ) {}
 
   @Post()
@@ -128,5 +135,70 @@ export class ProjectsController {
   async importCsv(@Req() req: any, @Body() body: { csv: string }) {
     if (!body.csv) throw new BadRequestException("csv field is required");
     return this.projectsService.importFromCsv(body.csv, req.headers["x-user-id"] ?? null);
+  }
+
+  // ── F2: Shorts Slicer ──────────────────────────────────────────────────────
+
+  /**
+   * F2: Slice a long-form project into a 9:16 short by picking the top 3 scenes.
+   * Returns the new short project ID.
+   *
+   * POST /api/projects/:id/slice-to-short
+   */
+  @Post(":id/slice-to-short")
+  @HttpCode(HttpStatus.CREATED)
+  sliceToShort(@Req() req: any, @Param("id") id: string) {
+    return this.slicer.slice(id, req.headers["x-user-id"] ?? null);
+  }
+
+  // ── F4: Subtitle Export ────────────────────────────────────────────────────
+
+  /** F4: Download full-video SRT subtitle file. */
+  @Get(":id/export/subtitles.srt")
+  async exportSrt(@Param("id") id: string, @Res() res: any) {
+    const project = await this.projectsService.findOne(id);
+    const storyboard = project.storyboard as VideoStoryboard | null;
+    if (!storyboard) throw new NotFoundException("No storyboard found");
+    const srt = this.subtitleExport.toSrt(storyboard);
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${id}.srt"`);
+    res.send(srt);
+  }
+
+  /** F4: Download full-video VTT subtitle file. */
+  @Get(":id/export/subtitles.vtt")
+  async exportVtt(@Param("id") id: string, @Res() res: any) {
+    const project = await this.projectsService.findOne(id);
+    const storyboard = project.storyboard as VideoStoryboard | null;
+    if (!storyboard) throw new NotFoundException("No storyboard found");
+    const vtt = this.subtitleExport.toVtt(storyboard);
+    res.setHeader("Content-Type", "text/vtt; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${id}.vtt"`);
+    res.send(vtt);
+  }
+
+  // ── F5: Project Versioning ─────────────────────────────────────────────────
+
+  /** F5: List all storyboard snapshots for a project (newest first). */
+  @Get(":id/versions")
+  listVersions(@Param("id") id: string) {
+    return this.versions.findAll(id);
+  }
+
+  /** F5: Manually capture a snapshot with an optional label. */
+  @Post(":id/versions/snapshot")
+  @HttpCode(HttpStatus.CREATED)
+  snapshot(@Param("id") id: string, @Body() body: { label?: string }) {
+    return this.versions.snapshot(id, body.label);
+  }
+
+  /** F5: Restore a project to a specific version. */
+  @Post(":id/versions/:versionId/restore")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async restoreVersion(
+    @Param("id") id: string,
+    @Param("versionId") versionId: string,
+  ): Promise<void> {
+    await this.versions.restore(id, versionId);
   }
 }
