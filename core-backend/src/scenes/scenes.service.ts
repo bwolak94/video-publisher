@@ -1,7 +1,7 @@
 import { Injectable, Inject, NotFoundException } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { DRIZZLE } from "../db/db.module";
-import { projects } from "../db/schema";
+import { projects, sceneAssetHistory } from "../db/schema";
 import type { VideoStoryboard, StoryboardScene, SubtitleTrack } from "../storyboard/video-storyboard";
 
 @Injectable()
@@ -27,6 +27,13 @@ export class ScenesService {
     if (!project) return;
 
     const storyboard = project.storyboard as VideoStoryboard;
+
+    // I6: Record old URL in history before overwriting
+    const existing = storyboard.timeline.find((s) => s.sceneId === sceneId);
+    if (existing?.videoUrl) {
+      await this.recordAssetHistory(projectId, sceneId, "videoUrl", existing.videoUrl);
+    }
+
     const updated = {
       ...storyboard,
       timeline: storyboard.timeline.map((s) =>
@@ -98,6 +105,13 @@ export class ScenesService {
     if (!project) return;
 
     const storyboard = project.storyboard as VideoStoryboard;
+
+    // I6: Record old audio URL in history
+    const existing = storyboard.timeline.find((s) => s.sceneId === sceneId);
+    if (existing?.audioUrl) {
+      await this.recordAssetHistory(projectId, sceneId, "audioUrl", existing.audioUrl);
+    }
+
     const updated = {
       ...storyboard,
       timeline: storyboard.timeline.map((s) =>
@@ -109,5 +123,48 @@ export class ScenesService {
       .update(projects)
       .set({ storyboard: updated, updatedAt: new Date() })
       .where(eq(projects.id, projectId));
+  }
+
+  /** I6: Get asset history for a scene (latest first). */
+  async getAssetHistory(projectId: string, _sceneId: string) {
+    return this.db
+      .select()
+      .from(sceneAssetHistory)
+      .where(eq(sceneAssetHistory.projectId, projectId))
+      .orderBy(sceneAssetHistory.replacedAt);
+  }
+
+  /**
+   * I7: Reorder scenes by updating their sequenceNumber.
+   * `sceneIds` must contain all scene IDs in the desired order.
+   */
+  async reorderScenes(projectId: string, sceneIds: string[]): Promise<void> {
+    const rows = await this.db.select().from(projects).where(eq(projects.id, projectId));
+    const project = rows[0];
+    if (!project) throw new NotFoundException(`Project ${projectId} not found`);
+
+    const storyboard = project.storyboard as VideoStoryboard;
+    const sceneMap = new Map(storyboard.timeline.map((s) => [s.sceneId, s]));
+
+    const reordered = sceneIds.map((id, index) => {
+      const scene = sceneMap.get(id);
+      if (!scene) throw new NotFoundException(`Scene ${id} not found in project ${projectId}`);
+      return { ...scene, sequenceNumber: index + 1 };
+    });
+
+    const updated = { ...storyboard, timeline: reordered };
+    await this.db
+      .update(projects)
+      .set({ storyboard: updated, updatedAt: new Date() })
+      .where(eq(projects.id, projectId));
+  }
+
+  // ── Private ────────────────────────────────────────────────────────────────
+
+  private async recordAssetHistory(projectId: string, sceneId: string, field: string, previousUrl: string): Promise<void> {
+    await this.db
+      .insert(sceneAssetHistory)
+      .values({ projectId, sceneId, field, previousUrl })
+      .catch(() => {}); // non-fatal
   }
 }

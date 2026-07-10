@@ -269,3 +269,25 @@ export const publishAnalyticsSnapshots = pgTable(
 
 export type PublishAnalyticsSnapshot    = typeof publishAnalyticsSnapshots.$inferSelect;
 export type NewPublishAnalyticsSnapshot = typeof publishAnalyticsSnapshots.$inferInsert;
+
+/**
+ * I6: Scene asset version history — tracks previous video/audio URLs per scene
+ * so users can revert to a prior generation without regenerating.
+ */
+export const sceneAssetHistory = pgTable(
+  "scene_asset_history",
+  {
+    id:         uuid("id").primaryKey().defaultRandom(),
+    projectId:  uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    sceneId:    text("scene_id").notNull(),
+    field:      text("field").notNull(),          // "videoUrl" | "audioUrl"
+    previousUrl: text("previous_url").notNull(),
+    replacedAt: timestamp("replaced_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_scene_asset_history_scene: index("idx_scene_asset_history_scene").on(t.projectId, t.sceneId),
+  }),
+);
+
+export type SceneAssetHistory    = typeof sceneAssetHistory.$inferSelect;
+export type NewSceneAssetHistory = typeof sceneAssetHistory.$inferInsert;

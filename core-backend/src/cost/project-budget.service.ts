@@ -115,6 +115,41 @@ export class ProjectBudgetService {
     }).catch((err) => logger.error({ err, event }, "Budget webhook notification failed"));
   }
 
+  /**
+   * I5: Pre-flight check before enqueuing a batch of asset-generation jobs.
+   * Throws if the project is paused or the estimated batch cost would exceed the remaining budget.
+   */
+  async checkBatchBudget(projectId: string, estimatedTotalCostUsd: number): Promise<void> {
+    const row = await this.db
+      .select({
+        totalSpentUsd:    projects.totalSpentUsd,
+        projectBudgetUsd: projects.projectBudgetUsd,
+        status:           projects.status,
+      })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+
+    if (!row) return; // Unknown project — allow (no budget set)
+
+    if (row.status === "budget_paused") {
+      throw new Error(`Project ${projectId} is budget-paused — resume before generating new assets`);
+    }
+
+    const budget = parseFloat(row.projectBudgetUsd ?? "0");
+    if (budget === 0) return; // 0 = unlimited
+
+    const spent = parseFloat(row.totalSpentUsd ?? "0");
+    const remaining = budget - spent;
+
+    if (estimatedTotalCostUsd > remaining) {
+      throw new Error(
+        `Batch cost $${estimatedTotalCostUsd.toFixed(4)} exceeds remaining project budget $${remaining.toFixed(4)} (budget $${budget.toFixed(2)}, spent $${spent.toFixed(4)})`,
+      );
+    }
+  }
+
   /** Atomically increment project totalSpentUsd. */
   async incrementSpend(projectId: string, amount: number): Promise<void> {
     await this.db
