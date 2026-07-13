@@ -34,7 +34,8 @@ async def _probe_url(url: str) -> dict[str, Any]:
         url,
     ]
     stdout, _ = await _run(cmd, timeout=30)
-    return json.loads(stdout)
+    result: dict[str, Any] = json.loads(stdout)
+    return result
 
 
 async def validate_single_asset(

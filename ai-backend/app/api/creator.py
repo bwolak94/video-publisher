@@ -240,6 +240,7 @@ async def polish_script(req: PolishScriptRequest) -> dict[str, Any]:
     clean = _strip_fences(raw)
 
     import json
+    data: dict[str, Any]
     try:
         data = json.loads(clean)
     except json.JSONDecodeError:
@@ -390,6 +391,7 @@ async def suggest_visual_prompt(req: SuggestVisualPromptRequest) -> dict[str, An
     clean = _strip_fences(raw)
 
     import json
+    data: dict[str, Any]
     try:
         data = json.loads(clean)
     except json.JSONDecodeError:

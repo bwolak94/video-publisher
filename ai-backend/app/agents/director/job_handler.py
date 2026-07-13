@@ -57,7 +57,7 @@ class DirectorJobHandler:
         """Start Creator Mode: generate outline and await human approval."""
         from app.agents.director.creator_mode import get_creator_graph
 
-        graph = get_creator_graph()
+        graph = await get_creator_graph()
         config = {"configurable": {"thread_id": payload.channelId}}
 
         initial_state = {
