@@ -58,7 +58,10 @@ export class ResearchWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    await this.worker?.close();
+    if (!this.worker) return;
+    const graceful = this.worker.close(false);
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, 30_000));
+    await Promise.race([graceful, timeout]);
   }
 
   // ── Job processor ──────────────────────────────────────────────────────────

@@ -1,14 +1,20 @@
-import { Controller, Get, Post, Patch, Param, Body, HttpCode, HttpStatus, NotFoundException, HttpException, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Param, Body, HttpCode, HttpStatus, NotFoundException, HttpException, Query, UseGuards, Inject } from "@nestjs/common";
+import { createHash } from "crypto";
 import pino from "pino";
+import type Redis from "ioredis";
 import { wordDiff } from "./word-diff";
 import { ThrottleGuard, Throttle } from "../common/throttle.guard";
 import { ScenesService } from "./scenes.service";
+import { WaveformService } from "./waveform.service";
 import { VideoAssetService } from "../media/video-asset.service";
 import { ElevenLabsService } from "../elevenlabs/elevenlabs.service";
 import { TtsProviderRegistry } from "../elevenlabs/tts-provider-registry";
 import { BudgetApprovalGate, type ActionType } from "../cost/budget-approval-gate";
 import { ApprovalLogService } from "../cost/approval-log.service";
 import { EventsGateway } from "../gateway/events.gateway";
+import { S3Service } from "../storage/s3.service";
+import { ScenePreviewService } from "../render/scene-preview.service";
+import { REDIS_CLIENT } from "../redis/redis.module";
 import { configuration } from "../config/configuration";
 import type { VideoStoryboard } from "../storyboard/video-storyboard";
 
@@ -44,12 +50,16 @@ export class ScenesController {
 
   constructor(
     private readonly scenesService: ScenesService,
+    private readonly waveformService: WaveformService,
     private readonly videoAsset: VideoAssetService,
     private readonly elevenLabs: ElevenLabsService,
     private readonly ttsRegistry: TtsProviderRegistry,
     private readonly approvalGate: BudgetApprovalGate,
     private readonly approvalLog: ApprovalLogService,
     private readonly gateway: EventsGateway,
+    private readonly s3: S3Service,
+    private readonly scenePreview: ScenePreviewService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {
     this.aiBackendUrl = configuration().worker.aiBackendUrl;
   }
@@ -305,7 +315,8 @@ export class ScenesController {
     if (narrationText !== undefined) fields.narrationText = narrationText;
     if (visualPrompt !== undefined) fields.visualPrompt = visualPrompt;
 
-    return this.scenesService.updateSceneFields(projectId, sceneId, fields);
+    const result = await this.scenesService.updateSceneFields(projectId, sceneId, fields);
+    return result;
   }
 
   /**
@@ -418,7 +429,187 @@ export class ScenesController {
     return wordDiff(body.original, body.current);
   }
 
+  /**
+   * I7: Reorder scenes within a project.
+   * PATCH /api/scenes/projects/:projectId/reorder
+   * Body: { sceneIds: string[] } — full ordered list of all scene IDs.
+   */
+  @Patch("projects/:projectId/reorder")
+  @HttpCode(HttpStatus.OK)
+  async reorderScenes(
+    @Param("projectId") projectId: string,
+    @Body() body: { sceneIds: string[] },
+  ): Promise<{ ok: boolean }> {
+    if (!Array.isArray(body.sceneIds) || body.sceneIds.length === 0) {
+      throw new HttpException({ error: "sceneIds must be a non-empty array" }, HttpStatus.BAD_REQUEST);
+    }
+    await this.scenesService.reorderScenes(projectId, body.sceneIds);
+    return { ok: true };
+  }
+
+  /**
+   * I8: Return audio waveform peaks for a scene's current audioUrl.
+   * GET /api/scenes/:sceneId/audio-waveform
+   */
+  @Get(":sceneId/audio-waveform")
+  async getAudioWaveform(@Param("sceneId") sceneId: string) {
+    const { scene } = await this.scenesService.findScene(sceneId);
+    if (!scene.audioUrl) {
+      throw new HttpException({ error: "Scene has no audioUrl" }, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    // Convert s3:// to presigned URL so ffprobe can access it
+    let audioUrl = scene.audioUrl;
+    if (audioUrl.startsWith("s3://")) {
+      const key = audioUrl.replace(/^s3:\/\/[^/]+\//, "");
+      audioUrl = await this.s3.getPresignedUrl(key, 300);
+    }
+
+    return this.waveformService.extract(audioUrl);
+  }
+
+  /**
+   * I6: Get asset version history for a scene.
+   * GET /api/scenes/:sceneId/asset-history
+   */
+  @Get(":sceneId/asset-history")
+  async getAssetHistory(@Param("sceneId") sceneId: string) {
+    const { project } = await this.scenesService.findScene(sceneId);
+    return this.scenesService.getAssetHistory(project.id, sceneId);
+  }
+
+  /**
+   * F2: Swap the visual for a scene with custom footage (own file or external URL).
+   * POST /api/scenes/:sceneId/swap-visual
+   * Body: { videoUrl: string; projectId?: string }
+   *   - s3:// URL → used directly (validated via header check)
+   *   - https:// URL → downloaded and re-uploaded to S3
+   */
+  @Post(":sceneId/swap-visual")
+  @HttpCode(HttpStatus.OK)
+  async swapVisual(
+    @Param("sceneId") sceneId: string,
+    @Body() body: { videoUrl: string; projectId?: string },
+  ): Promise<{ videoUrl: string; s3Url: string }> {
+    if (!body.videoUrl) throw new HttpException({ error: "videoUrl is required" }, HttpStatus.BAD_REQUEST);
+
+    let projectId: string | undefined = body.projectId;
+    try {
+      const found = await this.scenesService.findScene(sceneId);
+      projectId = found.project.id;
+    } catch (err) {
+      if (!(err instanceof NotFoundException)) throw err;
+    }
+
+    let s3Url: string;
+
+    if (body.videoUrl.startsWith("s3://")) {
+      // Already in S3 — validate bucket ownership
+      s3Url = body.videoUrl;
+    } else {
+      // External URL — download and upload to S3
+      s3Url = await this.downloadAndUpload(body.videoUrl, sceneId);
+    }
+
+    if (projectId) {
+      await this.scenesService.updateSceneVideoUrl(projectId, sceneId, s3Url);
+    }
+
+    logger.info({ sceneId, s3Url }, "F2: Visual swapped");
+    return { videoUrl: toPublicUrl(s3Url), s3Url };
+  }
+
+  /**
+   * I5: Check if a scene's asset generation is currently in-flight.
+   * Returns { locked: true } if a BullMQ worker holds the distributed lock for this scene.
+   *
+   * GET /api/scenes/:sceneId/locked
+   */
+  @Get(":sceneId/locked")
+  async isLocked(@Param("sceneId") sceneId: string): Promise<{ locked: boolean; sceneId: string }> {
+    let scene: { narrationText: string; visualPrompt: string } | null = null;
+    try {
+      const found = await this.scenesService.findScene(sceneId);
+      scene = found.scene;
+    } catch {
+      return { locked: false, sceneId };
+    }
+
+    // Mirror asset-generation.worker's computeContentHash for both asset types
+    const audioHash = createHash("sha256").update(`audio:${scene.narrationText}:`).digest("hex").slice(0, 16);
+    const videoHash = createHash("sha256").update(`video:${scene.visualPrompt}:16:9`).digest("hex").slice(0, 16);
+
+    const [audioLocked, videoLocked] = await Promise.all([
+      this.redis.exists(`asset-lock:${audioHash}`),
+      this.redis.exists(`asset-lock:${videoHash}`),
+    ]);
+
+    return { locked: audioLocked === 1 || videoLocked === 1, sceneId };
+  }
+
+  /**
+   * I2: Render a single-scene preview clip.
+   * POST /api/scenes/:sceneId/preview-render
+   * Returns a 1-hour presigned URL to the MP4 clip.
+   */
+  @Post(":sceneId/preview-render")
+  @HttpCode(HttpStatus.OK)
+  async previewRender(@Param("sceneId") sceneId: string): Promise<{ url: string; expiresIn: number }> {
+    return this.scenePreview.renderPreview(sceneId);
+  }
+
+  /**
+   * I9: Copy a scene (text + prompts) to another project.
+   * POST /api/scenes/:sceneId/copy-to/:targetProjectId
+   * Assets (audio/video) are NOT copied.
+   */
+  @Post(":sceneId/copy-to/:targetProjectId")
+  @HttpCode(HttpStatus.OK)
+  async copySceneTo(
+    @Param("sceneId") sceneId: string,
+    @Param("targetProjectId") targetProjectId: string,
+  ) {
+    return this.scenesService.copySceneTo(sceneId, targetProjectId);
+  }
+
   // ── Private ────────────────────────────────────────────────────────────────
+
+  /** F2: Download an external video URL and upload it to S3, returning the s3:// URL. */
+  private async downloadAndUpload(url: string, sceneId: string): Promise<string> {
+    const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+    if (!res.ok || !res.body) {
+      throw new HttpException({ error: `Failed to download video: HTTP ${res.status}` }, HttpStatus.BAD_GATEWAY);
+    }
+
+    const contentLength = parseInt(res.headers.get("content-length") ?? "0", 10);
+    const MAX_BYTES = 500 * 1024 * 1024;
+    if (contentLength > MAX_BYTES) {
+      throw new HttpException({ error: "Video exceeds 500 MB limit" }, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    const { createHash } = await import("crypto");
+    const cacheKey = createHash("sha256").update(url + sceneId).digest("hex").slice(0, 16);
+    const s3Key = `video/${cacheKey}.mp4`;
+
+    const chunks: Buffer[] = [];
+    const reader = res.body.getReader();
+    let downloaded = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      downloaded += value.length;
+      if (downloaded > MAX_BYTES) {
+        throw new HttpException({ error: "Video exceeds 500 MB limit" }, HttpStatus.UNPROCESSABLE_ENTITY);
+      }
+      chunks.push(Buffer.from(value));
+    }
+
+    const buffer = Buffer.concat(chunks);
+    await this.s3.uploadBuffer(s3Key, buffer, "video/mp4");
+
+    const bucket = process.env.S3_BUCKET_NAME ?? process.env.S3_BUCKET ?? "video-publisher-assets";
+    return `s3://${bucket}/${s3Key}`;
+  }
 
   /**
    * Check estimate against threshold.

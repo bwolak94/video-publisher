@@ -25,7 +25,7 @@ def _get_model() -> Any:
     global _model
     if _model is None:
         try:
-            from faster_whisper import WhisperModel  # type: ignore
+            from faster_whisper import WhisperModel
 
             model_size = os.getenv("WHISPER_MODEL_SIZE", "base")
             logger.info("loading_whisper_model", model_size=model_size)
@@ -39,7 +39,7 @@ def _get_model() -> Any:
     return _model
 
 
-async def transcribe(audio_url: str, language: str | None = None) -> dict:
+async def transcribe(audio_url: str, language: str | None = None) -> dict[str, Any]:
     """
     Download audio from `audio_url`, run faster-whisper transcription,
     and return word-level timestamps.

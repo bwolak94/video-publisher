@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottleGuard } from "./common/throttle.guard";
 import { ScheduleModule } from "@nestjs/schedule";
+import { CommonModule } from "./common/common.module";
 import { DbModule } from "./db/db.module";
 import { RedisModule } from "./redis/redis.module";
 import { AuthModule } from "./auth/auth.module";
@@ -31,11 +32,13 @@ import { AvatarModule } from "./avatar/avatar.module";
 import { TemplatesModule } from "./storyboard/templates.module";
 import { BrandKitModule } from "./brand-kit/brand-kit.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
+import { ReviewModule } from "./review/review.module";
 
 @Module({
   providers: [{ provide: APP_GUARD, useClass: ThrottleGuard }],
   imports: [
     ScheduleModule.forRoot(),
+    CommonModule,
     DbModule,
     RedisModule,
     StorageModule,
@@ -65,6 +68,7 @@ import { AnalyticsModule } from "./analytics/analytics.module";
     TemplatesModule,
     BrandKitModule,
     AnalyticsModule,
+    ReviewModule,
   ],
 })
 export class AppModule {}

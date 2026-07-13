@@ -56,6 +56,15 @@ export class AssetDedupService {
     return "acquired";
   }
 
+  /**
+   * I5: Check whether a lock for the given hash is currently held by any worker.
+   * Returns true if the scene is being regenerated right now.
+   */
+  async isLocked(hash: string): Promise<boolean> {
+    const key = `asset-lock:${hash}`;
+    return (await this.redis.exists(key)) === 1;
+  }
+
   /** Release the lock. No-op if held by a different worker (expired + reacquired). */
   async release(hash: string, holderId: string): Promise<void> {
     const key = `asset-lock:${hash}`;

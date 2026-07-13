@@ -54,4 +54,4 @@ def setup_logging(env: str, service: str = "ai-backend", version: str = "0.1.0")
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     """Return a structlog logger bound with service/env/version from context."""
-    return structlog.get_logger(name)
+    return structlog.get_logger(name)  # type: ignore[no-any-return]

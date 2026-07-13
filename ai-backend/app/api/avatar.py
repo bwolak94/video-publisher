@@ -12,6 +12,8 @@ MP4 bytes to S3/MinIO and stores the s3:// URL in the scene storyboard.
 """
 from __future__ import annotations
 
+from typing import Any
+
 import structlog
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import Response
@@ -32,7 +34,7 @@ class Wav2LipRequest(BaseModel):
 
 
 @router.get("/health")
-async def avatar_health() -> dict:
+async def avatar_health() -> dict[str, Any]:
     """Check whether Wav2Lip model files are present on disk."""
     available = await _wav2lip.is_available()
     return {"available": available, "provider": "wav2lip_local"}

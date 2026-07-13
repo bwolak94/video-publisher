@@ -6,6 +6,7 @@ import { DRIZZLE } from "../db/db.module";
 import * as schema from "../db/schema";
 import { costRecords } from "../db/schema";
 import { ProjectBudgetService } from "./project-budget.service";
+import { CostAnomalyService } from "./cost-anomaly.service";
 
 const logger = pino({ level: "info" });
 
@@ -38,6 +39,7 @@ export class CostRecordService {
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     @Optional() private readonly projectBudget?: ProjectBudgetService,
+    @Optional() private readonly anomaly?: CostAnomalyService,
   ) {}
 
   async record(opts: RecordCostOptions): Promise<void> {
@@ -59,6 +61,17 @@ export class CostRecordService {
     if (this.projectBudget) {
       await this.projectBudget.incrementSpend(opts.projectId, opts.estimatedCostUsd).catch(() => {});
       await this.projectBudget.checkAfterRecord(opts.projectId).catch(() => {});
+    }
+
+    // I6: cost anomaly detection (non-fatal)
+    if (this.anomaly && opts.actualCostUsd != null) {
+      await this.anomaly.check({
+        projectId: opts.projectId,
+        sceneId: opts.sceneId,
+        provider: opts.provider,
+        assetType: opts.assetType,
+        costUsd: opts.actualCostUsd,
+      }).catch(() => {});
     }
   }
 

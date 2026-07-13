@@ -1,4 +1,6 @@
 """Source material ingestion endpoint for Creator Mode RAG."""
+from typing import Any
+
 import structlog
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
@@ -16,7 +18,7 @@ _ALLOWED_CONTENT_TYPES = {"text/plain", "application/pdf", "text/markdown", "tex
 async def ingest_source(
     project_id: str,
     file: UploadFile = File(...),
-):
+) -> dict[str, Any]:
     """Ingest a source document for Creator Mode RAG.
 
     Accepts plain text, PDF (text extraction not yet implemented — submit as .txt),

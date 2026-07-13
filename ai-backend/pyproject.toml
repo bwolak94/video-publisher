@@ -55,7 +55,10 @@ ignore = ["E501"]
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
-strict = false
+# I10: strict mode enabled for app/services/ — catch attr errors at CI time
+strict = true
+# Exclude agent/CrewAI code which uses heavy dynamic typing
+exclude = ["app/agents/", "app/rag/", "tests/"]
 
 [tool.uv]
 package = false

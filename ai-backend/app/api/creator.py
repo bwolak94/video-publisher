@@ -5,7 +5,7 @@ POST /api/creator/outline    → generates 5-point outline (plain text, one bull
 POST /api/creator/storyboard → generates full VideoStoryboard from approved outline (JSON)
 """
 import uuid
-from typing import Literal
+from typing import Any, Literal
 
 import structlog
 from fastapi import APIRouter
@@ -41,9 +41,9 @@ class OutlineRequest(BaseModel):
     voiceId: str = "default"
     projectId: str | None = None
     nicheProfileId: str | None = None
-    researchBrief: dict | None = None       # ResearchBrief JSON (FEATURE-05)
-    referenceAnalysis: dict | None = None   # ReferenceAnalysisBrief JSON (FEATURE-06)
-    analyticsInsights: dict | None = None   # AnalyticsInsights JSON (F05)
+    researchBrief: dict[str, Any] | None = None       # ResearchBrief JSON (FEATURE-05)
+    referenceAnalysis: dict[str, Any] | None = None   # ReferenceAnalysisBrief JSON (FEATURE-06)
+    analyticsInsights: dict[str, Any] | None = None   # AnalyticsInsights JSON (F05)
 
 
 class StoryboardRequest(BaseModel):
@@ -54,9 +54,9 @@ class StoryboardRequest(BaseModel):
     sceneCount: int = 8
     targetDurationSeconds: int = 40
     aspectRatio: str = "16:9"
-    researchBrief: dict | None = None       # ResearchBrief JSON (FEATURE-05)
-    referenceAnalysis: dict | None = None   # ReferenceAnalysisBrief JSON (FEATURE-06)
-    analyticsInsights: dict | None = None   # AnalyticsInsights JSON (F05)
+    researchBrief: dict[str, Any] | None = None       # ResearchBrief JSON (FEATURE-05)
+    referenceAnalysis: dict[str, Any] | None = None   # ReferenceAnalysisBrief JSON (FEATURE-06)
+    analyticsInsights: dict[str, Any] | None = None   # AnalyticsInsights JSON (F05)
 
 
 class PolishScriptRequest(BaseModel):
@@ -117,7 +117,7 @@ async def run_research(req: ResearchRequest) -> ResearchBrief:
 
 
 @router.post("/outline")
-async def generate_outline(req: OutlineRequest):
+async def generate_outline(req: OutlineRequest) -> StreamingResponse:
     """Generate a 5-point outline for a topic.
 
     Returns plain text with one bullet per line so the frontend can
@@ -163,7 +163,7 @@ async def generate_outline(req: OutlineRequest):
 
 
 @router.post("/storyboard")
-async def generate_storyboard(req: StoryboardRequest):
+async def generate_storyboard(req: StoryboardRequest) -> dict[str, Any]:
     """Generate a full VideoStoryboard from an approved outline.
 
     Returns JSON: { storyboard: VideoStoryboard, projectId: str }
@@ -216,7 +216,7 @@ async def generate_storyboard(req: StoryboardRequest):
 
 
 @router.post("/polish-script")
-async def polish_script(req: PolishScriptRequest):
+async def polish_script(req: PolishScriptRequest) -> dict[str, Any]:
     """Rewrite a narration script for better pacing, clarity, and engagement.
 
     Returns { polishedScript: str, changesSummary: str }.
@@ -240,6 +240,7 @@ async def polish_script(req: PolishScriptRequest):
     clean = _strip_fences(raw)
 
     import json
+    data: dict[str, Any]
     try:
         data = json.loads(clean)
     except json.JSONDecodeError:
@@ -251,7 +252,7 @@ async def polish_script(req: PolishScriptRequest):
 
 
 @router.post("/clone-voice")
-async def clone_voice(req: CloneVoiceRequest) -> dict:
+async def clone_voice(req: CloneVoiceRequest) -> dict[str, Any]:
     """F01: Extract audio from a reference video and clone it via ElevenLabs Voice Add API.
 
     Downloads the video using yt-dlp/httpx (same pipeline as reference analyzer),
@@ -311,7 +312,7 @@ async def clone_voice(req: CloneVoiceRequest) -> dict:
 
 
 @router.post("/score-hook")
-async def score_hook(req: ScoreHookRequest) -> dict:
+async def score_hook(req: ScoreHookRequest) -> dict[str, Any]:
     """F02: Score the viral hook strength of a video's opening lines.
 
     Uses GPT-4o with a rubric covering:
@@ -355,6 +356,7 @@ Respond with a JSON object:
     clean = _strip_fences(raw)
 
     import json
+    data: dict[str, Any]
     try:
         data = json.loads(clean)
     except json.JSONDecodeError:
@@ -365,7 +367,7 @@ Respond with a JSON object:
 
 
 @router.post("/suggest-visual-prompt")
-async def suggest_visual_prompt(req: SuggestVisualPromptRequest):
+async def suggest_visual_prompt(req: SuggestVisualPromptRequest) -> dict[str, Any]:
     """Generate a cinematic b-roll visual prompt for a scene's narration text.
 
     Returns { visualPrompt: str }.
@@ -389,6 +391,7 @@ async def suggest_visual_prompt(req: SuggestVisualPromptRequest):
     clean = _strip_fences(raw)
 
     import json
+    data: dict[str, Any]
     try:
         data = json.loads(clean)
     except json.JSONDecodeError:

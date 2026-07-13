@@ -19,6 +19,10 @@ import { AlertsModule } from "../alerts/alerts.module";
 import { MetricsModule } from "../metrics/metrics.module";
 import { QualityGatesModule } from "../quality/quality-gates.module";
 import { AssetDedupService } from "./asset-dedup.service";
+import { RateLimiterService } from "../common/rate-limiter.service";
+import { RenderQualityService } from "../render/render-quality.service";
+import { RetryBudgetService } from "./retry-budget.service";
+import { QueueDepthPollerService } from "../metrics/queue-depth-poller.service";
 
 @Module({
   imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule, RenderModule, CostModule, AlertsModule, MetricsModule, QualityGatesModule],
@@ -33,6 +37,10 @@ import { AssetDedupService } from "./asset-dedup.service";
     ResearchWorker,
     DeduplicationService,
     AssetDedupService,
+    RateLimiterService,
+    RenderQualityService,
+    RetryBudgetService,
+    QueueDepthPollerService,
   ],
   exports: [QueueService, JobSyncService, DlqAlertService, DlqService],
 })

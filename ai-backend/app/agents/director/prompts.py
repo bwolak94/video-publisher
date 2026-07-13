@@ -4,6 +4,7 @@ Every prompt includes a <niche_profile> block (PRD REQ-4.1.3, task rule #3).
 Worker Mode uses the template from the task spec verbatim.
 """
 import json
+from typing import Any
 
 from app.models.director import NicheProfile
 from app.models.storyboard import VideoStoryboard
@@ -145,7 +146,7 @@ def build_constraint_block(prior_constraints: list[str]) -> str:
 
 def build_worker_prompt(
     niche_profile: NicheProfile,
-    research_report: dict,
+    research_report: dict[str, Any],
     scene_count: int,
     target_duration_seconds: int,
     prior_constraints: list[str] | None = None,
@@ -175,7 +176,7 @@ def _build_source_context_block(source_chunks: list[str] | None) -> str:
     return _SOURCE_CONTEXT_TEMPLATE.format(chunks=chunks_text)
 
 
-def _build_reference_brief_block(reference_brief: dict | None) -> str:
+def _build_reference_brief_block(reference_brief: dict[str, Any] | None) -> str:
     """Render a ReferenceAnalysisBrief as a delimited prompt block (FEATURE-06)."""
     if not reference_brief:
         return ""
@@ -191,7 +192,7 @@ def _build_reference_brief_block(reference_brief: dict | None) -> str:
     )
 
 
-def _build_analytics_insights_block(analytics_insights: dict | None) -> str:
+def _build_analytics_insights_block(analytics_insights: dict[str, Any] | None) -> str:
     """Render F05 analytics insights as a delimited prompt block."""
     if not analytics_insights:
         return ""
@@ -209,7 +210,7 @@ def _build_analytics_insights_block(analytics_insights: dict | None) -> str:
     )
 
 
-def _build_research_brief_block(research_brief: dict | None) -> str:
+def _build_research_brief_block(research_brief: dict[str, Any] | None) -> str:
     """Render a ResearchBrief as a delimited block for prompt injection (FEATURE-05)."""
     if not research_brief:
         return ""
@@ -229,9 +230,9 @@ def build_outline_prompt(
     niche_profile: NicheProfile,
     topic: str,
     source_chunks: list[str] | None = None,
-    research_brief: dict | None = None,
-    reference_brief: dict | None = None,
-    analytics_insights: dict | None = None,
+    research_brief: dict[str, Any] | None = None,
+    reference_brief: dict[str, Any] | None = None,
+    analytics_insights: dict[str, Any] | None = None,
 ) -> str:
     """Build the cheap-model outline prompt with NicheProfile injected.
 
@@ -252,14 +253,14 @@ def build_outline_prompt(
 
 def build_full_storyboard_prompt(
     niche_profile: NicheProfile,
-    outline: list[dict],
+    outline: list[dict[str, Any]],
     scene_count: int,
     target_duration_seconds: int,
     aspect_ratio: str = "16:9",
     source_chunks: list[str] | None = None,
-    research_brief: dict | None = None,
-    reference_brief: dict | None = None,
-    analytics_insights: dict | None = None,
+    research_brief: dict[str, Any] | None = None,
+    reference_brief: dict[str, Any] | None = None,
+    analytics_insights: dict[str, Any] | None = None,
 ) -> str:
     """Build the expensive-model full storyboard prompt after outline approval."""
     schema = VideoStoryboard.model_json_schema()

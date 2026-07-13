@@ -119,4 +119,66 @@ export class SettingsController {
       .where(eq(youtubeChannels.id, id));
     return { ok: true };
   }
+
+  // ── POST /api/settings/rotate-key — I10: re-encrypt a stored API key ───────
+
+  /**
+   * I10: Re-encrypt a stored API key with a fresh AES-GCM nonce.
+   * Validates the key is functional before persisting the new ciphertext.
+   *
+   * Body: { key: "elevenLabsKey" | "openaiKey" | ... }
+   */
+  @Put("rotate-key")
+  async rotateKey(@Body() body: { key: string }) {
+    const sensitiveKeys: Record<string, string> = {
+      elevenLabsKey: "integrations.elevenLabsKey",
+      openaiKey: "integrations.openaiKey",
+      runwayKey: "integrations.runwayKey",
+      pexelsKey: "integrations.pexelsKey",
+    };
+
+    const settingsKey = sensitiveKeys[body.key];
+    if (!settingsKey) {
+      return { ok: false, error: `Unknown key: ${body.key}` };
+    }
+
+    const plaintext = await this.settings.getPlaintext(settingsKey);
+    if (!plaintext) {
+      return { ok: false, error: "Key not stored — nothing to rotate" };
+    }
+
+    // Quick validation ping per provider
+    const valid = await this.validateKey(body.key, plaintext);
+    if (!valid) {
+      return { ok: false, error: "Key validation failed — rotation aborted" };
+    }
+
+    // Re-encrypt with a fresh random IV (encryptRefreshToken always generates new IV)
+    await this.settings.upsertMany({ [settingsKey]: plaintext });
+
+    return { ok: true, rotated: body.key };
+  }
+
+  private async validateKey(keyName: string, value: string): Promise<boolean> {
+    try {
+      if (keyName === "openaiKey") {
+        const res = await fetch("https://api.openai.com/v1/models", {
+          headers: { Authorization: `Bearer ${value}` },
+          signal: AbortSignal.timeout(5_000),
+        });
+        return res.status !== 401;
+      }
+      if (keyName === "elevenLabsKey") {
+        const res = await fetch("https://api.elevenlabs.io/v1/user", {
+          headers: { "xi-api-key": value },
+          signal: AbortSignal.timeout(5_000),
+        });
+        return res.status !== 401;
+      }
+      // For other keys, skip validation and allow rotation
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }

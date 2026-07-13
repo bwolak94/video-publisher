@@ -3,7 +3,9 @@ import pino from "pino";
 import { PublisherRegistry } from "./publisher.registry";
 import { QueueService } from "../queue/queue.service";
 import { VideoAnalyticsService } from "../metrics/video-analytics.service";
+import { ChapterMarkersService } from "./chapter-markers.service";
 import type { Platform, PublishOptions, PublishResult } from "./video-publisher.interface";
+import type { VideoStoryboard } from "../storyboard/video-storyboard";
 
 const logger = pino({ level: "info" });
 
@@ -19,6 +21,7 @@ export class PublishingController {
     private readonly registry: PublisherRegistry,
     private readonly queue: QueueService,
     private readonly analytics: VideoAnalyticsService,
+    private readonly chapterMarkers: ChapterMarkersService,
   ) {}
 
   /**
@@ -80,5 +83,21 @@ export class PublishingController {
     }
 
     return output;
+  }
+
+  /**
+   * F1: Generate YouTube chapter markers for a storyboard.
+   * Returns both structured markers and a formatted description block.
+   *
+   * POST /api/publish/chapter-markers
+   * Body: { storyboard: VideoStoryboard }
+   */
+  @Post("chapter-markers")
+  async generateChapterMarkers(
+    @Body() body: { storyboard: VideoStoryboard },
+  ): Promise<{ markers: { offsetSeconds: number; label: string }[]; description: string }> {
+    const markers = await this.chapterMarkers.generate(body.storyboard);
+    const description = this.chapterMarkers.formatForDescription(markers);
+    return { markers, description };
   }
 }

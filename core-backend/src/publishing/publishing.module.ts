@@ -12,6 +12,7 @@ import { InstagramAuthService } from "./instagram-auth.service";
 import { PublishingController } from "./publishing.controller";
 import { SocialAuthController } from "./social-auth.controller";
 import { PublishWorker } from "../queue/workers/publish.worker";
+import { ChapterMarkersService } from "./chapter-markers.service";
 
 @Module({
   imports: [YouTubeModule, SettingsModule, QueueModule, MetricsModule],
@@ -24,6 +25,7 @@ import { PublishWorker } from "../queue/workers/publish.worker";
     TikTokAuthService,
     InstagramAuthService,
     PublishWorker,
+    ChapterMarkersService,
   ],
   exports: [PublisherRegistry, TikTokAuthService, InstagramAuthService],
 })

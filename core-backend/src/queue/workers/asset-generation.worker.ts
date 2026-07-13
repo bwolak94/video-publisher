@@ -17,6 +17,8 @@ import { CostConfigService } from "../../cost/cost-config.service";
 import { DlqService } from "../dlq.service";
 import { MetricsService } from "../../metrics/metrics.service";
 import { AssetDedupService } from "../asset-dedup.service";
+import { RateLimiterService } from "../../common/rate-limiter.service";
+import { RetryBudgetService } from "../retry-budget.service";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "asset-generation";
@@ -68,6 +70,8 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     private readonly dlq: DlqService,
     private readonly metrics: MetricsService,
     private readonly dedup: AssetDedupService,
+    private readonly rateLimiter: RateLimiterService,
+    private readonly retryBudget: RetryBudgetService,
   ) {}
 
   onModuleInit() {
@@ -90,7 +94,11 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    await this.worker?.close();
+    if (!this.worker) return;
+    // I1: Wait up to 30s for in-flight jobs to complete before forcing close
+    const graceful = this.worker.close(false);
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, 30_000));
+    await Promise.race([graceful, timeout]);
   }
 
   // ── Job processor ──────────────────────────────────────────────────────────
@@ -103,6 +111,12 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     } = job.data;
 
     logger.info({ jobId: job.id, sceneId, assetType, correlationId, traceparent }, "Processing asset generation");
+
+    // I8: Enforce per-project daily retry budget before doing any work
+    const projectId = job.data.projectId;
+    if (projectId) {
+      await this.retryBudget.checkAndIncrement(projectId, job.attemptsMade ?? 0);
+    }
 
     // Jitter before starting (per task rule #2)
     await this.sleep(Math.random() * 500);
@@ -148,6 +162,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     standardVoiceId: string,
     params: Pick<AssetGenerationPayload, "stability" | "similarityBoost" | "style">
   ): Promise<string> {
+    await this.rateLimiter.throttle("elevenlabs"); // I3
     return this.elevenLabs.generateAudio({
       narrationText: text,
       voiceId,
@@ -162,6 +177,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     sceneId: string,
     aspectRatio?: "16:9" | "9:16" | "1:1"
   ): Promise<{ s3Url: string; provider: string }> {
+    await this.rateLimiter.throttle("runway"); // I3: default to runway limit; registry picks actual provider
     return this.videoAsset.generateVideo({
       visualPrompt: prompt,
       sceneId,

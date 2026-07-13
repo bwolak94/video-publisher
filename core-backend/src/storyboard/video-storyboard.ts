@@ -29,6 +29,10 @@ export interface StoryboardMeta {
   musicVolume?: number;
   /** Target total duration for the video in seconds — used for pre-render duration validation (I7) */
   targetDurationSeconds?: number;
+  /** I9: Music fade-in length in seconds applied at the start of the track (default 0) */
+  musicFadeInSeconds?: number;
+  /** I9: Music fade-out length in seconds applied at the end of the track (default 2) */
+  musicFadeOutSeconds?: number;
 }
 
 export interface TextOverlay {

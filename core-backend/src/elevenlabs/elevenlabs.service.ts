@@ -77,6 +77,9 @@ export class ElevenLabsService {
       audioBuffer = await this.concatenateAudio(buffers);
     }
 
+    // I3: Normalize loudness to -16 LUFS (EBU R128 streaming target)
+    audioBuffer = await this.normalizeAudio(audioBuffer).catch(() => audioBuffer);
+
     // S3 upload first (Rule #3: never write Redis before S3 succeeds)
     const s3Url = await this.uploadToS3(audioBuffer, cacheKey);
 
@@ -171,6 +174,38 @@ export class ElevenLabsService {
     );
 
     return `https://${this.bucket}.s3.amazonaws.com/${key}`;
+  }
+
+  /**
+   * I3: Normalize audio loudness to -16 LUFS using ffmpeg loudnorm filter.
+   * Ensures consistent perceived volume across all generated narration clips.
+   */
+  protected async normalizeAudio(buffer: Buffer): Promise<Buffer> {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "elevenlabs-norm-"));
+    const inputFile = path.join(tmpDir, "input.mp3");
+    const outputFile = path.join(tmpDir, "normalized.mp3");
+
+    try {
+      fs.writeFileSync(inputFile, buffer);
+
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(inputFile)
+          .audioFilters("loudnorm=I=-16:TP=-1.5:LRA=11")
+          .audioCodec("libmp3lame")
+          .audioBitrate("128k")
+          .output(outputFile)
+          .on("end", () => resolve())
+          .on("error", (err) => reject(err))
+          .run();
+      });
+
+      return fs.readFileSync(outputFile);
+    } finally {
+      for (const f of [inputFile, outputFile]) {
+        try { fs.unlinkSync(f); } catch { /* ignore */ }
+      }
+      try { fs.rmdirSync(tmpDir); } catch { /* ignore */ }
+    }
   }
 
   /**

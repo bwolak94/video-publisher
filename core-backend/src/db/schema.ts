@@ -269,3 +269,107 @@ export const publishAnalyticsSnapshots = pgTable(
 
 export type PublishAnalyticsSnapshot    = typeof publishAnalyticsSnapshots.$inferSelect;
 export type NewPublishAnalyticsSnapshot = typeof publishAnalyticsSnapshots.$inferInsert;
+
+/**
+ * I6: Scene asset version history — tracks previous video/audio URLs per scene
+ * so users can revert to a prior generation without regenerating.
+ */
+export const sceneAssetHistory = pgTable(
+  "scene_asset_history",
+  {
+    id:         uuid("id").primaryKey().defaultRandom(),
+    projectId:  uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    sceneId:    text("scene_id").notNull(),
+    field:      text("field").notNull(),          // "videoUrl" | "audioUrl"
+    previousUrl: text("previous_url").notNull(),
+    replacedAt: timestamp("replaced_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_scene_asset_history_scene: index("idx_scene_asset_history_scene").on(t.projectId, t.sceneId),
+  }),
+);
+
+export type SceneAssetHistory    = typeof sceneAssetHistory.$inferSelect;
+export type NewSceneAssetHistory = typeof sceneAssetHistory.$inferInsert;
+
+/**
+ * F3: Shareable review sessions — gives external collaborators a read/comment URL.
+ */
+export const reviewSessions = pgTable("review_sessions", {
+  id:        uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+  token:     text("token").unique().notNull(),
+  label:     text("label"),                         // e.g. "Client review v2"
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type ReviewSession    = typeof reviewSessions.$inferSelect;
+export type NewReviewSession = typeof reviewSessions.$inferInsert;
+
+/**
+ * F3: Timestamped scene-level comments left by reviewers.
+ */
+export const sceneComments = pgTable(
+  "scene_comments",
+  {
+    id:              uuid("id").primaryKey().defaultRandom(),
+    reviewSessionId: uuid("review_session_id").references(() => reviewSessions.id, { onDelete: "cascade" }).notNull(),
+    sceneId:         text("scene_id").notNull(),
+    authorName:      text("author_name").notNull().default("Anonymous"),
+    body:            text("body").notNull(),
+    reaction:        text("reaction"),               // emoji shortcode e.g. "👍"
+    resolvedAt:      timestamp("resolved_at", { withTimezone: true }),
+    createdAt:       timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_scene_comments_session: index("idx_scene_comments_session").on(t.reviewSessionId),
+  }),
+);
+
+export type SceneComment    = typeof sceneComments.$inferSelect;
+export type NewSceneComment = typeof sceneComments.$inferInsert;
+
+/**
+ * F5: Full storyboard snapshots captured before any mutating operation.
+ * Acts like git commits — each row holds the complete storyboard JSON at that point in time.
+ */
+export const projectVersions = pgTable(
+  "project_versions",
+  {
+    id:          uuid("id").primaryKey().defaultRandom(),
+    projectId:   uuid("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+    storyboard:  jsonb("storyboard").notNull(),
+    label:       text("label"),                      // e.g. "before bulk re-voice"
+    createdAt:   timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_project_versions_project: index("idx_project_versions_project").on(t.projectId),
+  }),
+);
+
+export type ProjectVersion    = typeof projectVersions.$inferSelect;
+export type NewProjectVersion = typeof projectVersions.$inferInsert;
+
+/**
+ * I8: Webhook delivery log — one row per delivery attempt.
+ * Written by WebhookDeliveryWorker after each attempt (success or failure).
+ */
+export const webhookDeliveryLog = pgTable(
+  "webhook_delivery_log",
+  {
+    id:          uuid("id").primaryKey().defaultRandom(),
+    webhookId:   uuid("webhook_id").references(() => webhooks.id, { onDelete: "cascade" }).notNull(),
+    event:       text("event").notNull(),
+    statusCode:  text("status_code"),              // null when network error
+    responseBody: text("response_body"),
+    success:     boolean("success").notNull(),
+    attemptedAt: timestamp("attempted_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_webhook_delivery_log: index("idx_webhook_delivery_log").on(t.webhookId),
+  }),
+);
+
+export type WebhookDeliveryLog    = typeof webhookDeliveryLog.$inferSelect;
+export type NewWebhookDeliveryLog = typeof webhookDeliveryLog.$inferInsert;
