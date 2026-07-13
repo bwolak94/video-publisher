@@ -13,8 +13,8 @@ Each step is wrapped in try/except so partial failure degrades gracefully.
 """
 import asyncio
 import json
-from typing import Any
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from openai import AsyncOpenAI
