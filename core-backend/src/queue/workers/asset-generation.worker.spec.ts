@@ -17,6 +17,8 @@ import { CostConfigService } from "../../cost/cost-config.service";
 import { DlqService } from "../dlq.service";
 import { MetricsService } from "../../metrics/metrics.service";
 import { AssetDedupService } from "../asset-dedup.service";
+import { RateLimiterService } from "../../common/rate-limiter.service";
+import { RetryBudgetService } from "../retry-budget.service";
 
 // Prevent actual BullMQ worker from starting
 jest.mock("bullmq", () => ({
@@ -68,6 +70,8 @@ describe("AssetGenerationWorker — UT-08-04", () => {
         { provide: DlqService, useValue: { enqueue: jest.fn().mockResolvedValue(undefined) } },
         { provide: MetricsService, useValue: { dlqDepth: { inc: jest.fn() } } },
         { provide: AssetDedupService, useValue: { acquireOrSkip: jest.fn().mockResolvedValue("acquired"), release: jest.fn().mockResolvedValue(undefined) } },
+        { provide: RateLimiterService, useValue: { throttle: jest.fn().mockResolvedValue(undefined) } },
+        { provide: RetryBudgetService, useValue: { checkAndIncrement: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 
