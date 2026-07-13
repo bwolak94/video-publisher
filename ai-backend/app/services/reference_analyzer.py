@@ -13,6 +13,7 @@ Each step is wrapped in try/except so partial failure degrades gracefully.
 """
 import asyncio
 import json
+from typing import Any
 from datetime import UTC, datetime
 
 import structlog
@@ -119,9 +120,9 @@ async def _synthesize_brief(
     )
 
     # Build OpenAI messages — add vision if frames are available
-    messages: list[dict] = [{"role": "system", "content": system}]
+    messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
     if frames_b64:
-        content: list[dict] = [{"type": "text", "text": user}]
+        content: list[dict[str, Any]] = [{"type": "text", "text": user}]
         for b64 in frames_b64[:3]:  # max 3 frames to limit token cost
             content.append({
                 "type": "image_url",

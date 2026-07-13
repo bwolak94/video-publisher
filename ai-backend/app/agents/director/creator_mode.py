@@ -12,6 +12,7 @@ After the user approves (or edits), the caller:
   2. Resumes with graph.ainvoke(None, config)
 """
 import json
+from typing import Any
 
 import structlog
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
@@ -30,14 +31,14 @@ logger = structlog.get_logger(__name__)
 
 class DirectorState(TypedDict):
     topic: str
-    niche_profile: dict
+    niche_profile: dict[str, Any]
     scene_count: int
     target_duration_seconds: int
     aspect_ratio: str
     project_id: str | None           # used for RAG retrieval if source material was ingested
-    outline: list[dict] | None
+    outline: list[dict[str, Any]] | None
     outline_approved: bool
-    storyboard: dict | None
+    storyboard: dict[str, Any] | None
     error: str | None
 
 
@@ -156,9 +157,9 @@ def _route_after_approval(state: DirectorState) -> str:
 
 # ── Graph Factory ──────────────────────────────────────────────────────────────
 
-def build_creator_graph() -> StateGraph:
+def build_creator_graph() -> StateGraph[DirectorState]:
     """Build the Creator Mode graph (not yet compiled)."""
-    graph: StateGraph = StateGraph(DirectorState)
+    graph: StateGraph[DirectorState] = StateGraph(DirectorState)
 
     graph.add_node("outline", outline_node)
     graph.add_node("human_approval", human_approval_node)
@@ -176,7 +177,7 @@ def build_creator_graph() -> StateGraph:
     return graph
 
 
-async def get_creator_graph():
+async def get_creator_graph() -> Any:
     """Return a compiled Creator Mode graph with Redis-backed checkpointer + interrupt_before.
 
     Uses AsyncRedisSaver so sessions survive process restarts and deploys.

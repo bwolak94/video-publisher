@@ -1,5 +1,5 @@
 """Pydantic v2 models for the Director Agent pipeline."""
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -65,7 +65,7 @@ class DirectorJobPayload(BaseModel):
     channelId: str
     mode: Literal["worker", "creator"] = "worker"
     # Worker Mode: research report forwarded from Researcher Agent
-    researchReport: dict | None = None
+    researchReport: dict[str, Any] | None = None
     # Creator Mode: free-form user topic
     userPrompt: str | None = None
     nicheProfile: NicheProfile = Field(default_factory=lambda: NicheProfile())
@@ -92,7 +92,7 @@ class StoryboardGenerationResult(BaseModel):
 
     channelId: str
     # Populated after full generation
-    storyboard: dict | None = None
+    storyboard: dict[str, Any] | None = None
     # Populated in Creator Mode before approval
     outline: list[OutlineItem] | None = None
     awaitingApproval: bool = False

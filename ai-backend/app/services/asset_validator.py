@@ -10,7 +10,7 @@ Called by NestJS PreRenderValidatorService before dispatching render jobs.
 """
 import asyncio
 import json
-from typing import Literal
+from typing import Any, Literal
 
 import structlog
 
@@ -23,7 +23,7 @@ _VALID_AUDIO_CODECS = ("aac", "mp3", "opus", "vorbis", "pcm")
 _VALID_VIDEO_FORMATS = ("mp4", "mov", "matroska", "webm")
 
 
-async def _probe_url(url: str) -> dict:
+async def _probe_url(url: str) -> dict[str, Any]:
     """Run ffprobe on a presigned URL. Returns parsed JSON dict."""
     cmd = [
         "ffprobe",
@@ -42,7 +42,7 @@ async def validate_single_asset(
     asset_url: str,
     asset_type: Literal["video", "audio"],
     expected_min_duration: float | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Validate one asset via FFprobe. Returns AssetValidationResult dict."""
     try:
         data = await _probe_url(asset_url)
@@ -131,7 +131,7 @@ async def validate_single_asset(
         }
 
 
-async def validate_assets(assets: list[dict]) -> dict:
+async def validate_assets(assets: list[dict[str, Any]]) -> dict[str, Any]:
     """Validate a batch of assets in parallel.
 
     Each asset dict must have: sceneId, assetUrl, assetType.

@@ -1,6 +1,7 @@
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Coroutine
 from contextlib import asynccontextmanager
+from typing import Any
 
 import structlog
 from fastapi import FastAPI, Request
@@ -65,7 +66,10 @@ def create_app() -> FastAPI:
     )
 
     @app.middleware("http")
-    async def correlation_id_middleware(request: Request, call_next):
+    async def correlation_id_middleware(
+        request: Request,
+        call_next: Callable[[Request], Coroutine[Any, Any, Response]],
+    ) -> Response:
         correlation_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
         structlog.contextvars.bind_contextvars(correlation_id=correlation_id)
         response = await call_next(request)
@@ -89,7 +93,7 @@ def create_app() -> FastAPI:
         return Response(content=body, media_type=content_type)
 
     @app.exception_handler(Exception)
-    async def unhandled_exception_handler(request, exc: Exception) -> JSONResponse:
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.error("unhandled_exception", error=str(exc), path=str(request.url))
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 

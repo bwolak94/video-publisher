@@ -4,9 +4,10 @@ PRD task rule #5: for videos with durationInSeconds sum > 120 seconds,
 the description MUST include YouTube chapter timestamps in format:
   00:00 - Chapter Title
 """
+from typing import Any
 
 
-def generate_timestamps(scenes: list[dict]) -> str:
+def generate_timestamps(scenes: list[dict[str, Any]]) -> str:
     """Return YouTube chapter timestamp string for a list of scene dicts."""
     lines: list[str] = []
     current_seconds = 0
@@ -23,7 +24,7 @@ def generate_timestamps(scenes: list[dict]) -> str:
 
 def append_timestamps_to_description(
     description: str,
-    scenes: list[dict],
+    scenes: list[dict[str, Any]],
     total_duration: float,
 ) -> str:
     """If total_duration > 120s, append chapter timestamps to description."""

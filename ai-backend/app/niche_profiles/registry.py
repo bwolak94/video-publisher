@@ -127,4 +127,4 @@ class ProfileRegistry:
     @staticmethod
     def _read_yaml(path: Path) -> dict[str, Any]:
         with path.open("r", encoding="utf-8") as fh:
-            return yaml.safe_load(fh)
+            return yaml.safe_load(fh)  # type: ignore[no-any-return]
