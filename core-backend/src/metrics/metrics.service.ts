@@ -88,6 +88,22 @@ export class MetricsService {
     registers: [this.registry],
   });
 
+  /** I4: Per-queue, per-status job counts (waiting/active/delayed/failed). */
+  readonly queueJobsByStatus = new Gauge({
+    name: "queue_jobs_by_status",
+    help: "Current BullMQ job count per queue and status",
+    labelNames: ["queue", "status"] as const,
+    registers: [this.registry],
+  });
+
+  /** I10: Provider failover events counter. */
+  readonly providerFailoverTotal = new Counter({
+    name: "provider_failover_total",
+    help: "Total provider failover events (domain events emitted)",
+    labelNames: ["primary", "fallback"] as const,
+    registers: [this.registry],
+  });
+
   // ── Video Provider Metrics (FEATURE-01) ──────────────────────────────────────
 
   readonly videoProviderRequestsTotal = new Counter({

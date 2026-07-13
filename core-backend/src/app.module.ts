@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottleGuard } from "./common/throttle.guard";
 import { ScheduleModule } from "@nestjs/schedule";
+import { CommonModule } from "./common/common.module";
 import { DbModule } from "./db/db.module";
 import { RedisModule } from "./redis/redis.module";
 import { AuthModule } from "./auth/auth.module";
@@ -37,6 +38,7 @@ import { ReviewModule } from "./review/review.module";
   providers: [{ provide: APP_GUARD, useClass: ThrottleGuard }],
   imports: [
     ScheduleModule.forRoot(),
+    CommonModule,
     DbModule,
     RedisModule,
     StorageModule,

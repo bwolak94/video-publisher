@@ -1,4 +1,4 @@
-import { Injectable, Inject } from "@nestjs/common";
+import { Injectable, Inject, OnModuleInit } from "@nestjs/common";
 import { randomBytes } from "crypto";
 import { eq, and } from "drizzle-orm";
 import pino from "pino";
@@ -8,6 +8,7 @@ import * as schema from "../db/schema";
 import { webhooks } from "../db/schema";
 import { QueueService } from "../queue/queue.service";
 import type { WebhookDeliveryPayload } from "../queue/workers/webhook-delivery.worker";
+import { DomainEventBus } from "../common/domain-event-bus";
 
 const logger = pino({ level: "info" });
 
@@ -16,7 +17,9 @@ export type WebhookEvent =
   | "job.failed"
   | "video.published"
   | "budget.warning"
-  | "dlq.alert";
+  | "dlq.alert"
+  | "provider.failover"
+  | "cost.anomaly";
 
 export interface WebhookPayload {
   event: WebhookEvent;
@@ -25,11 +28,21 @@ export interface WebhookPayload {
 }
 
 @Injectable()
-export class WebhookService {
+export class WebhookService implements OnModuleInit {
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly queue: QueueService,
+    private readonly events: DomainEventBus,
   ) {}
+
+  onModuleInit() {
+    this.events.on("provider.failover", (payload) => {
+      this.fanOut("provider.failover", payload as any).catch(() => {});
+    });
+    this.events.on("cost.anomaly", (payload) => {
+      this.fanOut("cost.anomaly", payload as any).catch(() => {});
+    });
+  }
 
   async create(userId: string, url: string, events: WebhookEvent[]): Promise<schema.Webhook> {
     const secret = randomBytes(32).toString("hex");

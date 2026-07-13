@@ -18,6 +18,7 @@ import { DlqService } from "../dlq.service";
 import { MetricsService } from "../../metrics/metrics.service";
 import { AssetDedupService } from "../asset-dedup.service";
 import { RateLimiterService } from "../../common/rate-limiter.service";
+import { RetryBudgetService } from "../retry-budget.service";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "asset-generation";
@@ -70,6 +71,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     private readonly metrics: MetricsService,
     private readonly dedup: AssetDedupService,
     private readonly rateLimiter: RateLimiterService,
+    private readonly retryBudget: RetryBudgetService,
   ) {}
 
   onModuleInit() {
@@ -109,6 +111,12 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     } = job.data;
 
     logger.info({ jobId: job.id, sceneId, assetType, correlationId, traceparent }, "Processing asset generation");
+
+    // I8: Enforce per-project daily retry budget before doing any work
+    const projectId = job.data.projectId;
+    if (projectId) {
+      await this.retryBudget.checkAndIncrement(projectId, job.attemptsMade ?? 0);
+    }
 
     // Jitter before starting (per task rule #2)
     await this.sleep(Math.random() * 500);

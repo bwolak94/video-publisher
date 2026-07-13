@@ -1,5 +1,5 @@
-import { Injectable, Inject, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
-import { Queue } from "bullmq";
+import { Injectable, Inject, OnModuleInit, OnModuleDestroy, NotFoundException } from "@nestjs/common";
+import { Queue, Job } from "bullmq";
 import { REDIS_CLIENT } from "../redis/redis.module";
 import { QUEUE_OPTIONS } from "./queue.config";
 
@@ -57,5 +57,24 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
   getAllQueues(): Queue[] {
     return Array.from(this.queues.values());
+  }
+
+  /**
+   * I1: Cancel a waiting or delayed job by BullMQ job ID.
+   * Throws NotFoundException if the job doesn't exist or is already active/completed.
+   */
+  async cancel(queueName: QueueName, bullJobId: string): Promise<void> {
+    const queue = this.queues.get(queueName);
+    if (!queue) throw new NotFoundException(`Unknown queue: ${queueName}`);
+
+    const job = await Job.fromId(queue, bullJobId);
+    if (!job) throw new NotFoundException(`Job ${bullJobId} not found in queue ${queueName}`);
+
+    const state = await job.getState();
+    if (state === "active") {
+      throw new Error(`Job ${bullJobId} is currently active and cannot be cancelled`);
+    }
+
+    await job.remove();
   }
 }

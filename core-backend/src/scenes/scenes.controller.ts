@@ -13,6 +13,7 @@ import { BudgetApprovalGate, type ActionType } from "../cost/budget-approval-gat
 import { ApprovalLogService } from "../cost/approval-log.service";
 import { EventsGateway } from "../gateway/events.gateway";
 import { S3Service } from "../storage/s3.service";
+import { ScenePreviewService } from "../render/scene-preview.service";
 import { REDIS_CLIENT } from "../redis/redis.module";
 import { configuration } from "../config/configuration";
 import type { VideoStoryboard } from "../storyboard/video-storyboard";
@@ -57,6 +58,7 @@ export class ScenesController {
     private readonly approvalLog: ApprovalLogService,
     private readonly gateway: EventsGateway,
     private readonly s3: S3Service,
+    private readonly scenePreview: ScenePreviewService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {
     this.aiBackendUrl = configuration().worker.aiBackendUrl;
@@ -313,7 +315,8 @@ export class ScenesController {
     if (narrationText !== undefined) fields.narrationText = narrationText;
     if (visualPrompt !== undefined) fields.visualPrompt = visualPrompt;
 
-    return this.scenesService.updateSceneFields(projectId, sceneId, fields);
+    const result = await this.scenesService.updateSceneFields(projectId, sceneId, fields);
+    return result;
   }
 
   /**
@@ -542,6 +545,31 @@ export class ScenesController {
     ]);
 
     return { locked: audioLocked === 1 || videoLocked === 1, sceneId };
+  }
+
+  /**
+   * I2: Render a single-scene preview clip.
+   * POST /api/scenes/:sceneId/preview-render
+   * Returns a 1-hour presigned URL to the MP4 clip.
+   */
+  @Post(":sceneId/preview-render")
+  @HttpCode(HttpStatus.OK)
+  async previewRender(@Param("sceneId") sceneId: string): Promise<{ url: string; expiresIn: number }> {
+    return this.scenePreview.renderPreview(sceneId);
+  }
+
+  /**
+   * I9: Copy a scene (text + prompts) to another project.
+   * POST /api/scenes/:sceneId/copy-to/:targetProjectId
+   * Assets (audio/video) are NOT copied.
+   */
+  @Post(":sceneId/copy-to/:targetProjectId")
+  @HttpCode(HttpStatus.OK)
+  async copySceneTo(
+    @Param("sceneId") sceneId: string,
+    @Param("targetProjectId") targetProjectId: string,
+  ) {
+    return this.scenesService.copySceneTo(sceneId, targetProjectId);
   }
 
   // ── Private ────────────────────────────────────────────────────────────────

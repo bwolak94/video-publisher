@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import pino from "pino";
 import { MetricsService } from "../metrics/metrics.service";
+import { DomainEventBus } from "../common/domain-event-bus";
 import type { VideoProvider, VideoGenerateParams, ProviderScores } from "./video-provider.interface";
 
 const logger = pino({ level: "info" });
@@ -31,7 +32,10 @@ export class VideoProviderRegistry {
   /** I02: rolling 10-min success/failure counts per provider */
   private readonly rolling = new Map<string, RollingWindow>();
 
-  constructor(private readonly metrics: MetricsService) {}
+  constructor(
+    private readonly metrics: MetricsService,
+    private readonly events: DomainEventBus,
+  ) {}
 
   register(provider: VideoProvider): void {
     this.providers.push(provider);
@@ -68,6 +72,15 @@ export class VideoProviderRegistry {
         this.metrics.videoProviderFallbackTotal
           .labels({ from_provider: ranked[i - 1].name, to_provider: provider.name })
           .inc();
+        this.metrics.providerFailoverTotal
+          .labels({ primary: ranked[i - 1].name, fallback: provider.name })
+          .inc();
+        this.events.emit("provider.failover", {
+          primaryProvider: ranked[i - 1].name,
+          fallbackProvider: provider.name,
+          sceneId: params.sceneId,
+          reason: lastError.message,
+        });
       }
 
       const timer = this.metrics.videoProviderDurationSeconds.labels({ provider: provider.name }).startTimer();
