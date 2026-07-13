@@ -56,4 +56,13 @@ export class JobSyncService {
     const rows = await this.db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1);
     return rows[0] ?? null;
   }
+
+  /** I1: Retrieve all active/pending jobs for a project (for SSE progress streaming). */
+  async findByProjectId(projectId: string): Promise<Job[]> {
+    return this.db
+      .select()
+      .from(jobs)
+      .where(eq(jobs.projectId, projectId))
+      .orderBy(jobs.updatedAt);
+  }
 }

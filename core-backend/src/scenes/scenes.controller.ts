@@ -1,5 +1,7 @@
-import { Controller, Get, Post, Patch, Param, Body, HttpCode, HttpStatus, NotFoundException, HttpException, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Param, Body, HttpCode, HttpStatus, NotFoundException, HttpException, Query, UseGuards, Inject } from "@nestjs/common";
+import { createHash } from "crypto";
 import pino from "pino";
+import type Redis from "ioredis";
 import { wordDiff } from "./word-diff";
 import { ThrottleGuard, Throttle } from "../common/throttle.guard";
 import { ScenesService } from "./scenes.service";
@@ -11,6 +13,7 @@ import { BudgetApprovalGate, type ActionType } from "../cost/budget-approval-gat
 import { ApprovalLogService } from "../cost/approval-log.service";
 import { EventsGateway } from "../gateway/events.gateway";
 import { S3Service } from "../storage/s3.service";
+import { REDIS_CLIENT } from "../redis/redis.module";
 import { configuration } from "../config/configuration";
 import type { VideoStoryboard } from "../storyboard/video-storyboard";
 
@@ -54,6 +57,7 @@ export class ScenesController {
     private readonly approvalLog: ApprovalLogService,
     private readonly gateway: EventsGateway,
     private readonly s3: S3Service,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {
     this.aiBackendUrl = configuration().worker.aiBackendUrl;
   }
@@ -510,6 +514,34 @@ export class ScenesController {
 
     logger.info({ sceneId, s3Url }, "F2: Visual swapped");
     return { videoUrl: toPublicUrl(s3Url), s3Url };
+  }
+
+  /**
+   * I5: Check if a scene's asset generation is currently in-flight.
+   * Returns { locked: true } if a BullMQ worker holds the distributed lock for this scene.
+   *
+   * GET /api/scenes/:sceneId/locked
+   */
+  @Get(":sceneId/locked")
+  async isLocked(@Param("sceneId") sceneId: string): Promise<{ locked: boolean; sceneId: string }> {
+    let scene: { narrationText: string; visualPrompt: string } | null = null;
+    try {
+      const found = await this.scenesService.findScene(sceneId);
+      scene = found.scene;
+    } catch {
+      return { locked: false, sceneId };
+    }
+
+    // Mirror asset-generation.worker's computeContentHash for both asset types
+    const audioHash = createHash("sha256").update(`audio:${scene.narrationText}:`).digest("hex").slice(0, 16);
+    const videoHash = createHash("sha256").update(`video:${scene.visualPrompt}:16:9`).digest("hex").slice(0, 16);
+
+    const [audioLocked, videoLocked] = await Promise.all([
+      this.redis.exists(`asset-lock:${audioHash}`),
+      this.redis.exists(`asset-lock:${videoHash}`),
+    ]);
+
+    return { locked: audioLocked === 1 || videoLocked === 1, sceneId };
   }
 
   // ── Private ────────────────────────────────────────────────────────────────

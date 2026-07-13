@@ -20,6 +20,7 @@ import { MetricsModule } from "../metrics/metrics.module";
 import { QualityGatesModule } from "../quality/quality-gates.module";
 import { AssetDedupService } from "./asset-dedup.service";
 import { RateLimiterService } from "../common/rate-limiter.service";
+import { RenderQualityService } from "../render/render-quality.service";
 
 @Module({
   imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule, RenderModule, CostModule, AlertsModule, MetricsModule, QualityGatesModule],
@@ -35,6 +36,7 @@ import { RateLimiterService } from "../common/rate-limiter.service";
     DeduplicationService,
     AssetDedupService,
     RateLimiterService,
+    RenderQualityService,
   ],
   exports: [QueueService, JobSyncService, DlqAlertService, DlqService],
 })

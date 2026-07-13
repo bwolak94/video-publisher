@@ -3,10 +3,16 @@ import { eq } from "drizzle-orm";
 import { DRIZZLE } from "../db/db.module";
 import { projects, sceneAssetHistory } from "../db/schema";
 import type { VideoStoryboard, StoryboardScene, SubtitleTrack } from "../storyboard/video-storyboard";
+import { WaveformService } from "./waveform.service";
+import { S3Service } from "../storage/s3.service";
 
 @Injectable()
 export class ScenesService {
-  constructor(@Inject(DRIZZLE) private readonly db: any) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: any,
+    private readonly waveform: WaveformService,
+    private readonly s3: S3Service,
+  ) {}
 
   async findScene(sceneId: string): Promise<{ project: any; scene: StoryboardScene }> {
     const allProjects = await this.db.select().from(projects);
@@ -112,10 +118,25 @@ export class ScenesService {
       await this.recordAssetHistory(projectId, sceneId, "audioUrl", existing.audioUrl);
     }
 
+    // I9: Auto-fit durationInSeconds from actual audio length
+    let durationInSeconds: number | undefined;
+    try {
+      const presignedUrl = await this.s3.getPresignedUrl(
+        audioUrl.startsWith("s3://") ? audioUrl.slice("s3://".length).split("/").slice(1).join("/") : audioUrl,
+        300,
+      );
+      const waveformData = await this.waveform.extract(presignedUrl);
+      if (waveformData.durationSeconds > 0) {
+        durationInSeconds = waveformData.durationSeconds;
+      }
+    } catch { /* non-fatal — duration stays unchanged */ }
+
     const updated = {
       ...storyboard,
       timeline: storyboard.timeline.map((s) =>
-        s.sceneId === sceneId ? { ...s, audioUrl } : s
+        s.sceneId === sceneId
+          ? { ...s, audioUrl, ...(durationInSeconds !== undefined ? { durationInSeconds } : {}) }
+          : s
       ),
     };
 

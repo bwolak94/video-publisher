@@ -350,3 +350,26 @@ export const projectVersions = pgTable(
 
 export type ProjectVersion    = typeof projectVersions.$inferSelect;
 export type NewProjectVersion = typeof projectVersions.$inferInsert;
+
+/**
+ * I8: Webhook delivery log — one row per delivery attempt.
+ * Written by WebhookDeliveryWorker after each attempt (success or failure).
+ */
+export const webhookDeliveryLog = pgTable(
+  "webhook_delivery_log",
+  {
+    id:          uuid("id").primaryKey().defaultRandom(),
+    webhookId:   uuid("webhook_id").references(() => webhooks.id, { onDelete: "cascade" }).notNull(),
+    event:       text("event").notNull(),
+    statusCode:  text("status_code"),              // null when network error
+    responseBody: text("response_body"),
+    success:     boolean("success").notNull(),
+    attemptedAt: timestamp("attempted_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_webhook_delivery_log: index("idx_webhook_delivery_log").on(t.webhookId),
+  }),
+);
+
+export type WebhookDeliveryLog    = typeof webhookDeliveryLog.$inferSelect;
+export type NewWebhookDeliveryLog = typeof webhookDeliveryLog.$inferInsert;

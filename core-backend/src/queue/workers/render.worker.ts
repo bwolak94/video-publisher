@@ -8,6 +8,7 @@ import { DlqService } from "../dlq.service";
 import { EventsGateway } from "../../gateway/events.gateway";
 import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
 import { RenderService } from "../../render/render.service";
+import { RenderQualityService } from "../../render/render-quality.service";
 import { VideoStoryboard } from "../../storyboard/video-storyboard";
 import { MetricsService } from "../../metrics/metrics.service";
 import { PreRenderValidatorService } from "../../quality/pre-render-validator.service";
@@ -36,6 +37,7 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
     private readonly dlq: DlqService,
     private readonly gateway: EventsGateway,
     private readonly renderService: RenderService,
+    private readonly renderQuality: RenderQualityService,
     private readonly metrics: MetricsService,
     private readonly preRenderValidator: PreRenderValidatorService,
     private readonly qualityGates: QualityGatesService,
@@ -119,6 +121,13 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
         .analyzeAndSave(job.data.projectId, renderedS3Url)
         .catch((err) =>
           logger.warn({ err, projectId: job.data.projectId }, "Post-render quality analysis failed (non-blocking)")
+        );
+
+      // ── I4: ffprobe render quality report — non-blocking ──────────────────
+      this.renderQuality
+        .probe(job.data.projectId, renderedS3Url)
+        .catch((err) =>
+          logger.warn({ err, projectId: job.data.projectId }, "I4: Render quality probe failed (non-blocking)")
         );
     } catch (err) {
       clearInterval(progressInterval);
