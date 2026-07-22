@@ -4,7 +4,10 @@ import type { CostConfig } from "./cost-config.service";
 const DEFAULT_CONFIG: CostConfig = {
   elevenlabsPerCharUsd: 0.0003,
   runwayPerSceneUsd: 0.15,
+  klingPerSceneUsd: 0.20,
+  veoPerSceneUsd: 0.25,
   pexelsPerSceneUsd: 0,
+  archivalPerSceneUsd: 0,
   dalle3PerImageUsd: 0.04,
   lambdaRenderPerMinUsd: 0.001,
 };

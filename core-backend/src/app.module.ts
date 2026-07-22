@@ -33,6 +33,9 @@ import { TemplatesModule } from "./storyboard/templates.module";
 import { BrandKitModule } from "./brand-kit/brand-kit.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
 import { ReviewModule } from "./review/review.module";
+import { ChannelsModule } from "./channels/channels.module";
+import { CompetitorAnalysisModule } from "./competitor/competitor-analysis.module";
+import { NarrationVariantsModule } from "./narration-variants/narration-variants.module";
 
 @Module({
   providers: [{ provide: APP_GUARD, useClass: ThrottleGuard }],
@@ -69,6 +72,9 @@ import { ReviewModule } from "./review/review.module";
     BrandKitModule,
     AnalyticsModule,
     ReviewModule,
+    ChannelsModule,
+    CompetitorAnalysisModule,
+    NarrationVariantsModule,
   ],
 })
 export class AppModule {}

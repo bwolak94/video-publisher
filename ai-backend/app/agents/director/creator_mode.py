@@ -17,14 +17,25 @@ from typing import Any
 import structlog
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langgraph.graph import END, StateGraph
+from openai import AsyncOpenAI
 from typing_extensions import TypedDict
 
-from app.agents.director.prompts import build_full_storyboard_prompt, build_outline_prompt
+from app.agents.director.prompts import build_full_storyboard_messages, build_outline_messages
 from app.config import get_settings
 from app.models.director import NicheProfile
 from app.models.storyboard import VideoStoryboard
 
 logger = structlog.get_logger(__name__)
+
+# I2: Module-level singleton — reuses the connection pool across all calls.
+_openai_client: AsyncOpenAI | None = None
+
+
+def _get_client() -> AsyncOpenAI:
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = AsyncOpenAI()
+    return _openai_client
 
 
 # ── Graph State ────────────────────────────────────────────────────────────────
@@ -40,29 +51,42 @@ class DirectorState(TypedDict):
     outline_approved: bool
     storyboard: dict[str, Any] | None
     error: str | None
+    # I4: RAG chunks fetched once in outline_node and passed through — avoids a
+    # duplicate DB round-trip in generate_storyboard_node for the same query.
+    _source_chunks: list[str] | None
 
 
 # ── LLM helpers (thin wrappers — easy to mock in tests) ───────────────────────
 
-async def _call_llm_mini(prompt: str) -> str:
-    """Call GPT-4o-mini for outline generation (cheap model, task rule #1)."""
-    from openai import AsyncOpenAI
-    client = AsyncOpenAI()
-    resp = await client.chat.completions.create(
+async def _call_llm_mini(system: str, user: str) -> str:
+    """Call GPT-4o-mini for outline generation (cheap model, task rule #1).
+
+    F1: Accepts a separate system message so the static schema prefix is
+    eligible for OpenAI prompt caching (requires >=1024 tokens in prefix).
+    """
+    resp = await _get_client().chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
         temperature=0.7,
     )
     return resp.choices[0].message.content or ""
 
 
-async def _call_llm_full(prompt: str) -> str:
-    """Call GPT-4o for full storyboard generation (expensive model, task rule #1)."""
-    from openai import AsyncOpenAI
-    client = AsyncOpenAI()
-    resp = await client.chat.completions.create(
+async def _call_llm_full(system: str, user: str) -> str:
+    """Call GPT-4o for full storyboard generation (expensive model, task rule #1).
+
+    F1: Static schema + niche profile in system message → cached prefix.
+    Dynamic outline + context in user message → changes per call.
+    """
+    resp = await _get_client().chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
         temperature=0.7,
     )
     return resp.choices[0].message.content or ""
@@ -96,11 +120,16 @@ async def _retrieve_rag_context(project_id: str | None, query: str) -> list[str]
 async def outline_node(state: DirectorState) -> DirectorState:
     """Stage 1: generate a 5-point outline using the cheap model."""
     profile = NicheProfile.model_validate(state["niche_profile"])
+
+    # I4: Fetch RAG context once here and store in state so generate_storyboard_node
+    # can reuse it without a second DB query for the same project + topic.
     source_chunks = await _retrieve_rag_context(state.get("project_id"), state["topic"])
-    prompt = build_outline_prompt(profile, state["topic"], source_chunks=source_chunks)
+    state["_source_chunks"] = source_chunks
+
+    system, user = build_outline_messages(profile, state["topic"], source_chunks=source_chunks)
 
     try:
-        raw = await _call_llm_mini(prompt)
+        raw = await _call_llm_mini(system, user)
         clean = _strip_fences(raw)
         state["outline"] = json.loads(clean)
     except Exception as exc:
@@ -124,9 +153,11 @@ async def generate_storyboard_node(state: DirectorState) -> DirectorState:
     """Stage 2: generate full storyboard from approved outline (expensive model)."""
     profile = NicheProfile.model_validate(state["niche_profile"])
     outline = state.get("outline") or []
-    source_chunks = await _retrieve_rag_context(state.get("project_id"), state["topic"])
 
-    prompt = build_full_storyboard_prompt(
+    # I4: Reuse source chunks cached by outline_node — no second DB round-trip.
+    source_chunks: list[str] = state.get("_source_chunks") or []
+
+    system, user = build_full_storyboard_messages(
         niche_profile=profile,
         outline=outline,
         scene_count=state["scene_count"],
@@ -136,7 +167,7 @@ async def generate_storyboard_node(state: DirectorState) -> DirectorState:
     )
 
     try:
-        raw = await _call_llm_full(prompt)
+        raw = await _call_llm_full(system, user)
         clean = _strip_fences(raw)
         storyboard = VideoStoryboard.model_validate_json(clean)
         state["storyboard"] = storyboard.model_dump()

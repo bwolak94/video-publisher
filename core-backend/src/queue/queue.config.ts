@@ -83,3 +83,20 @@ export const RESEARCH_WORKER_SETTINGS = {
   stalledInterval: 30_000,
   maxStalledCount: 2,
 };
+
+// Render jobs can run up to 30 min — use a 5-min stall interval so an
+// in-progress Remotion Lambda render is never incorrectly flagged as stalled.
+// maxStalledCount: 1 — renders are expensive; only allow one re-queue on stall.
+export const RENDER_WORKER_SETTINGS = {
+  stalledInterval: 300_000, // 5 min
+  maxStalledCount: 1,
+};
+
+// Job priority constants — lower number = higher priority in BullMQ.
+// Pass via QueueService.add(queue, payload, { priority: JOB_PRIORITY.CREATOR }).
+export const JOB_PRIORITY = {
+  /** Creator mode: human is waiting — run first. */
+  CREATOR: 1,
+  /** Worker mode: background batch — run after interactive jobs. */
+  WORKER: 10,
+} as const;

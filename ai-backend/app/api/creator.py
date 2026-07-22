@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.agents.director.creator_mode import _call_llm_full, _call_llm_mini, _strip_fences
-from app.agents.director.prompts import build_full_storyboard_prompt, build_outline_prompt
+from app.agents.director.prompts import build_full_storyboard_messages, build_outline_messages
 from app.agents.researcher.script_research_agent import run_script_research
 from app.config import get_settings
 from app.models.director import DEFAULT_NICHE_PROFILE
@@ -135,7 +135,7 @@ async def generate_outline(req: OutlineRequest) -> StreamingResponse:
         except Exception as exc:
             logger.warning("rag_retrieval_skipped", error=str(exc))
 
-    prompt = build_outline_prompt(
+    system, user = build_outline_messages(
         profile, req.topic,
         source_chunks=source_chunks,
         research_brief=req.researchBrief,
@@ -145,7 +145,7 @@ async def generate_outline(req: OutlineRequest) -> StreamingResponse:
 
     logger.info("creator_outline_start", topic=req.topic, language=req.language)
 
-    raw = await _call_llm_mini(prompt)
+    raw = await _call_llm_mini(system, user)
     clean = _strip_fences(raw)
 
     # Parse the JSON outline array and format as plain text bullets
@@ -187,7 +187,7 @@ async def generate_storyboard(req: StoryboardRequest) -> dict[str, Any]:
         except Exception as exc:
             logger.warning("rag_retrieval_skipped", error=str(exc))
 
-    prompt = build_full_storyboard_prompt(
+    system, user = build_full_storyboard_messages(
         niche_profile=profile,
         outline=outline_dicts,
         scene_count=req.sceneCount,
@@ -200,7 +200,7 @@ async def generate_storyboard(req: StoryboardRequest) -> dict[str, Any]:
     )
 
     logger.info("creator_storyboard_start", scene_count=req.sceneCount)
-    raw = await _call_llm_full(prompt)
+    raw = await _call_llm_full(system, user)
     clean = _strip_fences(raw)
 
     storyboard = VideoStoryboard.model_validate_json(clean)
@@ -221,8 +221,11 @@ async def polish_script(req: PolishScriptRequest) -> dict[str, Any]:
 
     Returns { polishedScript: str, changesSummary: str }.
     """
-    prompt = (
-        f"You are an expert video scriptwriter. Polish the following narration script.\n\n"
+    system = (
+        "You are an expert video scriptwriter. Polish narration scripts for clarity, "
+        "pacing, and engagement. Return ONLY valid JSON, no markdown, no explanation."
+    )
+    user = (
         f"Tone: {req.tone}\n"
         f"Target duration: ~{req.targetDurationSeconds}s of spoken audio\n"
         f"Language: {req.language}\n\n"
@@ -232,11 +235,11 @@ async def polish_script(req: PolishScriptRequest) -> dict[str, Any]:
         f"- Aim for natural spoken language (not written prose)\n"
         f"- Do NOT add new facts or change the meaning\n\n"
         f"Original script:\n{req.script}\n\n"
-        f"Respond with a JSON object: {{ \"polishedScript\": \"...\", \"changesSummary\": \"one sentence describing main changes\" }}"
+        f'Respond with: {{"polishedScript":"...","changesSummary":"one sentence describing main changes"}}'
     )
 
     logger.info("creator_polish_script_start", tone=req.tone, chars=len(req.script))
-    raw = await _call_llm_mini(prompt)
+    raw = await _call_llm_mini(system, user)
     clean = _strip_fences(raw)
 
     import json
@@ -323,36 +326,25 @@ async def score_hook(req: ScoreHookRequest) -> dict[str, Any]:
 
     Returns { score (0-100), breakdown, feedback[], rewrite? }.
     """
-    prompt = f"""You are an expert YouTube hook analyst. Score the following opening lines.
-
-Opening lines (first ~3 seconds of narration):
-\"\"\"{req.openingLines}\"\"\"
-
-Target video duration: {req.targetDurationSeconds}s
-
-Rate each dimension from 0-25 and provide actionable feedback:
-1. Curiosity gap: Does it make viewers wonder what comes next?
-2. Pattern interrupt: Does it break from what viewers expect?
-3. Specificity: Are concrete numbers, names, or scenarios used?
-4. Emotional trigger: Does it provoke curiosity, fear, desire, or surprise?
-
-Also write an improved version of the hook if score < 70.
-
-Respond with a JSON object:
-{{
-  "score": <int 0-100, sum of all dimensions>,
-  "breakdown": {{
-    "curiosityGap": <int 0-25>,
-    "patternInterrupt": <int 0-25>,
-    "specificity": <int 0-25>,
-    "emotionalTrigger": <int 0-25>
-  }},
-  "feedback": ["<actionable tip 1>", "<actionable tip 2>"],
-  "rewrite": "<improved hook or null if score >= 70>"
-}}"""
+    system = (
+        "You are an expert YouTube hook analyst. Rate opening lines across four dimensions "
+        "and return ONLY valid JSON, no markdown, no explanation."
+    )
+    user = (
+        f"Opening lines (first ~3 seconds of narration):\n\"\"\"{req.openingLines}\"\"\"\n\n"
+        f"Target video duration: {req.targetDurationSeconds}s\n\n"
+        "Rate each dimension from 0-25:\n"
+        "1. Curiosity gap: Does it make viewers wonder what comes next?\n"
+        "2. Pattern interrupt: Does it break from what viewers expect?\n"
+        "3. Specificity: Are concrete numbers, names, or scenarios used?\n"
+        "4. Emotional trigger: Does it provoke curiosity, fear, desire, or surprise?\n\n"
+        "Also write an improved version of the hook if score < 70.\n\n"
+        'Respond with: {"score":<int 0-100>,"breakdown":{"curiosityGap":<int>,"patternInterrupt":<int>,'
+        '"specificity":<int>,"emotionalTrigger":<int>},"feedback":["..."],"rewrite":"<improved or null>"}'
+    )
 
     logger.info("score_hook_start", chars=len(req.openingLines))
-    raw = await _call_llm_mini(prompt)
+    raw = await _call_llm_mini(system, user)
     clean = _strip_fences(raw)
 
     import json
@@ -373,21 +365,24 @@ async def suggest_visual_prompt(req: SuggestVisualPromptRequest) -> dict[str, An
     Returns { visualPrompt: str }.
     """
     aspect_note = "vertical 9:16" if req.aspectRatio == "9:16" else "widescreen 16:9"
-    prompt = (
-        f"You are a video director. Given a narration sentence, write a single cinematic b-roll shot description.\n\n"
+    system = (
+        "You are a video director. Given a narration sentence, write a single cinematic "
+        "b-roll shot description. Return ONLY valid JSON, no markdown, no explanation."
+    )
+    user = (
         f"Narration: \"{req.narrationText}\"\n"
         f"Topic context: {req.topic or 'general'}\n"
         f"Aspect ratio: {aspect_note}\n\n"
-        f"Rules:\n"
-        f"- Describe a specific, visually rich scene (lighting, camera angle, action, mood)\n"
-        f"- Do NOT include text overlays, subtitles, or people speaking directly to camera\n"
-        f"- Keep it under 40 words\n"
-        f"- Focus on B-roll (supporting footage), not talking head\n\n"
-        f"Respond with a JSON object: {{ \"visualPrompt\": \"...\" }}"
+        "Rules:\n"
+        "- Describe a specific, visually rich scene (lighting, camera angle, action, mood)\n"
+        "- Do NOT include text overlays, subtitles, or people speaking directly to camera\n"
+        "- Keep it under 40 words\n"
+        "- Focus on B-roll (supporting footage), not talking head\n\n"
+        'Respond with: {"visualPrompt":"..."}'
     )
 
     logger.info("creator_suggest_visual_prompt_start", chars=len(req.narrationText))
-    raw = await _call_llm_mini(prompt)
+    raw = await _call_llm_mini(system, user)
     clean = _strip_fences(raw)
 
     import json

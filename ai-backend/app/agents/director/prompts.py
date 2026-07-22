@@ -226,6 +226,120 @@ def _build_research_brief_block(research_brief: dict[str, Any] | None) -> str:
     )
 
 
+# ── F1: Prompt-cache-friendly message builders ─────────────────────────────────
+# OpenAI caches prompt prefixes that are >=1024 tokens and identical across calls.
+# Strategy: put the large static blocks (schema, niche_profile, system role) in
+# the SYSTEM message so they form a stable prefix. Dynamic content (topic, outline,
+# context) goes in the USER message, which changes every call without busting the cache.
+
+_OUTLINE_SYSTEM_TEMPLATE = """\
+You are a professional YouTube video director.
+
+Channel NicheProfile:
+<niche_profile>
+{niche_profile_json}
+</niche_profile>
+
+Generate a 5-point outline for a YouTube video.
+Return a JSON array where each element has:
+  sequenceNumber (integer), title (string), keyPoint (string)
+
+Return ONLY valid JSON. No markdown, no explanation."""
+
+_OUTLINE_USER_TEMPLATE = """\
+Topic: {topic}
+{context_block}"""
+
+_FULL_STORYBOARD_SYSTEM_TEMPLATE = """\
+You are a professional YouTube video director.
+
+Channel NicheProfile:
+<niche_profile>
+{niche_profile_json}
+</niche_profile>
+
+VideoStoryboard JSON schema (your output MUST conform to this exactly):
+{storyboard_schema}
+
+Requirements:
+- Title max 100 characters
+- Aspect ratio: {aspect_ratio}
+- {scene_count} scenes totaling {target_duration_seconds} seconds
+- Last scene must include a call-to-action
+- Each visualPrompt must be at least 10 words, descriptive, and specific
+
+Return ONLY valid JSON. No markdown, no explanation."""
+
+_FULL_STORYBOARD_USER_TEMPLATE = """\
+Approved outline:
+{outline_json}
+{context_block}"""
+
+
+def build_outline_messages(
+    niche_profile: NicheProfile,
+    topic: str,
+    source_chunks: list[str] | None = None,
+    research_brief: dict[str, Any] | None = None,
+    reference_brief: dict[str, Any] | None = None,
+    analytics_insights: dict[str, Any] | None = None,
+) -> tuple[str, str]:
+    """Return (system, user) message pair optimised for OpenAI prompt caching.
+
+    The system message contains the large static niche_profile block.
+    The user message contains dynamic content (topic + injected context).
+    """
+    source_block    = _build_source_context_block(source_chunks)
+    research_block  = _build_research_brief_block(research_brief)
+    reference_block = _build_reference_brief_block(reference_brief)
+    analytics_block = _build_analytics_insights_block(analytics_insights)
+    context = analytics_block + reference_block + research_block + source_block
+
+    system = _OUTLINE_SYSTEM_TEMPLATE.format(
+        niche_profile_json=json.dumps(niche_profile.model_dump(), indent=2),
+    )
+    user = _OUTLINE_USER_TEMPLATE.format(topic=topic, context_block=context)
+    return system, user
+
+
+def build_full_storyboard_messages(
+    niche_profile: NicheProfile,
+    outline: list[dict[str, Any]],
+    scene_count: int,
+    target_duration_seconds: int,
+    aspect_ratio: str = "16:9",
+    source_chunks: list[str] | None = None,
+    research_brief: dict[str, Any] | None = None,
+    reference_brief: dict[str, Any] | None = None,
+    analytics_insights: dict[str, Any] | None = None,
+) -> tuple[str, str]:
+    """Return (system, user) message pair optimised for OpenAI prompt caching.
+
+    The system message contains the schema (large, static per niche) and
+    niche_profile so this prefix is cache-eligible across calls for the same channel.
+    The user message contains the dynamic outline + injected context.
+    """
+    schema = VideoStoryboard.model_json_schema()
+    source_block    = _build_source_context_block(source_chunks)
+    research_block  = _build_research_brief_block(research_brief)
+    reference_block = _build_reference_brief_block(reference_brief)
+    analytics_block = _build_analytics_insights_block(analytics_insights)
+    context = analytics_block + reference_block + research_block + source_block
+
+    system = _FULL_STORYBOARD_SYSTEM_TEMPLATE.format(
+        niche_profile_json=json.dumps(niche_profile.model_dump(), indent=2),
+        storyboard_schema=json.dumps(schema, indent=2),
+        scene_count=scene_count,
+        target_duration_seconds=target_duration_seconds,
+        aspect_ratio=aspect_ratio,
+    )
+    user = _FULL_STORYBOARD_USER_TEMPLATE.format(
+        outline_json=json.dumps(outline, indent=2),
+        context_block=context,
+    )
+    return system, user
+
+
 def build_outline_prompt(
     niche_profile: NicheProfile,
     topic: str,

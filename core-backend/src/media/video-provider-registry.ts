@@ -22,7 +22,14 @@ interface RollingWindow {
   windowStartMs: number;
 }
 
-const ROLLING_WINDOW_MS = 10 * 60 * 1_000; // 10 minutes
+interface AvailabilityCache {
+  available: boolean;
+  cachedAt: number;
+}
+
+const ROLLING_WINDOW_MS = 10 * 60 * 1_000;  // 10 minutes
+// I7: Cache isAvailable() results to avoid an external API ping on every generation request.
+const AVAILABILITY_TTL_MS = 60_000;          // 60 seconds
 
 @Injectable()
 export class VideoProviderRegistry {
@@ -31,6 +38,8 @@ export class VideoProviderRegistry {
   private readonly lastErrorAt = new Map<string, number>();
   /** I02: rolling 10-min success/failure counts per provider */
   private readonly rolling = new Map<string, RollingWindow>();
+  /** I7: cached isAvailable() results with TTL to avoid redundant API pings */
+  private readonly availabilityCache = new Map<string, AvailabilityCache>();
 
   constructor(
     private readonly metrics: MetricsService,
@@ -102,6 +111,7 @@ export class VideoProviderRegistry {
         this.metrics.externalApiErrorsTotal.labels({ service: provider.name }).inc();
         this.lastErrorAt.set(provider.name, Date.now()); // I02
         this.recordRolling(provider.name, "failure");   // I02
+        this.availabilityCache.delete(provider.name);  // I7: invalidate so next call re-checks
 
         logger.error(
           { sceneId: params.sceneId, provider: provider.name, error: err.message },
@@ -121,7 +131,7 @@ export class VideoProviderRegistry {
 
     for (const provider of this.providers) {
       try {
-        if (await provider.isAvailable()) {
+        if (await this.checkAvailabilityCached(provider)) {
           available.push(provider);
         }
       } catch {
@@ -130,6 +140,21 @@ export class VideoProviderRegistry {
     }
 
     return available.sort((a, b) => this.composite(b.scores) - this.composite(a.scores));
+  }
+
+  /**
+   * I7: Return cached availability if the entry is fresh (< 60s old).
+   * Otherwise calls provider.isAvailable() and caches the result.
+   */
+  private async checkAvailabilityCached(provider: VideoProvider): Promise<boolean> {
+    const now = Date.now();
+    const cached = this.availabilityCache.get(provider.name);
+    if (cached && now - cached.cachedAt < AVAILABILITY_TTL_MS) {
+      return cached.available;
+    }
+    const available = await provider.isAvailable();
+    this.availabilityCache.set(provider.name, { available, cachedAt: now });
+    return available;
   }
 
   /** Weighted composite score — quality matters most, then cost, then reliability, then latency */

@@ -16,12 +16,18 @@ import { RateLimiter } from "./rate-limiter";
 import { WebhookService } from "../webhooks/webhook.service";
 import { BudgetApprovalGate } from "../cost/budget-approval-gate";
 
+// I10: A single socket may join at most this many project rooms.
+// Prevents resource exhaustion on large accounts or from misbehaving clients.
+const MAX_ROOMS_PER_SOCKET = 10;
+
 @WebSocketGateway({ cors: true })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
   private readonly rateLimiter = new RateLimiter();
+  /** I10: tracks how many project rooms each socket has joined */
+  private readonly socketRoomCount = new Map<string, number>();
 
   constructor(
     @Inject(JwtService) private readonly jwtService: JwtService,
@@ -52,8 +58,9 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  handleDisconnect(_client: Socket) {
-    // Socket.io handles room cleanup automatically on disconnect
+  handleDisconnect(client: Socket) {
+    // I10: clean up room-count tracking so Map doesn't grow unbounded
+    this.socketRoomCount.delete(client.id);
   }
 
   /**
@@ -83,6 +90,14 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit("error", { message: "Unauthorized" });
       return;
     }
+
+    // I10: Enforce per-socket room limit before joining
+    const roomCount = this.socketRoomCount.get(client.id) ?? 0;
+    if (roomCount >= MAX_ROOMS_PER_SOCKET) {
+      client.emit("error", { message: `Room limit reached (max ${MAX_ROOMS_PER_SOCKET} projects per connection)` });
+      return;
+    }
+    this.socketRoomCount.set(client.id, roomCount + 1);
 
     await client.join(`project:${data.projectId}`);
 
