@@ -6,7 +6,7 @@ import { JobSyncService } from "../job-sync.service";
 import { DlqAlertService } from "../dlq-alert.service";
 import { DlqService } from "../dlq.service";
 import { EventsGateway } from "../../gateway/events.gateway";
-import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
+import { QUEUE_CONCURRENCY, RENDER_WORKER_SETTINGS } from "../queue.config";
 import { RenderService } from "../../render/render.service";
 import { RenderQualityService } from "../../render/render-quality.service";
 import { VideoStoryboard } from "../../storyboard/video-storyboard";
@@ -16,7 +16,8 @@ import { QualityGatesService } from "../../quality/quality-gates.service";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "render";
-const MAX_ATTEMPTS = 3;
+// Must match renderJobOptions.attempts in queue.config.ts
+const MAX_ATTEMPTS = 2;
 
 export interface RenderPayload {
   jobId: string;
@@ -50,8 +51,8 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
       {
         connection: this.redis,
         concurrency: QUEUE_CONCURRENCY[QUEUE_NAME],
-        stalledInterval: RESEARCH_WORKER_SETTINGS.stalledInterval,
-        maxStalledCount: RESEARCH_WORKER_SETTINGS.maxStalledCount,
+        stalledInterval: RENDER_WORKER_SETTINGS.stalledInterval,
+        maxStalledCount: RENDER_WORKER_SETTINGS.maxStalledCount,
       }
     );
 

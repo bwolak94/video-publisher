@@ -70,7 +70,7 @@ async def _transcribe_audio(audio_path: str) -> str:
             )
             return " ".join(seg.text.strip() for seg in segments)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, _run_sync)
     except Exception as exc:
         logger.warning("reference_transcription_failed", error=str(exc))

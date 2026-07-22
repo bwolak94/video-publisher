@@ -373,3 +373,121 @@ export const webhookDeliveryLog = pgTable(
 
 export type WebhookDeliveryLog    = typeof webhookDeliveryLog.$inferSelect;
 export type NewWebhookDeliveryLog = typeof webhookDeliveryLog.$inferInsert;
+
+// ── F2: Multi-channel workspace ────────────────────────────────────────────────
+
+/**
+ * A "Channel" is a logical content channel (YouTube, TikTok, Instagram) owned
+ * by a user. Projects belong to a channel so one account can manage multiple
+ * niches independently — each with its own NicheProfile, publishing credentials,
+ * and brand kit.
+ */
+export const channels = pgTable(
+  "channels",
+  {
+    id:                uuid("id").primaryKey().defaultRandom(),
+    userId:            uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+    name:              text("name").notNull(),
+    /** Director Agent NicheProfile JSON — drives outline + storyboard generation. */
+    nicheProfile:      jsonb("niche_profile").default({}),
+    youtubeChannelId:  text("youtube_channel_id"),
+    tiktokUsername:    text("tiktok_username"),
+    instagramUsername: text("instagram_username"),
+    brandKitId:        uuid("brand_kit_id").references(() => brandKits.id, { onDelete: "set null" }),
+    createdAt:         timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt:         timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_channels_user_id: index("idx_channels_user_id").on(t.userId),
+  }),
+);
+
+export type Channel    = typeof channels.$inferSelect;
+export type NewChannel = typeof channels.$inferInsert;
+
+// ── F4: Competitor gap analysis ────────────────────────────────────────────────
+
+export const competitorChannels = pgTable(
+  "competitor_channels",
+  {
+    id:             uuid("id").primaryKey().defaultRandom(),
+    userId:         uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+    platform:       text("platform").notNull().default("youtube"),
+    channelId:      text("channel_id").notNull(),
+    channelName:    text("channel_name"),
+    lastAnalyzedAt: timestamp("last_analyzed_at", { withTimezone: true }),
+    createdAt:      timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_competitor_channels_user: index("idx_competitor_channels_user").on(t.userId),
+  }),
+);
+
+export type CompetitorChannel    = typeof competitorChannels.$inferSelect;
+export type NewCompetitorChannel = typeof competitorChannels.$inferInsert;
+
+export const competitorVideos = pgTable(
+  "competitor_videos",
+  {
+    id:                   uuid("id").primaryKey().defaultRandom(),
+    competitorChannelId:  uuid("competitor_channel_id").references(() => competitorChannels.id, { onDelete: "cascade" }).notNull(),
+    platformVideoId:      text("platform_video_id").notNull(),
+    title:                text("title").notNull(),
+    viewCount:            text("view_count").default("0"),
+    likeCount:            text("like_count").default("0"),
+    publishedAt:          timestamp("published_at", { withTimezone: true }),
+    fetchedAt:            timestamp("fetched_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_competitor_videos_channel: index("idx_competitor_videos_channel").on(t.competitorChannelId),
+  }),
+);
+
+export type CompetitorVideo    = typeof competitorVideos.$inferSelect;
+export type NewCompetitorVideo = typeof competitorVideos.$inferInsert;
+
+export const competitorGapAnalyses = pgTable(
+  "competitor_gap_analyses",
+  {
+    id:          uuid("id").primaryKey().defaultRandom(),
+    userId:      uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+    /** GPT-4o JSON output: untapped_topics, weak_angles, differentiation_hooks */
+    insights:    jsonb("insights"),
+    analyzedAt:  timestamp("analyzed_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_gap_analyses_user: index("idx_gap_analyses_user").on(t.userId),
+  }),
+);
+
+export type CompetitorGapAnalysis    = typeof competitorGapAnalyses.$inferSelect;
+export type NewCompetitorGapAnalysis = typeof competitorGapAnalyses.$inferInsert;
+
+// ── F5: Scene-level narration A/B variants ────────────────────────────────────
+
+export const narrationVariants = pgTable(
+  "narration_variants",
+  {
+    id:                    uuid("id").primaryKey().defaultRandom(),
+    projectId:             uuid("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+    sceneId:               text("scene_id").notNull(),
+    /** "a" = control (original), "b" = variant under test */
+    variantKey:            text("variant_key").notNull(),
+    audioS3Url:            text("audio_s3_url").notNull(),
+    voiceId:               text("voice_id"),
+    scriptText:            text("script_text"),
+    /** Platform experiment ID when variant is live (e.g. YouTube Experiment API) */
+    platformVariantId:     text("platform_variant_id"),
+    status:                text("status").default("pending"),   // pending | running | promoted | rejected
+    views:                 text("views").default("0"),
+    avgViewDurationPct:    numeric("avg_view_duration_pct", { precision: 5, scale: 2 }),
+    promotedAt:            timestamp("promoted_at", { withTimezone: true }),
+    createdAt:             timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_narration_variants_project: index("idx_narration_variants_project").on(t.projectId, t.sceneId),
+  }),
+);
+
+export type NarrationVariant    = typeof narrationVariants.$inferSelect;
+export type NewNarrationVariant = typeof narrationVariants.$inferInsert;

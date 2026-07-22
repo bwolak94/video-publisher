@@ -5,6 +5,12 @@ export interface SceneSummary {
   narrationText: string;
   durationInSeconds?: number;
   assetType?: "video" | "image";
+  /**
+   * I6: Expected video provider for this scene.
+   * If omitted the estimate defaults to runway (most common paid provider).
+   * Pass "pexels" or "archival" for scenes where free footage will be used.
+   */
+  videoProvider?: string;
 }
 
 export interface CostBreakdown {
@@ -35,11 +41,16 @@ export class CostEstimatorService {
       0
     );
 
-    const videoScenes = scenes.filter((s) => s.assetType !== "image").length;
-    const imageScenes = scenes.filter((s) => s.assetType === "image").length;
+    const imageScenes = scenes.filter((s) => s.assetType === "image");
+    const videoScenes = scenes.filter((s) => s.assetType !== "image");
 
-    const videoTotal = videoScenes * config.runwayPerSceneUsd;
-    const imageTotal = imageScenes * config.dalle3PerImageUsd;
+    const imageTotal = imageScenes.length * config.dalle3PerImageUsd;
+
+    // I6: Look up provider-specific rate for each video scene instead of
+    // assuming all scenes use Runway. Free providers (pexels, archival) cost $0.
+    const videoTotal = videoScenes.reduce((acc, s) => {
+      return acc + CostEstimatorService.videoSceneCost(s.videoProvider, config);
+    }, 0);
 
     const totalDurationSeconds = scenes.reduce(
       (acc, s) => acc + (s.durationInSeconds ?? 5),
@@ -49,5 +60,16 @@ export class CostEstimatorService {
 
     const total = audioTotal + videoTotal + imageTotal + renderTotal;
     return { audioTotal, videoTotal, imageTotal, renderTotal, total };
+  }
+
+  /** Returns the per-scene USD cost for the given provider name. */
+  static videoSceneCost(provider: string | undefined, config: CostConfig): number {
+    switch (provider) {
+      case "pexels":   return config.pexelsPerSceneUsd;
+      case "archival": return config.archivalPerSceneUsd;
+      case "kling":    return config.klingPerSceneUsd;
+      case "veo":      return config.veoPerSceneUsd;
+      default:         return config.runwayPerSceneUsd; // runway or unknown
+    }
   }
 }

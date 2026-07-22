@@ -8,6 +8,7 @@ import * as schema from "../db/schema";
 import { thumbnailExperiments, videoAnalytics } from "../db/schema";
 import { DallE3Service } from "../images/dalle3.service";
 import { YouTubeAuthService } from "../youtube/youtube-auth.service";
+import { ThumbnailValidationService } from "./thumbnail-validation.service";
 
 const logger = pino({ level: "info" });
 
@@ -20,6 +21,10 @@ export interface ThumbnailVariant {
   activeEnd?: string;
   impressions?: number;
   ctr?: number;
+  /** F3: GPT-4o legibility score at thumbnail-preview size (0-100) */
+  legibilityScore?: number;
+  /** F3: false if text was not legible — variant regenerated automatically */
+  validationPassed?: boolean;
 }
 
 @Injectable()
@@ -27,7 +32,8 @@ export class ThumbnailTestService {
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly dalle3: DallE3Service,
-    private readonly youtubeAuth: YouTubeAuthService
+    private readonly youtubeAuth: YouTubeAuthService,
+    private readonly thumbnailValidator: ThumbnailValidationService,
   ) {}
 
   /**
@@ -48,8 +54,22 @@ export class ThumbnailTestService {
       const variantPrompt = `${basePrompt} Variant ${i + 1}: ${this.variantStyle(i)}`;
       const s3Key = `thumbnails/${projectId}/variant-${i}.png`;
       await this.dalle3.generateAndUpload(variantPrompt, THUMBNAIL_SIZE, s3Key);
-      variants.push({ index: i, s3Key });
-      logger.info({ projectId, variant: i, s3Key }, "Thumbnail variant generated");
+
+      // F3: Validate text legibility at thumbnail-preview size.
+      // If legibility is too low, regenerate once with an explicit legibility hint.
+      const publicUrl = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${s3Key}`;
+      let validation = await this.thumbnailValidator.validate(publicUrl, projectId);
+
+      if (!validation.passed) {
+        logger.warn({ projectId, variant: i, score: validation.legibilityScore, feedback: validation.feedback },
+          "F3: Thumbnail failed legibility check — regenerating with readability emphasis");
+        const fallbackPrompt = `${variantPrompt} IMPORTANT: Use large, bold, high-contrast text that is clearly readable at very small sizes. Avoid thin fonts and low-contrast text.`;
+        await this.dalle3.generateAndUpload(fallbackPrompt, THUMBNAIL_SIZE, s3Key);
+        validation = await this.thumbnailValidator.validate(publicUrl, projectId);
+      }
+
+      variants.push({ index: i, s3Key, legibilityScore: validation.legibilityScore, validationPassed: validation.passed });
+      logger.info({ projectId, variant: i, s3Key, legibilityScore: validation.legibilityScore }, "Thumbnail variant generated");
     }
 
     const [experiment] = await this.db

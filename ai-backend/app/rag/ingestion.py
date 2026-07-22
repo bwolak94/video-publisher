@@ -1,4 +1,5 @@
 """Source material ingestion: chunk → embed → store in pgvector."""
+import math
 import uuid
 
 import asyncpg
@@ -8,6 +9,22 @@ from app.rag.chunker import chunk_text
 from app.rag.embeddings import embed_texts
 
 logger = structlog.get_logger(__name__)
+
+
+def _validate_embedding(embedding: list[float], chunk_index: int) -> list[float]:
+    """I9: Guard against NaN/Inf values that would corrupt pgvector storage.
+
+    OpenAI embeddings are always finite, but malformed model responses or
+    downstream parsing errors can introduce invalid floats that pgvector
+    silently stores, producing incorrect cosine-similarity results at retrieval.
+    """
+    for i, v in enumerate(embedding):
+        if not math.isfinite(v):
+            raise ValueError(
+                f"Embedding for chunk {chunk_index} contains non-finite value "
+                f"at position {i}: {v!r}. Aborting ingestion to prevent corrupt data."
+            )
+    return embedding
 
 # OpenAI allows up to 2048 texts per request, but keep batches small
 _EMBED_BATCH_SIZE = 64
@@ -32,11 +49,13 @@ async def ingest_text(
             source_id, project_id, filename,
         )
 
-    # Embed in batches
+    # Embed in batches; validate each vector before accumulating (I9)
     all_embeddings: list[list[float]] = []
     for i in range(0, len(chunks), _EMBED_BATCH_SIZE):
         batch = chunks[i : i + _EMBED_BATCH_SIZE]
         embeddings = await embed_texts(batch)
+        for local_idx, emb in enumerate(embeddings):
+            _validate_embedding(emb, i + local_idx)
         all_embeddings.extend(embeddings)
 
     # Store chunks with embeddings
