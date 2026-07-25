@@ -4,12 +4,17 @@ POST /api/creator/research   → conducts web research and returns ResearchBrief
 POST /api/creator/outline    → generates 5-point outline (plain text, one bullet per line)
 POST /api/creator/storyboard → generates full VideoStoryboard from approved outline (JSON)
 """
+import asyncio
+import json
+import os
+import tempfile
 import uuid
 from typing import Any, Literal
 
 import asyncpg
+import httpx
 import structlog
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -25,6 +30,7 @@ from app.models.reference_analysis import ReferenceAnalysisBrief
 from app.models.research_brief import ResearchBrief
 from app.models.storyboard import VideoStoryboard
 from app.services.reference_analyzer import analyze_reference_video
+from app.services.video_downloader import download_reference_video
 
 router = APIRouter(prefix="/api/creator", tags=["creator"])
 logger = structlog.get_logger(__name__)
@@ -151,7 +157,6 @@ async def generate_outline(req: OutlineRequest) -> StreamingResponse:
     clean = strip_fences(raw)
 
     # Parse the JSON outline array and format as plain text bullets
-    import json
     try:
         items = json.loads(clean)
         bullets = [f"- {item.get('title', '')}: {item.get('keyPoint', '')}" for item in items]
@@ -160,7 +165,7 @@ async def generate_outline(req: OutlineRequest) -> StreamingResponse:
         # If not valid JSON, return raw text as-is
         text = clean
 
-    logger.info("creator_outline_done", topic=req.topic, bullets=len(bullets) if 'bullets' in dir() else 0)
+    logger.info("creator_outline_done", topic=req.topic, bullets=len(bullets) if 'bullets' in locals() else 0)
     return StreamingResponse(iter([text]), media_type="text/plain; charset=utf-8")
 
 
@@ -242,7 +247,6 @@ async def polish_script(req: PolishScriptRequest) -> dict[str, Any]:
     raw = await call_llm_mini(system, user)
     clean = strip_fences(raw)
 
-    import json
     data: dict[str, Any]
     try:
         data = json.loads(clean)
@@ -262,20 +266,11 @@ async def clone_voice(req: CloneVoiceRequest) -> dict[str, Any]:
     extracts 60s of audio via ffmpeg, then creates an ElevenLabs instant voice clone.
     Returns { voiceId, voiceName } usable in storyboard.meta.voiceId.
     """
-    import asyncio
-    import os
-    import tempfile
-
-    import httpx
-
     settings = get_settings()
     if not settings.ELEVENLABS_API_KEY:
-        from fastapi import HTTPException
         raise HTTPException(status_code=422, detail="ELEVENLABS_API_KEY not configured")
 
     logger.info("clone_voice_start", url=req.videoUrl, voice_name=req.voiceName)
-
-    from app.services.video_downloader import download_reference_video
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Download video (reuses FEATURE-06 downloader)
@@ -291,7 +286,6 @@ async def clone_voice(req: CloneVoiceRequest) -> dict[str, Any]:
         )
         _, stderr = await proc.communicate()
         if proc.returncode != 0:
-            from fastapi import HTTPException
             raise HTTPException(status_code=500, detail=f"ffmpeg audio extraction failed: {stderr.decode()[:200]}")
 
         # Call ElevenLabs Voice Add API (instant voice cloning)
@@ -307,7 +301,6 @@ async def clone_voice(req: CloneVoiceRequest) -> dict[str, Any]:
         )
 
     if not resp.is_success:
-        from fastapi import HTTPException
         raise HTTPException(status_code=resp.status_code, detail=f"ElevenLabs clone failed: {resp.text[:200]}")
 
     data = resp.json()
@@ -349,7 +342,6 @@ async def score_hook(req: ScoreHookRequest) -> dict[str, Any]:
     raw = await call_llm_mini(system, user)
     clean = strip_fences(raw)
 
-    import json
     data: dict[str, Any]
     try:
         data = json.loads(clean)
@@ -387,7 +379,6 @@ async def suggest_visual_prompt(req: SuggestVisualPromptRequest) -> dict[str, An
     raw = await call_llm_mini(system, user)
     clean = strip_fences(raw)
 
-    import json
     data: dict[str, Any]
     try:
         data = json.loads(clean)

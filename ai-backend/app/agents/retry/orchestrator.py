@@ -18,7 +18,10 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.models.director import DirectorJobPayload
 
 import httpx
 import structlog
@@ -37,8 +40,6 @@ DirectorFn = Callable[
     Awaitable[VideoStoryboard],
 ]
 
-# Import here to avoid circular; type hint only for external callers
-from app.models.director import DirectorJobPayload  # noqa: E402
 
 
 class DLQEscalationError(Exception):
@@ -132,8 +133,6 @@ class DirectorRetryOrchestrator:
                     await self._escalate_to_dlq(job_id, project_id, payload.channelId, accumulated_constraints)
                 continue
             # Non-validation exceptions propagate without touching the counter
-            except Exception:
-                raise
 
             # ── Review ────────────────────────────────────────────────────────
             result = self._reviewer.review(storyboard, niche_profile)
@@ -210,5 +209,5 @@ class DirectorRetryOrchestrator:
                         "failedAt": failed_job.failedAt.isoformat(),
                     },
                 )
-        except Exception as exc:
+        except (httpx.HTTPError, OSError) as exc:
             logger.error("alert_webhook_failed", url=self._alert_webhook_url, error=str(exc))

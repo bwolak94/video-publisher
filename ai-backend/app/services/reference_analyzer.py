@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import structlog
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, OpenAIError
 
 from app.agents.researcher.sanitizer import sanitize_content
 
@@ -154,7 +154,7 @@ async def _synthesize_brief(
         )
         raw = strip_fences(response.choices[0].message.content or "{}")
         parsed = json.loads(raw)
-    except Exception as exc:
+    except (OpenAIError, json.JSONDecodeError) as exc:
         logger.warning("reference_synthesis_failed", error=str(exc))
         parsed = {}
 
