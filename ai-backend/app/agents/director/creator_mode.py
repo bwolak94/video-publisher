@@ -64,6 +64,7 @@ async def _call_llm_mini(system: str, user: str) -> str:
 
     F1: Accepts a separate system message so the static schema prefix is
     eligible for OpenAI prompt caching (requires >=1024 tokens in prefix).
+    response_format=json_object guarantees parseable JSON without fence-stripping.
     """
     resp = await _get_client().chat.completions.create(
         model="gpt-4o-mini",
@@ -72,6 +73,7 @@ async def _call_llm_mini(system: str, user: str) -> str:
             {"role": "user", "content": user},
         ],
         temperature=0.7,
+        response_format={"type": "json_object"},
     )
     return resp.choices[0].message.content or ""
 
@@ -81,6 +83,7 @@ async def _call_llm_full(system: str, user: str) -> str:
 
     F1: Static schema + niche profile in system message → cached prefix.
     Dynamic outline + context in user message → changes per call.
+    response_format=json_object guarantees parseable JSON without fence-stripping.
     """
     resp = await _get_client().chat.completions.create(
         model="gpt-4o",
@@ -89,6 +92,7 @@ async def _call_llm_full(system: str, user: str) -> str:
             {"role": "user", "content": user},
         ],
         temperature=0.7,
+        response_format={"type": "json_object"},
     )
     return resp.choices[0].message.content or ""
 
