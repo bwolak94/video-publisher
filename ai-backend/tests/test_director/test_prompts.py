@@ -1,7 +1,7 @@
 """Unit tests for Director Agent prompt builder — UT-03-01, UT-03-02, UT-06-01, UT-06-02."""
 from app.agents.director.prompts import (
-    build_full_storyboard_prompt,
-    build_outline_prompt,
+    build_full_storyboard_messages,
+    build_outline_messages,
     build_worker_prompt,
 )
 from app.models.director import DEFAULT_NICHE_PROFILE, NicheProfile
@@ -30,9 +30,10 @@ def test_worker_prompt_includes_niche_profile():
 
 
 def test_outline_prompt_includes_niche_profile():
-    """UT-03-01 (outline variant): build_outline_prompt also embeds NicheProfile."""
+    """UT-03-01 (outline variant): build_outline_messages also embeds NicheProfile."""
     profile = NicheProfile(name="finance", hookPattern="opens with a shocking statistic")
-    prompt = build_outline_prompt(niche_profile=profile, topic="SVB collapse")
+    system, user = build_outline_messages(niche_profile=profile, topic="SVB collapse")
+    prompt = system + user
 
     assert "<niche_profile>" in prompt
     assert "finance" in prompt
@@ -56,8 +57,9 @@ def test_worker_prompt_default_profile_no_error():
 
 
 def test_outline_prompt_default_profile_no_error():
-    """UT-03-02 (outline variant): default profile is safe to use in outline prompt."""
-    prompt = build_outline_prompt(niche_profile=DEFAULT_NICHE_PROFILE, topic="any topic")
+    """UT-03-02 (outline variant): default profile is safe to use in outline messages."""
+    system, user = build_outline_messages(niche_profile=DEFAULT_NICHE_PROFILE, topic="any topic")
+    prompt = system + user
 
     assert "<niche_profile>" in prompt
     assert "any topic" in prompt
@@ -81,12 +83,13 @@ SAMPLE_REFERENCE_BRIEF = {
 
 
 def test_outline_prompt_with_reference_brief_injects_block():
-    """UT-06-01: build_outline_prompt injects <reference_analysis> block when brief given."""
-    prompt = build_outline_prompt(
+    """UT-06-01: build_outline_messages injects <reference_analysis> block when brief given."""
+    system, user = build_outline_messages(
         niche_profile=DEFAULT_NICHE_PROFILE,
         topic="AI productivity tips",
         reference_brief=SAMPLE_REFERENCE_BRIEF,
     )
+    prompt = system + user
 
     assert "<reference_analysis>" in prompt
     assert "hook → problem → solution → cta" in prompt
@@ -97,29 +100,31 @@ def test_outline_prompt_with_reference_brief_injects_block():
 
 
 def test_outline_prompt_without_reference_brief_no_block():
-    """UT-06-01 (negative): build_outline_prompt omits reference block when no brief."""
-    prompt = build_outline_prompt(
+    """UT-06-01 (negative): build_outline_messages omits reference block when no brief."""
+    system, user = build_outline_messages(
         niche_profile=DEFAULT_NICHE_PROFILE,
         topic="some topic",
         reference_brief=None,
     )
+    prompt = system + user
 
     assert "<reference_analysis>" not in prompt
 
 
 def test_storyboard_prompt_with_reference_brief_injects_block():
-    """UT-06-02: build_full_storyboard_prompt injects reference analysis block."""
+    """UT-06-02: build_full_storyboard_messages injects reference analysis block."""
     outline = [
         {"sequenceNumber": 1, "title": "Intro", "keyPoint": "Hook the audience"},
         {"sequenceNumber": 2, "title": "Outro", "keyPoint": "CTA"},
     ]
-    prompt = build_full_storyboard_prompt(
+    system, user = build_full_storyboard_messages(
         niche_profile=DEFAULT_NICHE_PROFILE,
         outline=outline,
         scene_count=8,
         target_duration_seconds=40,
         reference_brief=SAMPLE_REFERENCE_BRIEF,
     )
+    prompt = system + user
 
     assert "<reference_analysis>" in prompt
     assert "hook → problem → solution → cta" in prompt
@@ -127,15 +132,16 @@ def test_storyboard_prompt_with_reference_brief_injects_block():
 
 
 def test_storyboard_prompt_without_reference_brief_no_block():
-    """UT-06-02 (negative): build_full_storyboard_prompt omits block when no brief."""
+    """UT-06-02 (negative): build_full_storyboard_messages omits block when no brief."""
     outline = [{"sequenceNumber": 1, "title": "Intro", "keyPoint": "Hook"}]
-    prompt = build_full_storyboard_prompt(
+    system, user = build_full_storyboard_messages(
         niche_profile=DEFAULT_NICHE_PROFILE,
         outline=outline,
         scene_count=6,
         target_duration_seconds=30,
         reference_brief=None,
     )
+    prompt = system + user
 
     assert "<reference_analysis>" not in prompt
 
@@ -143,10 +149,11 @@ def test_storyboard_prompt_without_reference_brief_no_block():
 def test_reference_brief_with_empty_topics_no_key_error():
     """UT-06-01 (edge): Empty keyTopics list handled without error."""
     brief_no_topics = {**SAMPLE_REFERENCE_BRIEF, "keyTopics": []}
-    prompt = build_outline_prompt(
+    system, user = build_outline_messages(
         niche_profile=DEFAULT_NICHE_PROFILE,
         topic="finance tips",
         reference_brief=brief_no_topics,
     )
+    prompt = system + user
     assert "<reference_analysis>" in prompt
     assert "not detected" in prompt

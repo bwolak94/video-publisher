@@ -16,6 +16,7 @@ from crewai import Agent, Crew, Task
 from app.agents.director.prompts import build_worker_prompt
 from app.models.director import DEFAULT_NICHE_PROFILE, DirectorJobPayload
 from app.models.storyboard import VideoStoryboard
+from app.utils.text import strip_fences
 
 logger = structlog.get_logger(__name__)
 
@@ -30,16 +31,6 @@ def _make_director_agent() -> Agent:
         verbose=False,
         allow_delegation=False,
     )
-
-
-def _strip_fences(text: str) -> str:
-    """Strip markdown code fences from LLM output."""
-    text = text.strip()
-    if text.startswith("```"):
-        lines = text.split("\n")
-        end = -1 if lines[-1].strip() == "```" else len(lines)
-        text = "\n".join(lines[1:end])
-    return text
 
 
 async def generate_worker_storyboard(
@@ -79,7 +70,7 @@ async def generate_worker_storyboard(
 
     result = await asyncio.to_thread(crew.kickoff)
     raw = result.raw if hasattr(result, "raw") else str(result)
-    clean = _strip_fences(raw)
+    clean = strip_fences(raw)
 
     # Raises ValidationError on failure — caller handles retry (task rule #2)
     storyboard = VideoStoryboard.model_validate_json(clean)

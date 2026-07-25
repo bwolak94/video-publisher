@@ -24,6 +24,7 @@ from app.agents.director.prompts import build_full_storyboard_messages, build_ou
 from app.config import get_settings
 from app.models.director import NicheProfile
 from app.models.storyboard import VideoStoryboard
+from app.utils.text import strip_fences
 
 logger = structlog.get_logger(__name__)
 
@@ -92,15 +93,6 @@ async def _call_llm_full(system: str, user: str) -> str:
     return resp.choices[0].message.content or ""
 
 
-def _strip_fences(text: str) -> str:
-    text = text.strip()
-    if text.startswith("```"):
-        lines = text.split("\n")
-        end = -1 if lines[-1].strip() == "```" else len(lines)
-        text = "\n".join(lines[1:end])
-    return text
-
-
 # ── Graph Nodes ────────────────────────────────────────────────────────────────
 
 async def _retrieve_rag_context(project_id: str | None, query: str) -> list[str]:
@@ -130,7 +122,7 @@ async def outline_node(state: DirectorState) -> DirectorState:
 
     try:
         raw = await _call_llm_mini(system, user)
-        clean = _strip_fences(raw)
+        clean = strip_fences(raw)
         state["outline"] = json.loads(clean)
     except Exception as exc:
         logger.error("outline_generation_failed", error=str(exc))
@@ -168,7 +160,7 @@ async def generate_storyboard_node(state: DirectorState) -> DirectorState:
 
     try:
         raw = await _call_llm_full(system, user)
-        clean = _strip_fences(raw)
+        clean = strip_fences(raw)
         storyboard = VideoStoryboard.model_validate_json(clean)
         state["storyboard"] = storyboard.model_dump()
     except Exception as exc:
