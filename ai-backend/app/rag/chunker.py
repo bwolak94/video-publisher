@@ -1,7 +1,7 @@
 """Text chunking with overlap for RAG ingestion."""
 
-CHUNK_SIZE = 512      # characters
-CHUNK_OVERLAP = 64    # characters
+CHUNK_SIZE = 2048     # characters (~512 tokens at 4 chars/token — RAG convention)
+CHUNK_OVERLAP = 256   # characters (~64 tokens overlap)
 
 
 def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
@@ -14,6 +14,7 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
     if not text:
         return []
 
+    overlap = min(overlap, chunk_size - 1)
     chunks: list[str] = []
     start = 0
     while start < len(text):

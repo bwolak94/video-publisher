@@ -7,12 +7,16 @@ POST /api/creator/storyboard → generates full VideoStoryboard from approved ou
 import uuid
 from typing import Any, Literal
 
+import asyncpg
 import structlog
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.agents.director.creator_mode import _call_llm_full, _call_llm_mini, _strip_fences
+from app.agents.director.creator_mode import call_llm_full, call_llm_mini
+from app.rag.db import get_pool
+from app.rag.ingestion import retrieve_context
+from app.utils.text import strip_fences
 from app.agents.director.prompts import build_full_storyboard_messages, build_outline_messages
 from app.agents.researcher.script_research_agent import run_script_research
 from app.config import get_settings
@@ -128,11 +132,9 @@ async def generate_outline(req: OutlineRequest) -> StreamingResponse:
     source_chunks: list[str] = []
     if req.projectId:
         try:
-            from app.rag.db import get_pool
-            from app.rag.ingestion import retrieve_context
             pool = await get_pool()
             source_chunks = await retrieve_context(pool, req.projectId, req.topic)
-        except Exception as exc:
+        except (asyncpg.PostgresError, OSError) as exc:
             logger.warning("rag_retrieval_skipped", error=str(exc))
 
     system, user = build_outline_messages(
@@ -145,8 +147,8 @@ async def generate_outline(req: OutlineRequest) -> StreamingResponse:
 
     logger.info("creator_outline_start", topic=req.topic, language=req.language)
 
-    raw = await _call_llm_mini(system, user)
-    clean = _strip_fences(raw)
+    raw = await call_llm_mini(system, user)
+    clean = strip_fences(raw)
 
     # Parse the JSON outline array and format as plain text bullets
     import json
@@ -179,12 +181,10 @@ async def generate_storyboard(req: StoryboardRequest) -> dict[str, Any]:
     source_chunks: list[str] = []
     if req.projectId:
         try:
-            from app.rag.db import get_pool
-            from app.rag.ingestion import retrieve_context
             pool = await get_pool()
             topic = req.outline[0] if req.outline else ""
             source_chunks = await retrieve_context(pool, req.projectId, topic)
-        except Exception as exc:
+        except (asyncpg.PostgresError, OSError) as exc:
             logger.warning("rag_retrieval_skipped", error=str(exc))
 
     system, user = build_full_storyboard_messages(
@@ -200,8 +200,8 @@ async def generate_storyboard(req: StoryboardRequest) -> dict[str, Any]:
     )
 
     logger.info("creator_storyboard_start", scene_count=req.sceneCount)
-    raw = await _call_llm_full(system, user)
-    clean = _strip_fences(raw)
+    raw = await call_llm_full(system, user)
+    clean = strip_fences(raw)
 
     storyboard = VideoStoryboard.model_validate_json(clean)
 
@@ -239,8 +239,8 @@ async def polish_script(req: PolishScriptRequest) -> dict[str, Any]:
     )
 
     logger.info("creator_polish_script_start", tone=req.tone, chars=len(req.script))
-    raw = await _call_llm_mini(system, user)
-    clean = _strip_fences(raw)
+    raw = await call_llm_mini(system, user)
+    clean = strip_fences(raw)
 
     import json
     data: dict[str, Any]
@@ -262,8 +262,8 @@ async def clone_voice(req: CloneVoiceRequest) -> dict[str, Any]:
     extracts 60s of audio via ffmpeg, then creates an ElevenLabs instant voice clone.
     Returns { voiceId, voiceName } usable in storyboard.meta.voiceId.
     """
+    import asyncio
     import os
-    import subprocess
     import tempfile
 
     import httpx
@@ -283,14 +283,16 @@ async def clone_voice(req: CloneVoiceRequest) -> dict[str, Any]:
 
         # Extract first 60s of audio as mp3
         audio_path = os.path.join(tmpdir, "voice_sample.mp3")
-        proc = subprocess.run(
-            ["ffmpeg", "-y", "-i", video_path, "-t", "60", "-vn",
-             "-acodec", "libmp3lame", "-ab", "128k", audio_path],
-            capture_output=True,
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-y", "-i", video_path, "-t", "60", "-vn",
+            "-acodec", "libmp3lame", "-ab", "128k", audio_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
+        _, stderr = await proc.communicate()
         if proc.returncode != 0:
             from fastapi import HTTPException
-            raise HTTPException(status_code=500, detail=f"ffmpeg audio extraction failed: {proc.stderr.decode()[:200]}")
+            raise HTTPException(status_code=500, detail=f"ffmpeg audio extraction failed: {stderr.decode()[:200]}")
 
         # Call ElevenLabs Voice Add API (instant voice cloning)
         with open(audio_path, "rb") as f:
@@ -344,8 +346,8 @@ async def score_hook(req: ScoreHookRequest) -> dict[str, Any]:
     )
 
     logger.info("score_hook_start", chars=len(req.openingLines))
-    raw = await _call_llm_mini(system, user)
-    clean = _strip_fences(raw)
+    raw = await call_llm_mini(system, user)
+    clean = strip_fences(raw)
 
     import json
     data: dict[str, Any]
@@ -382,8 +384,8 @@ async def suggest_visual_prompt(req: SuggestVisualPromptRequest) -> dict[str, An
     )
 
     logger.info("creator_suggest_visual_prompt_start", chars=len(req.narrationText))
-    raw = await _call_llm_mini(system, user)
-    clean = _strip_fences(raw)
+    raw = await call_llm_mini(system, user)
+    clean = strip_fences(raw)
 
     import json
     data: dict[str, Any]

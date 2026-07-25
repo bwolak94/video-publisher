@@ -20,6 +20,7 @@ from app.api.tts import router as tts_router
 from app.config import get_settings
 from app.logging_config import setup_logging
 from app.metrics import metrics_output
+from app.rag.db import ensure_schema, get_pool
 
 logger = structlog.get_logger(__name__)
 
@@ -37,6 +38,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         env=settings.APP_ENV,
         version=settings.APP_VERSION,
     )
+
+    pool = await get_pool()
+    await ensure_schema(pool)
 
     logger.info("startup")
     yield

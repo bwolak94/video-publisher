@@ -4,7 +4,7 @@ from typing import Any
 import structlog
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
-from app.rag.db import ensure_schema, get_pool
+from app.rag.db import get_pool
 from app.rag.ingestion import ingest_text
 
 router = APIRouter(prefix="/api/projects", tags=["sources"])
@@ -43,8 +43,6 @@ async def ingest_source(
         raise HTTPException(status_code=400, detail=f"Could not decode file: {exc}")
 
     pool = await get_pool()
-    await ensure_schema(pool)
-
     source_id = await ingest_text(pool, project_id, text, filename=file.filename)
 
     logger.info("source_upload_complete", project_id=project_id, source_id=source_id, filename=file.filename)

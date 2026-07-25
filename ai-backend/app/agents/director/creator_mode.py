@@ -60,7 +60,7 @@ class DirectorState(TypedDict):
 
 # ── LLM helpers (thin wrappers — easy to mock in tests) ───────────────────────
 
-async def _call_llm_mini(system: str, user: str) -> str:
+async def call_llm_mini(system: str, user: str) -> str:
     """Call GPT-4o-mini for outline generation (cheap model, task rule #1).
 
     F1: Accepts a separate system message so the static schema prefix is
@@ -79,7 +79,7 @@ async def _call_llm_mini(system: str, user: str) -> str:
     return resp.choices[0].message.content or ""
 
 
-async def _call_llm_full(system: str, user: str) -> str:
+async def call_llm_full(system: str, user: str) -> str:
     """Call GPT-4o for full storyboard generation (expensive model, task rule #1).
 
     F1: Static schema + niche profile in system message → cached prefix.
@@ -130,7 +130,7 @@ async def outline_node(state: DirectorState) -> DirectorState:
     system, user = build_outline_messages(profile, state["topic"], source_chunks=source_chunks)
 
     try:
-        raw = await _call_llm_mini(system, user)
+        raw = await call_llm_mini(system, user)
         clean = strip_fences(raw)
         state["outline"] = json.loads(clean)
     except Exception as exc:
@@ -168,7 +168,7 @@ async def generate_storyboard_node(state: DirectorState) -> DirectorState:
     )
 
     try:
-        raw = await _call_llm_full(system, user)
+        raw = await call_llm_full(system, user)
         clean = strip_fences(raw)
         storyboard = VideoStoryboard.model_validate_json(clean)
         state["storyboard"] = storyboard.model_dump()

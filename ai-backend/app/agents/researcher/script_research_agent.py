@@ -18,6 +18,17 @@ import structlog
 from openai import AsyncOpenAI
 
 from app.agents.researcher.sanitizer import sanitize_content
+from app.utils.text import strip_fences
+
+# Module-level singleton — reuses the HTTP connection pool across all synthesis calls.
+_openai_client: AsyncOpenAI | None = None
+
+
+def _get_client() -> AsyncOpenAI:
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = AsyncOpenAI()
+    return _openai_client
 from app.agents.researcher.web_search_tools import (
     search_duckduckgo,
     search_newsapi,
@@ -143,8 +154,7 @@ async def _synthesize(topic: str, sources: list[ResearchSource], depth: SearchDe
     )
 
     try:
-        client = AsyncOpenAI()
-        response = await client.chat.completions.create(
+        response = await _get_client().chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -152,13 +162,9 @@ async def _synthesize(topic: str, sources: list[ResearchSource], depth: SearchDe
             ],
             temperature=0.3,
             max_tokens=800,
+            response_format={"type": "json_object"},
         )
-        raw = response.choices[0].message.content or "{}"
-        # Strip markdown fences if present
-        if raw.strip().startswith("```"):
-            parts = raw.split("```")
-            raw = parts[1].removeprefix("json").strip() if len(parts) > 1 else raw
-
+        raw = strip_fences(response.choices[0].message.content or "{}")
         parsed = json.loads(raw)
     except Exception as exc:
         logger.warning("research_synthesis_failed", error=str(exc))
