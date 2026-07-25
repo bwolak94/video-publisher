@@ -208,18 +208,25 @@ def build_creator_graph() -> StateGraph[DirectorState]:
     return graph
 
 
-async def get_creator_graph() -> Any:
-    """Return a compiled Creator Mode graph with Redis-backed checkpointer + interrupt_before.
+_creator_graph: Any = None
 
-    Uses AsyncRedisSaver so sessions survive process restarts and deploys.
-    The context manager is entered manually so the connection stays open for the
-    lifetime of the returned graph (app-level singleton pattern).
+
+async def get_creator_graph() -> Any:
+    """Return the compiled Creator Mode graph (singleton).
+
+    Compiled once on first call and cached for the process lifetime.
+    The AsyncRedisSaver context manager is entered once — reuses the same
+    Redis connection pool across all requests instead of leaking a new
+    connection on every invocation.
     """
-    settings = get_settings()
-    _cm = AsyncRedisSaver.from_conn_string(settings.REDIS_URL)
-    checkpointer = await _cm.__aenter__()
-    await checkpointer.asetup()
-    return build_creator_graph().compile(
-        checkpointer=checkpointer,
-        interrupt_before=["human_approval"],
-    )
+    global _creator_graph
+    if _creator_graph is None:
+        settings = get_settings()
+        _cm = AsyncRedisSaver.from_conn_string(settings.REDIS_URL)
+        checkpointer = await _cm.__aenter__()
+        await checkpointer.asetup()
+        _creator_graph = build_creator_graph().compile(
+            checkpointer=checkpointer,
+            interrupt_before=["human_approval"],
+        )
+    return _creator_graph

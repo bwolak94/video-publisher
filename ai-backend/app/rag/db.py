@@ -1,8 +1,8 @@
 """PostgreSQL + pgvector connection for RAG source material storage."""
-import os
-
 import asyncpg
 import structlog
+
+from app.config import get_settings
 
 logger = structlog.get_logger(__name__)
 
@@ -31,13 +31,16 @@ CREATE INDEX IF NOT EXISTS rag_chunks_project_idx ON rag_chunks (project_id);
 """
 
 
+_pool: asyncpg.Pool | None = None
+
+
 async def get_pool() -> asyncpg.Pool:
-    """Return an asyncpg connection pool. Created lazily on first call."""
-    db_url = os.environ.get("DATABASE_URL", "postgresql://localhost/video_publisher")
-    # asyncpg uses postgresql:// scheme
-    db_url = db_url.replace("postgres://", "postgresql://")
-    pool = await asyncpg.create_pool(db_url, min_size=1, max_size=5)
-    return pool
+    """Return the shared asyncpg connection pool, creating it on first call."""
+    global _pool
+    if _pool is None:
+        db_url = get_settings().DATABASE_URL.replace("postgres://", "postgresql://")
+        _pool = await asyncpg.create_pool(db_url, min_size=1, max_size=5)
+    return _pool
 
 
 async def ensure_schema(pool: asyncpg.Pool) -> None:
