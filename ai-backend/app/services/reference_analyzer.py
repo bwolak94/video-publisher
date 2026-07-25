@@ -20,6 +20,16 @@ import structlog
 from openai import AsyncOpenAI
 
 from app.agents.researcher.sanitizer import sanitize_content
+
+# Module-level singleton — reuses the HTTP connection pool across all synthesis calls.
+_openai_client: AsyncOpenAI | None = None
+
+
+def _get_client() -> AsyncOpenAI:
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = AsyncOpenAI()
+    return _openai_client
 from app.models.reference_analysis import AudioAnalysis, ReferenceAnalysisBrief
 from app.services import ffprobe_service as ffprobe
 from app.services.video_downloader import _safe_delete, download_reference_video
@@ -136,8 +146,7 @@ async def _synthesize_brief(
     model = "gpt-4o" if frames_b64 else "gpt-4o-mini"
 
     try:
-        client = AsyncOpenAI()
-        response = await client.chat.completions.create(
+        response = await _get_client().chat.completions.create(
             model=model,
             messages=messages,  # type: ignore[arg-type]
             temperature=0.2,

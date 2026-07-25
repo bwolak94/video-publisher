@@ -14,6 +14,7 @@ After the user approves (or edits), the caller:
 import json
 from typing import Any
 
+import asyncpg
 import structlog
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langgraph.graph import END, StateGraph
@@ -100,7 +101,11 @@ async def _call_llm_full(system: str, user: str) -> str:
 # ── Graph Nodes ────────────────────────────────────────────────────────────────
 
 async def _retrieve_rag_context(project_id: str | None, query: str) -> list[str]:
-    """Retrieve relevant source chunks if project has ingested material."""
+    """Retrieve relevant source chunks if project has ingested material.
+
+    RAG is optional — database or network failures degrade gracefully to an
+    empty context list rather than aborting outline generation.
+    """
     if not project_id:
         return []
     try:
@@ -108,7 +113,7 @@ async def _retrieve_rag_context(project_id: str | None, query: str) -> list[str]
         from app.rag.ingestion import retrieve_context
         pool = await get_pool()
         return await retrieve_context(pool, project_id, query)
-    except Exception as exc:
+    except (asyncpg.PostgresError, OSError) as exc:
         logger.warning("rag_retrieval_failed", error=str(exc))
         return []
 

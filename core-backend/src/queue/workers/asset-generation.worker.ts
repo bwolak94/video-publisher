@@ -185,15 +185,6 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  protected async generateVideo(
-    prompt: string,
-    sceneId: string,
-    aspectRatio?: "16:9" | "9:16" | "1:1"
-  ): Promise<string> {
-    const result = await this.generateVideoWithProvider(prompt, sceneId, aspectRatio);
-    return result.s3Url;
-  }
-
   protected async generateImage(
     prompt: string,
     sceneId: string,
