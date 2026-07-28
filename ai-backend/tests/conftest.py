@@ -31,9 +31,9 @@ def reset_openai_singletons():
     Ensures that patch("...AsyncOpenAI", return_value=mock) always triggers
     the constructor inside _get_client(), regardless of test execution order.
     """
-    import app.services.reference_analyzer as ref_mod
-    import app.agents.researcher.script_research_agent as research_mod
     import app.agents.director.creator_mode as creator_mod
+    import app.agents.researcher.script_research_agent as research_mod
+    import app.services.reference_analyzer as ref_mod
 
     ref_mod._openai_client = None
     research_mod._openai_client = None
