@@ -20,6 +20,10 @@ import structlog
 from openai import AsyncOpenAI, OpenAIError
 
 from app.agents.researcher.sanitizer import sanitize_content
+from app.models.reference_analysis import AudioAnalysis, ReferenceAnalysisBrief
+from app.services import ffprobe_service as ffprobe
+from app.services.video_downloader import _safe_delete, download_reference_video
+from app.utils.text import strip_fences
 
 # Module-level singleton — reuses the HTTP connection pool across all synthesis calls.
 _openai_client: AsyncOpenAI | None = None
@@ -30,10 +34,6 @@ def _get_client() -> AsyncOpenAI:
     if _openai_client is None:
         _openai_client = AsyncOpenAI()
     return _openai_client
-from app.models.reference_analysis import AudioAnalysis, ReferenceAnalysisBrief
-from app.services import ffprobe_service as ffprobe
-from app.services.video_downloader import _safe_delete, download_reference_video
-from app.utils.text import strip_fences
 
 logger = structlog.get_logger(__name__)
 

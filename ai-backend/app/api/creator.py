@@ -19,9 +19,6 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.agents.director.creator_mode import call_llm_full, call_llm_mini
-from app.rag.db import get_pool
-from app.rag.ingestion import retrieve_context
-from app.utils.text import strip_fences
 from app.agents.director.prompts import build_full_storyboard_messages, build_outline_messages
 from app.agents.researcher.script_research_agent import run_script_research
 from app.config import get_settings
@@ -29,8 +26,11 @@ from app.models.director import DEFAULT_NICHE_PROFILE
 from app.models.reference_analysis import ReferenceAnalysisBrief
 from app.models.research_brief import ResearchBrief
 from app.models.storyboard import VideoStoryboard
+from app.rag.db import get_pool
+from app.rag.ingestion import retrieve_context
 from app.services.reference_analyzer import analyze_reference_video
 from app.services.video_downloader import download_reference_video
+from app.utils.text import strip_fences
 
 router = APIRouter(prefix="/api/creator", tags=["creator"])
 logger = structlog.get_logger(__name__)

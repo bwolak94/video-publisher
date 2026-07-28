@@ -18,6 +18,13 @@ import structlog
 from openai import AsyncOpenAI
 
 from app.agents.researcher.sanitizer import sanitize_content
+from app.agents.researcher.web_search_tools import (
+    search_duckduckgo,
+    search_newsapi,
+    search_reddit,
+    search_serpapi,
+)
+from app.models.research_brief import ResearchBrief, ResearchSource
 from app.utils.text import strip_fences
 
 # Module-level singleton — reuses the HTTP connection pool across all synthesis calls.
@@ -29,13 +36,6 @@ def _get_client() -> AsyncOpenAI:
     if _openai_client is None:
         _openai_client = AsyncOpenAI()
     return _openai_client
-from app.agents.researcher.web_search_tools import (
-    search_duckduckgo,
-    search_newsapi,
-    search_reddit,
-    search_serpapi,
-)
-from app.models.research_brief import ResearchBrief, ResearchSource
 
 logger = structlog.get_logger(__name__)
 
