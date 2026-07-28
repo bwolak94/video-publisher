@@ -154,7 +154,7 @@ async def _synthesize_brief(
         )
         raw = strip_fences(response.choices[0].message.content or "{}")
         parsed = json.loads(raw)
-    except (OpenAIError, json.JSONDecodeError) as exc:
+    except Exception as exc:
         logger.warning("reference_synthesis_failed", error=str(exc))
         parsed = {}
 
