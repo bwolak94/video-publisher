@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import structlog
-from openai import AsyncOpenAI, OpenAIError
+from openai import AsyncOpenAI
 
 from app.agents.researcher.sanitizer import sanitize_content
 from app.models.reference_analysis import AudioAnalysis, ReferenceAnalysisBrief
