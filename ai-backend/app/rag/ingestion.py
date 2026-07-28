@@ -91,25 +91,41 @@ async def retrieve_context(
     pool: asyncpg.Pool,
     project_id: str,
     query: str,
-    top_k: int = 5,
+    top_k: int = 8,
+    score_threshold: float = 0.5,
 ) -> list[str]:
-    """Retrieve top-k most relevant chunks for a query via cosine similarity."""
+    """Retrieve top-k most relevant chunks for a query via cosine similarity.
+
+    Args:
+        top_k: Maximum number of chunks to return. Default 8 per RAG conventions.
+        score_threshold: Maximum cosine distance to accept (0 = identical, 1 = orthogonal).
+            Chunks with distance >= score_threshold are discarded as noise. Default 0.5
+            corresponds to cosine similarity > 0.5, filtering clearly irrelevant results.
+    """
     from app.rag.embeddings import embed_query
     query_embedding = await embed_query(query)
     embedding_literal = f"[{','.join(str(v) for v in query_embedding)}]"
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            """SELECT content
+            """SELECT content, (embedding <=> $2::vector) AS distance
                FROM rag_chunks
                WHERE project_id = $1
-               ORDER BY embedding <=> $2::vector
-               LIMIT $3""",
+                 AND (embedding <=> $2::vector) < $3
+               ORDER BY distance
+               LIMIT $4""",
             project_id,
             embedding_literal,
+            score_threshold,
             top_k,
         )
 
     chunks = [row["content"] for row in rows]
-    logger.info("rag_retrieval", project_id=project_id, query_len=len(query), results=len(chunks))
+    logger.info(
+        "rag_retrieval",
+        project_id=project_id,
+        query_len=len(query),
+        results=len(chunks),
+        score_threshold=score_threshold,
+    )
     return chunks

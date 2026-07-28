@@ -6,6 +6,7 @@ Creator Mode → LangGraph pipeline, returns outline + awaiting_approval=True.
 """
 import structlog
 
+from app.agents.director.creator_mode import get_creator_graph
 from app.agents.director.seo import append_timestamps_to_description
 from app.agents.director.worker_mode import generate_worker_storyboard
 from app.models.director import DirectorJobPayload, OutlineItem, StoryboardGenerationResult
@@ -55,8 +56,6 @@ class DirectorJobHandler:
 
     async def _run_creator_outline(self, payload: DirectorJobPayload) -> StoryboardGenerationResult:
         """Start Creator Mode: generate outline and await human approval."""
-        from app.agents.director.creator_mode import get_creator_graph
-
         graph = await get_creator_graph()
         config = {"configurable": {"thread_id": payload.channelId}}
 

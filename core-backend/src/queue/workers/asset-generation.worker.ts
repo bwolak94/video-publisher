@@ -7,7 +7,7 @@ import { REDIS_CLIENT } from "../../redis/redis.module";
 import { JobSyncService } from "../job-sync.service";
 import { DlqAlertService } from "../dlq-alert.service";
 import { EventsGateway } from "../../gateway/events.gateway";
-import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
+import { QUEUE_CONCURRENCY, ASSET_GENERATION_WORKER_SETTINGS } from "../queue.config";
 import { ElevenLabsService } from "../../elevenlabs/elevenlabs.service";
 import { VideoAssetService } from "../../media/video-asset.service";
 import { ImageAssetService } from "../../images/image-asset.service";
@@ -81,8 +81,8 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
       {
         connection: this.redis as any,
         concurrency: QUEUE_CONCURRENCY[QUEUE_NAME],
-        stalledInterval: RESEARCH_WORKER_SETTINGS.stalledInterval,
-        maxStalledCount: RESEARCH_WORKER_SETTINGS.maxStalledCount,
+        stalledInterval: ASSET_GENERATION_WORKER_SETTINGS.stalledInterval,
+        maxStalledCount: ASSET_GENERATION_WORKER_SETTINGS.maxStalledCount,
       }
     );
 
@@ -183,15 +183,6 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
       sceneId,
       aspectRatio: aspectRatio === "1:1" ? "16:9" : aspectRatio,
     });
-  }
-
-  protected async generateVideo(
-    prompt: string,
-    sceneId: string,
-    aspectRatio?: "16:9" | "9:16" | "1:1"
-  ): Promise<string> {
-    const result = await this.generateVideoWithProvider(prompt, sceneId, aspectRatio);
-    return result.s3Url;
   }
 
   protected async generateImage(

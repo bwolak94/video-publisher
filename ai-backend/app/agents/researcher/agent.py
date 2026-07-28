@@ -15,6 +15,7 @@ from crewai import Agent, Crew, Task
 
 from app.agents.researcher.sanitizer import SYSTEM_PROMPT_INJECTION_GUARD
 from app.models.research import ResearchReport
+from app.utils.text import strip_fences
 
 logger = structlog.get_logger(__name__)
 
@@ -76,11 +77,7 @@ async def synthesize_report(
 
 def _parse_synthesis_output(raw: str, fallback_topic: str) -> tuple[list[str], str]:
     """Parse JSON from the agent output. Falls back gracefully on parse failure."""
-    text = raw.strip()
-    # Strip markdown code fences if the model wraps output in ```json ... ```
-    if text.startswith("```"):
-        parts = text.split("```")
-        text = parts[1].removeprefix("json").strip() if len(parts) > 1 else text
+    text = strip_fences(raw)
 
     try:
         parsed = json.loads(text)

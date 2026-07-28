@@ -23,6 +23,17 @@ from app.agents.researcher.sanitizer import sanitize_content
 from app.models.reference_analysis import AudioAnalysis, ReferenceAnalysisBrief
 from app.services import ffprobe_service as ffprobe
 from app.services.video_downloader import _safe_delete, download_reference_video
+from app.utils.text import strip_fences
+
+# Module-level singleton — reuses the HTTP connection pool across all synthesis calls.
+_openai_client: AsyncOpenAI | None = None
+
+
+def _get_client() -> AsyncOpenAI:
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = AsyncOpenAI()
+    return _openai_client
 
 logger = structlog.get_logger(__name__)
 
@@ -135,17 +146,13 @@ async def _synthesize_brief(
     model = "gpt-4o" if frames_b64 else "gpt-4o-mini"
 
     try:
-        client = AsyncOpenAI()
-        response = await client.chat.completions.create(
+        response = await _get_client().chat.completions.create(
             model=model,
             messages=messages,  # type: ignore[arg-type]
             temperature=0.2,
             max_tokens=600,
         )
-        raw = response.choices[0].message.content or "{}"
-        if raw.strip().startswith("```"):
-            parts = raw.split("```")
-            raw = parts[1].removeprefix("json").strip() if len(parts) > 1 else raw
+        raw = strip_fences(response.choices[0].message.content or "{}")
         parsed = json.loads(raw)
     except Exception as exc:
         logger.warning("reference_synthesis_failed", error=str(exc))

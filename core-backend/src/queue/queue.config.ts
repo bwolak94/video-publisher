@@ -84,6 +84,14 @@ export const RESEARCH_WORKER_SETTINGS = {
   maxStalledCount: 2,
 };
 
+// Asset-generation jobs (Runway/Kling video, ElevenLabs audio) can take up to
+// several minutes — use a 2-min stall interval to avoid false stall re-queues.
+// maxStalledCount: 2 — allow two re-queues before treating as permanently stalled.
+export const ASSET_GENERATION_WORKER_SETTINGS = {
+  stalledInterval: 120_000, // 2 min
+  maxStalledCount: 2,
+};
+
 // Render jobs can run up to 30 min — use a 5-min stall interval so an
 // in-progress Remotion Lambda render is never incorrectly flagged as stalled.
 // maxStalledCount: 1 — renders are expensive; only allow one re-queue on stall.

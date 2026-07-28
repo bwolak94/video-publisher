@@ -14,6 +14,7 @@ After the user approves (or edits), the caller:
 import json
 from typing import Any
 
+import asyncpg
 import structlog
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langgraph.graph import END, StateGraph
@@ -24,6 +25,7 @@ from app.agents.director.prompts import build_full_storyboard_messages, build_ou
 from app.config import get_settings
 from app.models.director import NicheProfile
 from app.models.storyboard import VideoStoryboard
+from app.utils.text import strip_fences
 
 logger = structlog.get_logger(__name__)
 
@@ -63,6 +65,7 @@ async def _call_llm_mini(system: str, user: str) -> str:
 
     F1: Accepts a separate system message so the static schema prefix is
     eligible for OpenAI prompt caching (requires >=1024 tokens in prefix).
+    response_format=json_object guarantees parseable JSON without fence-stripping.
     """
     resp = await _get_client().chat.completions.create(
         model="gpt-4o-mini",
@@ -71,6 +74,7 @@ async def _call_llm_mini(system: str, user: str) -> str:
             {"role": "user", "content": user},
         ],
         temperature=0.7,
+        response_format={"type": "json_object"},
     )
     return resp.choices[0].message.content or ""
 
@@ -80,6 +84,7 @@ async def _call_llm_full(system: str, user: str) -> str:
 
     F1: Static schema + niche profile in system message → cached prefix.
     Dynamic outline + context in user message → changes per call.
+    response_format=json_object guarantees parseable JSON without fence-stripping.
     """
     resp = await _get_client().chat.completions.create(
         model="gpt-4o",
@@ -88,23 +93,24 @@ async def _call_llm_full(system: str, user: str) -> str:
             {"role": "user", "content": user},
         ],
         temperature=0.7,
+        response_format={"type": "json_object"},
     )
     return resp.choices[0].message.content or ""
 
 
-def _strip_fences(text: str) -> str:
-    text = text.strip()
-    if text.startswith("```"):
-        lines = text.split("\n")
-        end = -1 if lines[-1].strip() == "```" else len(lines)
-        text = "\n".join(lines[1:end])
-    return text
+# Public aliases for callers outside this module (e.g. creator.py API layer).
+call_llm_mini = _call_llm_mini
+call_llm_full = _call_llm_full
 
 
 # ── Graph Nodes ────────────────────────────────────────────────────────────────
 
 async def _retrieve_rag_context(project_id: str | None, query: str) -> list[str]:
-    """Retrieve relevant source chunks if project has ingested material."""
+    """Retrieve relevant source chunks if project has ingested material.
+
+    RAG is optional — database or network failures degrade gracefully to an
+    empty context list rather than aborting outline generation.
+    """
     if not project_id:
         return []
     try:
@@ -112,7 +118,7 @@ async def _retrieve_rag_context(project_id: str | None, query: str) -> list[str]
         from app.rag.ingestion import retrieve_context
         pool = await get_pool()
         return await retrieve_context(pool, project_id, query)
-    except Exception as exc:
+    except (asyncpg.PostgresError, OSError) as exc:
         logger.warning("rag_retrieval_failed", error=str(exc))
         return []
 
@@ -130,7 +136,7 @@ async def outline_node(state: DirectorState) -> DirectorState:
 
     try:
         raw = await _call_llm_mini(system, user)
-        clean = _strip_fences(raw)
+        clean = strip_fences(raw)
         state["outline"] = json.loads(clean)
     except Exception as exc:
         logger.error("outline_generation_failed", error=str(exc))
@@ -168,7 +174,7 @@ async def generate_storyboard_node(state: DirectorState) -> DirectorState:
 
     try:
         raw = await _call_llm_full(system, user)
-        clean = _strip_fences(raw)
+        clean = strip_fences(raw)
         storyboard = VideoStoryboard.model_validate_json(clean)
         state["storyboard"] = storyboard.model_dump()
     except Exception as exc:
@@ -208,18 +214,25 @@ def build_creator_graph() -> StateGraph[DirectorState]:
     return graph
 
 
-async def get_creator_graph() -> Any:
-    """Return a compiled Creator Mode graph with Redis-backed checkpointer + interrupt_before.
+_creator_graph: Any = None
 
-    Uses AsyncRedisSaver so sessions survive process restarts and deploys.
-    The context manager is entered manually so the connection stays open for the
-    lifetime of the returned graph (app-level singleton pattern).
+
+async def get_creator_graph() -> Any:
+    """Return the compiled Creator Mode graph (singleton).
+
+    Compiled once on first call and cached for the process lifetime.
+    The AsyncRedisSaver context manager is entered once — reuses the same
+    Redis connection pool across all requests instead of leaking a new
+    connection on every invocation.
     """
-    settings = get_settings()
-    _cm = AsyncRedisSaver.from_conn_string(settings.REDIS_URL)
-    checkpointer = await _cm.__aenter__()
-    await checkpointer.asetup()
-    return build_creator_graph().compile(
-        checkpointer=checkpointer,
-        interrupt_before=["human_approval"],
-    )
+    global _creator_graph
+    if _creator_graph is None:
+        settings = get_settings()
+        _cm = AsyncRedisSaver.from_conn_string(settings.REDIS_URL)
+        checkpointer = await _cm.__aenter__()
+        await checkpointer.asetup()
+        _creator_graph = build_creator_graph().compile(
+            checkpointer=checkpointer,
+            interrupt_before=["human_approval"],
+        )
+    return _creator_graph

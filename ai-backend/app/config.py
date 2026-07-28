@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
 
     # Optional with safe defaults
+    DATABASE_URL: str = "postgresql://localhost/video_publisher"
     REDIS_URL: str = "redis://localhost:6379"
     APP_ENV: Literal["dev", "test", "prod"] = "dev"
     APP_VERSION: str = "0.1.0"
