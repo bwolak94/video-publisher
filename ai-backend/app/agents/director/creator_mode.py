@@ -126,7 +126,7 @@ async def _retrieve_rag_context(project_id: str | None, query: str) -> list[str]
         return []
 
 
-async def outline_node(state: DirectorState) -> dict:
+async def outline_node(state: DirectorState) -> dict[str, Any]:
     """Stage 1: generate a 5-point outline using the cheap model."""
     profile = NicheProfile.model_validate(state["niche_profile"])
 
@@ -156,7 +156,7 @@ def human_approval_node(state: DirectorState) -> DirectorState:
     return state
 
 
-async def generate_storyboard_node(state: DirectorState) -> dict:
+async def generate_storyboard_node(state: DirectorState) -> dict[str, Any]:
     """Stage 2: generate full storyboard from approved outline (expensive model)."""
     profile = NicheProfile.model_validate(state["niche_profile"])
     outline = state.get("outline") or []
