@@ -1,7 +1,9 @@
-import { Controller, Get, Param, Post, Body, NotFoundException, Query } from "@nestjs/common";
+import { Controller, Get, Param, Post, Body, NotFoundException, Query, UseGuards } from "@nestjs/common";
 import { DlqService } from "./dlq.service";
 import { QueueService } from "./queue.service";
+import { AuthGuard } from "../auth/auth.guard";
 
+@UseGuards(AuthGuard)
 @Controller("api/dlq")
 export class DlqController {
   constructor(

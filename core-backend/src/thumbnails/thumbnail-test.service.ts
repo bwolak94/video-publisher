@@ -9,6 +9,7 @@ import { thumbnailExperiments, videoAnalytics } from "../db/schema";
 import { DallE3Service } from "../images/dalle3.service";
 import { YouTubeAuthService } from "../youtube/youtube-auth.service";
 import { ThumbnailValidationService } from "./thumbnail-validation.service";
+import { CronLockService } from "../common/cron-lock.service";
 
 const logger = pino({ level: "info" });
 
@@ -34,6 +35,7 @@ export class ThumbnailTestService {
     private readonly dalle3: DallE3Service,
     private readonly youtubeAuth: YouTubeAuthService,
     private readonly thumbnailValidator: ThumbnailValidationService,
+    private readonly cronLock: CronLockService,
   ) {}
 
   /**
@@ -102,6 +104,9 @@ export class ThumbnailTestService {
    */
   @Cron(CronExpression.EVERY_2_HOURS)
   async rotateThumbnails(): Promise<void> {
+    const acquired = await this.cronLock.acquire("rotate-thumbnails", 7200);
+    if (!acquired) return;
+
     const running = await this.db
       .select()
       .from(thumbnailExperiments)

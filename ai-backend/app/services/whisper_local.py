@@ -8,6 +8,7 @@ the NestJS WordTimestamp interface.
 
 from __future__ import annotations
 
+import asyncio
 import os
 import tempfile
 from typing import Any
@@ -51,11 +52,14 @@ async def transcribe(audio_url: str, language: str | None = None) -> dict[str, A
             "provider": "whisper_local"
         }
     """
+    from app.utils.network import assert_public_url
+    assert_public_url(audio_url)
+
     logger.info("whisper_transcribe_start", audio_url=audio_url, language=language)
 
     # Download audio to a temporary file
     async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.get(audio_url)
+        response = await client.get(audio_url, follow_redirects=False)
         response.raise_for_status()
         audio_bytes = response.content
 
@@ -65,13 +69,18 @@ async def transcribe(audio_url: str, language: str | None = None) -> dict[str, A
         tmp_path = tmp.name
 
     try:
-        model = _get_model()
-        segments, info = model.transcribe(
-            tmp_path,
-            language=language or None,  # None = auto-detect
-            word_timestamps=True,
-            beam_size=5,
-        )
+        def _run_sync() -> tuple[Any, Any]:
+            model = _get_model()
+            segments, info = model.transcribe(
+                tmp_path,
+                language=language or None,  # None = auto-detect
+                word_timestamps=True,
+                beam_size=5,
+            )
+            return segments, info
+
+        loop = asyncio.get_running_loop()
+        segments, info = await loop.run_in_executor(None, _run_sync)
 
         words = []
         for segment in segments:

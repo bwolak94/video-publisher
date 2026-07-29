@@ -17,6 +17,7 @@ import { DRIZZLE } from "../db/db.module";
 import * as schema from "../db/schema";
 import { publishAnalyticsSnapshots, videoAnalytics } from "../db/schema";
 import { SettingsService } from "../settings/settings.service";
+import { CronLockService } from "../common/cron-lock.service";
 
 const logger = pino({ level: "info" });
 
@@ -40,6 +41,7 @@ export class PublishAnalyticsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly settings: SettingsService,
+    private readonly cronLock: CronLockService,
   ) {}
 
   /**
@@ -48,6 +50,9 @@ export class PublishAnalyticsService {
    */
   @Cron("0 * * * *")
   async captureScheduledSnapshots(): Promise<void> {
+    const acquired = await this.cronLock.acquire("capture-analytics-snapshots", 3600);
+    if (!acquired) return;
+
     try {
       const published = await this.db
         .select({

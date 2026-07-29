@@ -6,7 +6,7 @@ import pino from "pino";
 import { REDIS_CLIENT } from "../../redis/redis.module";
 import { DRIZZLE } from "../../db/db.module";
 import { webhooks, webhookDeliveryLog } from "../../db/schema";
-import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
+import { QUEUE_CONCURRENCY, WEBHOOK_WORKER_SETTINGS } from "../queue.config";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "webhook";
@@ -38,8 +38,8 @@ export class WebhookDeliveryWorker implements OnModuleInit, OnModuleDestroy {
       {
         connection: this.redis,
         concurrency: QUEUE_CONCURRENCY[QUEUE_NAME] ?? 5,
-        stalledInterval: RESEARCH_WORKER_SETTINGS.stalledInterval,
-        maxStalledCount: RESEARCH_WORKER_SETTINGS.maxStalledCount,
+        stalledInterval: WEBHOOK_WORKER_SETTINGS.stalledInterval,
+        maxStalledCount: WEBHOOK_WORKER_SETTINGS.maxStalledCount,
       },
     );
 

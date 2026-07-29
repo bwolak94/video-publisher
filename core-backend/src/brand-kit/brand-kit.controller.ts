@@ -1,6 +1,8 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, HttpCode, HttpStatus, Query } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Param, Body, HttpCode, HttpStatus, Query, UseGuards } from "@nestjs/common";
 import { BrandKitService, type CreateBrandKitDto, type UpdateBrandKitDto } from "./brand-kit.service";
+import { AuthGuard } from "../auth/auth.guard";
 
+@UseGuards(AuthGuard)
 @Controller()
 export class BrandKitController {
   constructor(private readonly brandKits: BrandKitService) {}

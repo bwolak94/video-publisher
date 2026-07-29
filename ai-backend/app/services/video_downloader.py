@@ -18,6 +18,8 @@ from urllib.parse import urlparse
 import httpx
 import structlog
 
+from app.utils.network import assert_public_url
+
 logger = structlog.get_logger(__name__)
 
 _MAX_BYTES = 500 * 1024 * 1024   # 500 MB
@@ -38,9 +40,10 @@ def _is_direct_video_url(url: str) -> bool:
 async def download_reference_video(url: str) -> str:
     """Download a reference video to a temp file. Returns the temp file path.
 
-    Raises ValueError for unsupported URLs.
+    Raises ValueError for unsupported URLs or SSRF-blocked hosts.
     Raises RuntimeError on download failure.
     """
+    assert_public_url(url)
     if _is_youtube_url(url):
         return await _download_youtube(url)
     if _is_direct_video_url(url):
@@ -103,7 +106,7 @@ async def _download_direct(url: str) -> str:
     try:
         downloaded = 0
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, read=300.0)) as client:
-            async with client.stream("GET", url, follow_redirects=True) as res:
+            async with client.stream("GET", url, follow_redirects=False) as res:
                 res.raise_for_status()
                 async for chunk in res.aiter_bytes(chunk_size=65536):
                     downloaded += len(chunk)

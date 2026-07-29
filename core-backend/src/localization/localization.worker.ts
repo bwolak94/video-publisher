@@ -16,7 +16,7 @@ import * as crypto from "crypto";
 import pino from "pino";
 import type Redis from "ioredis";
 import { REDIS_CLIENT } from "../redis/redis.module";
-import { QUEUE_CONCURRENCY } from "../queue/queue.config";
+import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue/queue.config";
 import { LocalizationService } from "./localization.service";
 import { DubbingService } from "./dubbing.service";
 import { EventsGateway } from "../gateway/events.gateway";
@@ -53,6 +53,8 @@ export class LocalizationWorker implements OnModuleInit, OnModuleDestroy {
       {
         connection: this.redis as any,
         concurrency: QUEUE_CONCURRENCY[QUEUE_NAME] ?? 2,
+        stalledInterval: RESEARCH_WORKER_SETTINGS.stalledInterval,
+        maxStalledCount: RESEARCH_WORKER_SETTINGS.maxStalledCount,
       },
     );
 

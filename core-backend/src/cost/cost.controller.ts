@@ -1,13 +1,15 @@
-import { Controller, Post, Get, Put, Body, Param, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Post, Get, Put, Body, Param, HttpCode, HttpStatus, UseGuards } from "@nestjs/common";
 import { CostEstimatorService, type SceneSummary } from "./cost-estimator.service";
 import { BudgetService } from "./budget.service";
 import { CostRecordService } from "./cost-record.service";
 import { ProjectBudgetService } from "./project-budget.service";
+import { AuthGuard } from "../auth/auth.guard";
 
 interface EstimateBody {
   scenes: SceneSummary[];
 }
 
+@UseGuards(AuthGuard)
 @Controller("api/cost")
 export class CostController {
   constructor(

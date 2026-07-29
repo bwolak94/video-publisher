@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
+from app.agents.director.creator_mode import close_creator_graph
 from app.api.avatar import router as avatar_router
 from app.api.creator import router as creator_router
 from app.api.director import router as director_router
@@ -44,6 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     logger.info("startup")
     yield
+    await close_creator_graph()
     logger.info("shutdown")
 
 

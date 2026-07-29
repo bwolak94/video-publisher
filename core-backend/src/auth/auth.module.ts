@@ -9,10 +9,27 @@ import { configuration } from "../config/configuration";
     JwtModule.registerAsync({
       useFactory: () => {
         const config = configuration();
-        // RS256: verify with public key
+        const publicKey = config.jwt?.publicKey;
+
+        if (!publicKey && process.env.NODE_ENV === "production") {
+          throw new Error(
+            "JWT_PUBLIC_KEY must be configured in production. Set it via environment variable.",
+          );
+        }
+
+        if (!publicKey) {
+          console.warn(
+            "[AUTH] WARNING: JWT_PUBLIC_KEY not set — using insecure HS256 fallback. DO NOT use in production.",
+          );
+        }
+
         return {
-          publicKey: config.jwt.publicKey || "test-secret",
-          algorithms: config.jwt.publicKey ? ["RS256"] : ["HS256"],
+          publicKey: publicKey || "test-secret",
+          algorithms: publicKey ? ["RS256"] : ["HS256"],
+          verifyOptions: {
+            audience: process.env.JWT_AUDIENCE ?? "core-backend",
+            issuer: process.env.JWT_ISSUER ?? "",
+          },
         };
       },
     }),

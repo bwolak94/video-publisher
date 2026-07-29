@@ -1,6 +1,7 @@
 import "dotenv/config";
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
+import { ValidationPipe } from "@nestjs/common";
 import { FastifyAdapter, NestFastifyApplication } from "@nestjs/platform-fastify";
 import { AppModule } from "./app.module";
 import { DRIZZLE, runMigrations } from "./db/db.module";
@@ -44,6 +45,8 @@ async function bootstrap() {
   // if (process.env.NODE_ENV !== "production") {
   //   setupBullBoard(app);
   // }
+
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
 
   // Run DB migrations on startup (UC-01)
   const db = app.get(DRIZZLE);

@@ -1,11 +1,13 @@
-import { Controller, Get, Post, Patch, Body, Param, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Body, Param, HttpCode, HttpStatus, UseGuards } from "@nestjs/common";
 import { ReviewSessionService, CreateCommentDto } from "./review-session.service";
+import { AuthGuard } from "../auth/auth.guard";
 
 @Controller("api")
 export class ReviewController {
   constructor(private readonly reviewService: ReviewSessionService) {}
 
   /** Create a shareable review link for a project. */
+  @UseGuards(AuthGuard)
   @Post("projects/:projectId/review-sessions")
   @HttpCode(HttpStatus.CREATED)
   create(
@@ -16,6 +18,7 @@ export class ReviewController {
   }
 
   /** List all review sessions for a project. */
+  @UseGuards(AuthGuard)
   @Get("projects/:projectId/review-sessions")
   listForProject(@Param("projectId") projectId: string) {
     return this.reviewService.findAllForProject(projectId);
@@ -44,6 +47,7 @@ export class ReviewController {
   }
 
   /** Resolve a comment (owner-facing). */
+  @UseGuards(AuthGuard)
   @Patch("projects/:projectId/review-comments/:commentId/resolve")
   @HttpCode(HttpStatus.NO_CONTENT)
   async resolveComment(

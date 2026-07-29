@@ -39,3 +39,21 @@ groups:
           severity: warning
         annotations:
           summary: "High error rate for service {{ $labels.service }}"
+
+      - alert: QueueDepthHigh
+        expr: bullmq_queue_depth > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Queue {{ $labels.queue }} depth > 100"
+          description: "Queue depth is {{ $value }} jobs. Possible worker stall."
+
+      - alert: WorkerHeartbeatMissing
+        expr: absent(bullmq_active_workers) or bullmq_active_workers == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No active BullMQ workers detected"
+          description: "No worker heartbeat received for 10 minutes. All queues may be stalled."

@@ -3,7 +3,7 @@
  * operation so users can roll back to any prior state.
  */
 import { Injectable, Inject, NotFoundException } from "@nestjs/common";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import pino from "pino";
 import { DRIZZLE } from "../db/db.module";
 import { projects, projectVersions } from "../db/schema";
@@ -27,15 +27,31 @@ export class ProjectVersionsService {
     const rows = await this.db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
     if (!rows[0]) throw new NotFoundException(`Project ${projectId} not found`);
 
-    const [version] = await this.db
-      .insert(projectVersions)
-      .values({ projectId, storyboard: rows[0].storyboard, label: label ?? null })
-      .returning();
+    const storyboard = rows[0].storyboard;
+
+    const version = await this.db.transaction(async (tx: any) => {
+      const [inserted] = await tx
+        .insert(projectVersions)
+        .values({ projectId, storyboard, label: label ?? null })
+        .returning();
+
+      // Prune old versions beyond the cap inside the same transaction
+      const oldest = await tx
+        .select({ id: projectVersions.id })
+        .from(projectVersions)
+        .where(eq(projectVersions.projectId, projectId))
+        .orderBy(desc(projectVersions.createdAt))
+        .offset(MAX_VERSIONS_PER_PROJECT);
+
+      if (oldest.length > 0) {
+        const ids = oldest.map((r: { id: string }) => r.id);
+        await tx.delete(projectVersions).where(inArray(projectVersions.id, ids));
+      }
+
+      return inserted;
+    });
 
     logger.info({ projectId, versionId: version.id, label }, "F5: Storyboard version snapshotted");
-
-    // Prune old versions beyond the cap
-    await this.pruneOld(projectId);
 
     return version;
   }
@@ -73,20 +89,4 @@ export class ProjectVersionsService {
     logger.info({ projectId, versionId }, "F5: Project restored to version");
   }
 
-  // ── Private ────────────────────────────────────────────────────────────────
-
-  private async pruneOld(projectId: string): Promise<void> {
-    const all = await this.db
-      .select({ id: projectVersions.id })
-      .from(projectVersions)
-      .where(eq(projectVersions.projectId, projectId))
-      .orderBy(desc(projectVersions.createdAt));
-
-    if (all.length > MAX_VERSIONS_PER_PROJECT) {
-      const toDelete = all.slice(MAX_VERSIONS_PER_PROJECT).map((r: { id: string }) => r.id);
-      for (const id of toDelete) {
-        await this.db.delete(projectVersions).where(eq(projectVersions.id, id));
-      }
-    }
-  }
 }

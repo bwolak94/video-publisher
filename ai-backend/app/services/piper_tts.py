@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import pathlib
 import tempfile
 
 import structlog
@@ -42,7 +43,11 @@ class PiperTTSService:
             FileNotFoundError: If the .onnx model file does not exist.
             RuntimeError: If piper or ffmpeg subprocess fails.
         """
-        model_path = os.path.join(self.models_dir, f"{model_name}.onnx")
+        safe_name = pathlib.Path(model_name).name
+        model_path = os.path.join(self.models_dir, f"{safe_name}.onnx")
+        resolved = str(pathlib.Path(model_path).resolve())
+        if not resolved.startswith(str(pathlib.Path(self.models_dir).resolve())):
+            raise ValueError(f"Invalid model name: {model_name}")
         if not os.path.exists(model_path):
             raise FileNotFoundError(
                 f"Piper model not found: {model_path}. "

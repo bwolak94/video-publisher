@@ -11,10 +11,13 @@ After the user approves (or edits), the caller:
   1. Calls graph.aupdate_state(config, {"outline_approved": True})
   2. Resumes with graph.ainvoke(None, config)
 """
+import asyncio
 import json
 from typing import Any
 
 import asyncpg
+import openai
+import pydantic
 import structlog
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langgraph.graph import END, StateGraph
@@ -123,26 +126,24 @@ async def _retrieve_rag_context(project_id: str | None, query: str) -> list[str]
         return []
 
 
-async def outline_node(state: DirectorState) -> DirectorState:
+async def outline_node(state: DirectorState) -> dict:
     """Stage 1: generate a 5-point outline using the cheap model."""
     profile = NicheProfile.model_validate(state["niche_profile"])
 
     # I4: Fetch RAG context once here and store in state so generate_storyboard_node
     # can reuse it without a second DB query for the same project + topic.
     source_chunks = await _retrieve_rag_context(state.get("project_id"), state["topic"])
-    state["_source_chunks"] = source_chunks
 
     system, user = build_outline_messages(profile, state["topic"], source_chunks=source_chunks)
 
     try:
         raw = await _call_llm_mini(system, user)
         clean = strip_fences(raw)
-        state["outline"] = json.loads(clean)
-    except Exception as exc:
+        outline = json.loads(clean)
+        return {"outline": outline, "_source_chunks": source_chunks, "error": None}
+    except (json.JSONDecodeError, pydantic.ValidationError, openai.OpenAIError) as exc:
         logger.error("outline_generation_failed", error=str(exc))
-        state["error"] = str(exc)
-
-    return state
+        return {"error": str(exc), "_source_chunks": source_chunks}
 
 
 def human_approval_node(state: DirectorState) -> DirectorState:
@@ -155,7 +156,7 @@ def human_approval_node(state: DirectorState) -> DirectorState:
     return state
 
 
-async def generate_storyboard_node(state: DirectorState) -> DirectorState:
+async def generate_storyboard_node(state: DirectorState) -> dict:
     """Stage 2: generate full storyboard from approved outline (expensive model)."""
     profile = NicheProfile.model_validate(state["niche_profile"])
     outline = state.get("outline") or []
@@ -176,12 +177,10 @@ async def generate_storyboard_node(state: DirectorState) -> DirectorState:
         raw = await _call_llm_full(system, user)
         clean = strip_fences(raw)
         storyboard = VideoStoryboard.model_validate_json(clean)
-        state["storyboard"] = storyboard.model_dump()
-    except Exception as exc:
+        return {"storyboard": storyboard.model_dump(), "error": None}
+    except (json.JSONDecodeError, pydantic.ValidationError, openai.OpenAIError) as exc:
         logger.error("storyboard_generation_failed", error=str(exc))
-        state["error"] = str(exc)
-
-    return state
+        return {"error": str(exc)}
 
 
 # ── Routing ────────────────────────────────────────────────────────────────────
@@ -215,24 +214,38 @@ def build_creator_graph() -> StateGraph[DirectorState]:
 
 
 _creator_graph: Any = None
+_redis_saver_cm: Any = None
+_creator_graph_lock = asyncio.Lock()
 
 
 async def get_creator_graph() -> Any:
     """Return the compiled Creator Mode graph (singleton).
 
     Compiled once on first call and cached for the process lifetime.
-    The AsyncRedisSaver context manager is entered once — reuses the same
-    Redis connection pool across all requests instead of leaking a new
-    connection on every invocation.
+    The AsyncRedisSaver context manager is stored at module level so it
+    can be properly closed on shutdown via close_creator_graph().
+    The double-checked lock prevents TOCTOU races under concurrent startup.
     """
-    global _creator_graph
-    if _creator_graph is None:
-        settings = get_settings()
-        _cm = AsyncRedisSaver.from_conn_string(settings.REDIS_URL)
-        checkpointer = await _cm.__aenter__()
-        await checkpointer.asetup()
-        _creator_graph = build_creator_graph().compile(
-            checkpointer=checkpointer,
-            interrupt_before=["human_approval"],
-        )
+    global _creator_graph, _redis_saver_cm
+    if _creator_graph is not None:
+        return _creator_graph
+    async with _creator_graph_lock:
+        if _creator_graph is None:
+            settings = get_settings()
+            _cm = AsyncRedisSaver.from_conn_string(settings.REDIS_URL)
+            checkpointer = await _cm.__aenter__()
+            await checkpointer.asetup()
+            _redis_saver_cm = _cm
+            _creator_graph = build_creator_graph().compile(
+                checkpointer=checkpointer,
+                interrupt_before=["human_approval"],
+            )
     return _creator_graph
+
+
+async def close_creator_graph() -> None:
+    """Release the AsyncRedisSaver connection pool. Call during app shutdown."""
+    global _redis_saver_cm
+    if _redis_saver_cm is not None:
+        await _redis_saver_cm.__aexit__(None, None, None)
+        _redis_saver_cm = None

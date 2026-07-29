@@ -6,6 +6,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DRIZZLE } from "../db/db.module";
 import * as schema from "../db/schema";
 import { narrationVariants, type NarrationVariant, type NewNarrationVariant } from "../db/schema";
+import { CronLockService } from "../common/cron-lock.service";
 
 const logger = pino({ level: "info" });
 
@@ -24,7 +25,10 @@ export interface VariantAnalyticsDto {
 
 @Injectable()
 export class NarrationVariantsService {
-  constructor(@Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
+    private readonly cronLock: CronLockService,
+  ) {}
 
   // ── CRUD ────────────────────────────────────────────────────────────────────
 
@@ -145,6 +149,9 @@ export class NarrationVariantsService {
    */
   @Cron("0 */72 * * *") // every 72 hours
   async autoPromote(): Promise<void> {
+    const acquired = await this.cronLock.acquire("auto-promote-narration", 3 * 24 * 3600);
+    if (!acquired) return;
+
     const runningVariants = await this.db
       .select()
       .from(narrationVariants)
