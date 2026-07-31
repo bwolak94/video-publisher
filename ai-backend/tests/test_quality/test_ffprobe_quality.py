@@ -13,6 +13,8 @@ from app.services.ffprobe_service import (
 )
 
 _FAKE_FFPROBE = "/fake/ffprobe"
+_FAKE_FFMPEG = "/fake/ffmpeg"
+_PATCH_FIND_BIN = "app.services.ffprobe_service._find_bin"
 
 
 class TestProbeBitrates:
@@ -78,7 +80,8 @@ class TestDetectBlackFrames:
         )
         mock_proc = MagicMock()
         mock_proc.returncode = 1  # ffmpeg filter exit code
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
+        with patch(_PATCH_FIND_BIN, return_value=_FAKE_FFMPEG), \
+             patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
              patch("asyncio.wait_for", AsyncMock(return_value=(b"", fake_stderr))):
             count = await detect_black_frames("/fake/video.mp4")
 
@@ -88,7 +91,8 @@ class TestDetectBlackFrames:
     async def test_returns_zero_when_no_black_frames(self):
         mock_proc = MagicMock()
         mock_proc.returncode = 1
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
+        with patch(_PATCH_FIND_BIN, return_value=_FAKE_FFMPEG), \
+             patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
              patch("asyncio.wait_for", AsyncMock(return_value=(b"", b"frame=240 fps=30"))):
             count = await detect_black_frames("/fake/video.mp4")
 
@@ -106,7 +110,8 @@ class TestDetectFrozenFrames:
         )
         mock_proc = MagicMock()
         mock_proc.returncode = 1
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
+        with patch(_PATCH_FIND_BIN, return_value=_FAKE_FFMPEG), \
+             patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
              patch("asyncio.wait_for", AsyncMock(return_value=(b"", fake_stderr))):
             count = await detect_frozen_frames("/fake/video.mp4")
 
@@ -116,7 +121,8 @@ class TestDetectFrozenFrames:
     async def test_returns_zero_when_no_freezes(self):
         mock_proc = MagicMock()
         mock_proc.returncode = 1
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
+        with patch(_PATCH_FIND_BIN, return_value=_FAKE_FFMPEG), \
+             patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
              patch("asyncio.wait_for", AsyncMock(return_value=(b"", b"no freezes here"))):
             count = await detect_frozen_frames("/fake/video.mp4")
 
@@ -134,7 +140,8 @@ class TestCountSceneChanges:
         )
         mock_proc = MagicMock()
         mock_proc.returncode = 1
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
+        with patch(_PATCH_FIND_BIN, return_value=_FAKE_FFMPEG), \
+             patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
              patch("asyncio.wait_for", AsyncMock(return_value=(b"", fake_stderr))):
             count = await count_scene_changes("/fake/video.mp4")
 
@@ -144,7 +151,8 @@ class TestCountSceneChanges:
     async def test_returns_zero_for_no_scene_changes(self):
         mock_proc = MagicMock()
         mock_proc.returncode = 1
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
+        with patch(_PATCH_FIND_BIN, return_value=_FAKE_FFMPEG), \
+             patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
              patch("asyncio.wait_for", AsyncMock(return_value=(b"", b"frame=1200 fps=30"))):
             count = await count_scene_changes("/fake/video.mp4")
 
