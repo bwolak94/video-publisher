@@ -12,11 +12,10 @@ Returns the path to a temporary file; caller is responsible for deletion.
 """
 import asyncio
 import os
-import tempfile
-from urllib.parse import urlparse
-
 import shutil
 import sys
+import tempfile
+from urllib.parse import urlparse
 
 import httpx
 import structlog
