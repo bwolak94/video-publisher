@@ -18,6 +18,35 @@ jest.mock("remotion", () => ({
   Video: ({ src }: { src: string }) => <video data-testid="remotion-video" src={src} />,
   useCurrentFrame: () => 0,
   useVideoConfig: () => ({ fps: 30, width: 1920, height: 1080, durationInFrames: 600 }),
+  interpolate: (v: number, [a, b]: number[], [c, d]: number[]) => c + ((v - a) / (b - a)) * (d - c),
+}));
+
+// ── Mock @remotion/transitions (internals not available in jsdom) ─────────────
+jest.mock("@remotion/transitions", () => ({
+  TransitionSeries: Object.assign(
+    ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    {
+      Sequence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+      Transition: () => null,
+    }
+  ),
+  springTiming: () => ({}),
+}));
+jest.mock("@remotion/transitions/fade", () => ({ fade: () => ({}) }));
+jest.mock("@remotion/transitions/slide", () => ({ slide: () => ({}) }));
+jest.mock("@remotion/transitions/wipe", () => ({ wipe: () => ({}) }));
+jest.mock("@remotion/transitions/flip", () => ({ flip: () => ({}) }));
+jest.mock("@remotion/transitions/clock-wipe", () => ({ clockWipe: () => ({}) }));
+jest.mock("@remotion/transitions/film-burn", () => ({ filmBurn: () => ({}) }));
+
+// ── Mock @remotion/layout-utils ───────────────────────────────────────────────
+jest.mock("@remotion/layout-utils", () => ({
+  fitText: () => ({ fontSize: 28 }),
+}));
+
+// ── Mock @remotion/google-fonts/Inter ─────────────────────────────────────────
+jest.mock("@remotion/google-fonts/Inter", () => ({
+  loadFont: () => ({ fontFamily: "Inter, sans-serif" }),
 }));
 
 // ── Mock @remotion/player: Player forwards ref and exposes seekTo ────────────
