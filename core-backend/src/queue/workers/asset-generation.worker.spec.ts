@@ -19,6 +19,8 @@ import { MetricsService } from "../../metrics/metrics.service";
 import { AssetDedupService } from "../asset-dedup.service";
 import { RateLimiterService } from "../../common/rate-limiter.service";
 import { RetryBudgetService } from "../retry-budget.service";
+import { EntitiesService } from "../../entities/entities.service";
+import { ScenesService } from "../../scenes/scenes.service";
 
 // Prevent actual BullMQ worker from starting
 jest.mock("bullmq", () => ({
@@ -72,6 +74,8 @@ describe("AssetGenerationWorker — UT-08-04", () => {
         { provide: AssetDedupService, useValue: { acquireOrSkip: jest.fn().mockResolvedValue("acquired"), release: jest.fn().mockResolvedValue(undefined) } },
         { provide: RateLimiterService, useValue: { throttle: jest.fn().mockResolvedValue(undefined) } },
         { provide: RetryBudgetService, useValue: { checkAndIncrement: jest.fn().mockResolvedValue(undefined) } },
+        { provide: EntitiesService, useValue: { findByProjectIdCached: jest.fn().mockResolvedValue([]) } },
+        { provide: ScenesService, useValue: { findScene: jest.fn().mockResolvedValue({ scene: {}, project: {} }), updateShotStatus: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 
