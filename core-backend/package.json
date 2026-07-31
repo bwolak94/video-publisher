@@ -95,6 +95,7 @@
       "**/*.(t|j)sx?"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "forceExit": true
   }
 }
