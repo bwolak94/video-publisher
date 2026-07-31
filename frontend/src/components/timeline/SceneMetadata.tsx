@@ -26,10 +26,10 @@ export function SceneMetadata({ sceneId, durationInSeconds, isDirty, onClick }: 
       onClick={onClick}
       title="Click to seek preview to this scene"
     >
-      <span className="text-xs font-medium text-gray-500">Scene {sequenceNumber}</span>
-      <span className="text-xs text-gray-400">{displayDuration}</span>
+      <span className="text-xs font-semibold text-ink-secondary">Scene {sequenceNumber}</span>
+      <span className="text-xs text-ink-muted tabular-nums">{displayDuration}</span>
       {isDirty && (
-        <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+        <span className="text-2xs bg-warning-bg text-warning-text border border-warning-border px-1.5 py-0.5 rounded-full">
           unsaved
         </span>
       )}

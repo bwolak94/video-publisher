@@ -24,6 +24,6 @@ import { CostAnomalyService } from "./cost-anomaly.service";
     ProjectBudgetService,
     CostAnomalyService,
   ],
-  exports: [BudgetService, CostEstimatorService, CostRecordService, BudgetApprovalGate, ApprovalLogService, ProjectBudgetService, CostAnomalyService],
+  exports: [CostConfigService, BudgetService, CostEstimatorService, CostRecordService, BudgetApprovalGate, ApprovalLogService, ProjectBudgetService, CostAnomalyService],
 })
 export class CostModule {}

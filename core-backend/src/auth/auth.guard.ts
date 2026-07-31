@@ -11,6 +11,14 @@ export class AuthGuard implements CanActivate {
   constructor(private readonly jwtService: JwtService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Dev bypass: set AUTH_DISABLED=true in .env to skip JWT verification
+    if (process.env.AUTH_DISABLED === "true") {
+      const request = context.switchToHttp().getRequest();
+      request.userId = "dev-user";
+      request.user = { sub: "dev-user", roles: ["admin"] };
+      return true;
+    }
+
     const request = context.switchToHttp().getRequest();
     const token = this.extractToken(request);
 
@@ -21,6 +29,7 @@ export class AuthGuard implements CanActivate {
     try {
       const payload = await this.jwtService.verifyAsync(token);
       request.userId = payload.sub;
+      request.user = payload; // full JWT payload: sub, roles, tenant_id, etc.
     } catch {
       throw new UnauthorizedException("Invalid or expired token");
     }

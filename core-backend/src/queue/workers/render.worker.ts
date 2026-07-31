@@ -76,8 +76,6 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
 
     // ── Pre-render validation (FEATURE-07) ────────────────────────────────
     const validation = await this.preRenderValidator.validate(job.data.storyboard);
-
-    // Persist validation result regardless of pass/fail (fire-and-forget)
     this.qualityGates
       .savePreRenderValidation(job.data.projectId, validation)
       .catch((err) => logger.warn({ err }, "Failed to persist pre-render validation"));
@@ -87,55 +85,23 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
       throw new Error(`Pre-render validation failed: ${summary}`);
     }
 
-    // Jitter (per task rule #2)
     await this.sleep(Math.random() * 500);
 
-    // Emit render_started at 0 % so the frontend shows progress immediately
+    // Signal render started at 0 %
     void this.gateway.broadcastRenderProgress(job.data.projectId, 0);
     await job.updateProgress(0);
 
-    // ── Progress heartbeat ─────────────────────────────────────────────────
-    // Remotion Lambda renders asynchronously; we emit a time-based progress
-    // estimate every 30 s so the UI doesn't stall at 0 % for the full duration.
-    const RENDER_TIMEOUT_MS = 1_800_000;
-    const startTime = Date.now();
-    const progressInterval = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      // Approach 90 % asymptotically; final 100 % is emitted on completion.
-      const estimated = Math.min(90, Math.round((elapsed / RENDER_TIMEOUT_MS) * 100));
-      void job.updateProgress(estimated);
-      void this.gateway.broadcastRenderProgress(job.data.projectId, estimated);
-    }, 30_000);
-
-    try {
-      const timeoutError = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Render timeout (30 min)")), RENDER_TIMEOUT_MS)
-      );
-      const renderedS3Url = await Promise.race([this.dispatchRender(job.data), timeoutError]);
-
-      clearInterval(progressInterval);
-      void this.gateway.broadcastRenderProgress(job.data.projectId, 100);
-      await job.updateProgress(100);
-
-      // ── Post-render quality analysis (FEATURE-07) — non-blocking ──────────
-      this.qualityGates
-        .analyzeAndSave(job.data.projectId, renderedS3Url)
-        .catch((err) =>
-          logger.warn({ err, projectId: job.data.projectId }, "Post-render quality analysis failed (non-blocking)")
-        );
-
-      // ── I4: ffprobe render quality report — non-blocking ──────────────────
-      this.renderQuality
-        .probe(job.data.projectId, renderedS3Url)
-        .catch((err) =>
-          logger.warn({ err, projectId: job.data.projectId }, "I4: Render quality probe failed (non-blocking)")
-        );
-    } catch (err) {
-      clearInterval(progressInterval);
-      throw err;
-    }
+    // S2: Dispatch to Lambda with webhook — slot freed immediately.
+    // Progress (0→100 %) and job completion are signalled by /webhooks/remotion.
+    await this.dispatchRenderAsync(job.data);
   }
 
+  /** S2: Fire-and-forget dispatch. Lambda calls back /webhooks/remotion on finish. */
+  protected async dispatchRenderAsync(payload: RenderPayload): Promise<void> {
+    await this.renderService.renderAsync(payload.storyboard, payload.projectId, payload.jobId);
+  }
+
+  /** Legacy sync dispatch — kept for tests. */
   protected async dispatchRender(payload: RenderPayload): Promise<string> {
     return this.renderService.render(payload.storyboard, payload.projectId);
   }
@@ -147,12 +113,10 @@ export class RenderWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   private async onCompleted(job: Job<RenderPayload>) {
-    await this.jobSync.syncCompleted(job.data.jobId);
-    void this.gateway.broadcastJobProgress(job.data.projectId, {
-      jobId: job.data.jobId,
-      step: job.data.step,
-      status: "completed",
-    });
+    // S2: Job "completed" in BullMQ means "dispatched to Lambda" — not render-finished.
+    // Actual completion (syncCompleted + WS broadcast) is handled by RenderWebhookController
+    // when Lambda fires the webhook. We only log here.
+    logger.info({ jobId: job.data.jobId, projectId: job.data.projectId }, "Render dispatched to Lambda, awaiting webhook");
   }
 
   private async onFailed(job: Job<RenderPayload> | undefined, err: Error) {

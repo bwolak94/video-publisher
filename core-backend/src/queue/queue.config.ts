@@ -14,14 +14,14 @@ const researchJobOptions: DefaultJobOptions = {
   attempts: 3,
   backoff: { type: "exponential", delay: 2000 },
   removeOnComplete: { count: 100 },
-  removeOnFail: false,
+  removeOnFail: { count: 500 },
 };
 
 const assetGenerationJobOptions: DefaultJobOptions = {
   attempts: 3,
   backoff: { type: "exponential", delay: 3000 },
   removeOnComplete: { count: 500 },
-  removeOnFail: false,
+  removeOnFail: { count: 500 },
 };
 
 const renderJobOptions: DefaultJobOptions = {
@@ -29,7 +29,7 @@ const renderJobOptions: DefaultJobOptions = {
   attempts: 2,
   backoff: { type: "exponential", delay: 10_000 }, // 10s, 100s
   removeOnComplete: { count: 50 },
-  removeOnFail: false,
+  removeOnFail: { count: 500 },
   // timeout: 1_800_000 — set per-job when calling queue.add() (BullMQ 5 removed it from DefaultJobOptions)
 };
 
@@ -37,7 +37,7 @@ const localizationJobOptions: DefaultJobOptions = {
   attempts: 2,
   backoff: { type: "exponential", delay: 5000 },
   removeOnComplete: { count: 100 },
-  removeOnFail: false,
+  removeOnFail: { count: 500 },
 };
 
 const publishJobOptions: DefaultJobOptions = {
@@ -45,7 +45,7 @@ const publishJobOptions: DefaultJobOptions = {
   attempts: 5,
   backoff: { type: "exponential", delay: 10_000 }, // 10s, 100s, 1000s (capped by platform rate limits)
   removeOnComplete: { count: 200 },
-  removeOnFail: false,
+  removeOnFail: { count: 500 },
 };
 
 const webhookJobOptions: DefaultJobOptions = {
@@ -83,6 +83,19 @@ export const RESEARCH_WORKER_SETTINGS = {
   stalledInterval: 30_000,
   maxStalledCount: 2,
 };
+
+// Publish jobs (TikTok/YouTube uploads) can take >30s; 2-min stall interval
+// avoids false stall re-queues during slow social API responses.
+export const PUBLISH_WORKER_SETTINGS = {
+  stalledInterval: 120_000, // 2 minutes
+  maxStalledCount: 2,
+} as const;
+
+// Webhook delivery is fast HTTP — 60s stall window with generous retry count.
+export const WEBHOOK_WORKER_SETTINGS = {
+  stalledInterval: 60_000,
+  maxStalledCount: 3,
+} as const;
 
 // Asset-generation jobs (Runway/Kling video, ElevenLabs audio) can take up to
 // several minutes — use a 2-min stall interval to avoid false stall re-queues.

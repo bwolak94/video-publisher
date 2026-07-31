@@ -70,4 +70,23 @@ export class MusicController {
     const beatTimestamps = this.music.beatTimestamps(bpm, durationSeconds);
     return { bpm, beatTimestamps };
   }
+
+  /**
+   * S5: POST /api/projects/:projectId/music/snap-to-beats
+   * Snaps each scene's durationInSeconds to the nearest beat boundary for the
+   * given mood BPM. The caller should then persist the returned durations.
+   * Body: { scenes: { sceneId: string; durationInSeconds: number }[]; mood?: MusicMood }
+   */
+  @Post(":projectId/music/snap-to-beats")
+  snapToBeats(
+    @Param("projectId") _projectId: string,
+    @Body() body: { scenes: { sceneId: string; durationInSeconds: number }[]; mood?: MusicMood },
+  ) {
+    const mood: MusicMood = VALID_MOODS.includes(body.mood as MusicMood) ? (body.mood as MusicMood) : "cinematic";
+    if (!Array.isArray(body.scenes) || body.scenes.length === 0) {
+      throw new BadRequestException("scenes must be a non-empty array");
+    }
+    const snapped = this.music.snapDurationsToBeats(body.scenes, mood);
+    return { mood, scenes: snapped };
+  }
 }

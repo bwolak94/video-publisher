@@ -273,6 +273,47 @@ def build_outline_messages(
     return system, user
 
 
+_CONSISTENCY_CHECK_SYSTEM_TEMPLATE = """\
+You are a visual consistency reviewer for a YouTube video production pipeline.
+
+You will be given a generated storyboard and a list of named entities (characters, \
+locations, props, costumes) that must appear visually consistent across all scenes.
+
+For each scene in the storyboard, verify that:
+1. Every entity mentioned in the narration or visualPrompt has its description \
+   reflected in the visualPrompt (no contradictions in appearance, attire, or setting).
+2. Entity names referenced in narration match exactly the entity names provided.
+3. No scene introduces a new character/location that contradicts the entity list.
+
+Return a JSON object with a single key "issues" containing a list of strings. \
+Each string describes one inconsistency found. If there are no issues, return \
+{"issues": []}. Return ONLY valid JSON. No markdown, no explanation."""
+
+_CONSISTENCY_CHECK_USER_TEMPLATE = """\
+Entities:
+{entities_json}
+
+Storyboard:
+{storyboard_json}"""
+
+
+def build_consistency_check_messages(
+    entities: list[dict[str, Any]],
+    storyboard: dict[str, Any],
+) -> tuple[str, str]:
+    """Return (system, user) for GPT-4o-mini visual consistency check (S6).
+
+    Checks that entity descriptions are honoured across all scene visualPrompts.
+    """
+    return (
+        _CONSISTENCY_CHECK_SYSTEM_TEMPLATE,
+        _CONSISTENCY_CHECK_USER_TEMPLATE.format(
+            entities_json=json.dumps(entities, indent=2),
+            storyboard_json=json.dumps(storyboard, indent=2),
+        ),
+    )
+
+
 def build_full_storyboard_messages(
     niche_profile: NicheProfile,
     outline: list[dict[str, Any]],

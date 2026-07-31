@@ -54,15 +54,15 @@ async function apiDelete(path: string): Promise<void> {
 function FieldGroup({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5 mb-5">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
-      {hint && <p className="text-xs text-gray-400">{hint}</p>}
+      <label className="text-sm font-medium text-text-secondary">{label}</label>
+      {hint && <p className="text-xs text-text-muted">{hint}</p>}
       {children}
     </div>
   );
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{children}</p>;
+  return <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">{children}</p>;
 }
 
 function ApiKeyInput({ placeholder, value, onChange }: { placeholder: string; value: string; onChange: (v: string) => void }) {
@@ -73,13 +73,13 @@ function ApiKeyInput({ placeholder, value, onChange }: { placeholder: string; va
       <div className="relative flex-1">
         <input
           type={show ? "text" : "password"}
-          className="w-full border rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+          className="w-full bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted font-mono focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
           placeholder={isStored ? "••••••••••••  (stored encrypted)" : placeholder}
           value={isStored ? "" : value}
           onChange={(e) => onChange(e.target.value)}
         />
         {isStored && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-green-600 font-medium">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neon-glow font-medium">
             ✓ Set
           </span>
         )}
@@ -87,7 +87,7 @@ function ApiKeyInput({ placeholder, value, onChange }: { placeholder: string; va
       <button
         type="button"
         onClick={() => setShow((s) => !s)}
-        className="px-3 py-2 border rounded-md text-xs text-gray-500 hover:bg-gray-50 transition-colors"
+        className="px-3 py-2 bg-surface-overlay border border-surface-border rounded-xl text-xs text-text-secondary hover:text-text-primary transition-colors"
       >
         {show ? "Hide" : "Show"}
       </button>
@@ -101,13 +101,15 @@ function SaveButton({ onClick, saving, saved, error }: { onClick: () => void; sa
       <button
         onClick={onClick}
         disabled={saving}
-        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          saved ? "bg-green-50 text-green-700 border border-green-200" : "bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150 ${
+          saved
+            ? "bg-neon-dim/40 text-neon-glow border border-neon-base/20"
+            : "bg-gradient-violet text-white hover:shadow-glow-violet disabled:opacity-50 active:scale-95"
         }`}
       >
         {saving ? "Saving…" : saved ? "✓ Saved" : "Save changes"}
       </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-error-base">{error}</p>}
     </div>
   );
 }
@@ -133,7 +135,7 @@ function IntegrationsTab({ initial }: { initial: Record<string, string> }) {
 
   return (
     <div>
-      <h2 className="text-base font-semibold text-gray-900 mb-4">AI & Media Integrations</h2>
+      <h2 className="text-base font-semibold text-text-primary mb-4">AI & Media Integrations</h2>
       <div className="grid grid-cols-2 gap-x-8">
         <div>
           <SectionLabel>Voice</SectionLabel>
@@ -173,14 +175,14 @@ function IntegrationsTab({ initial }: { initial: Record<string, string> }) {
                 type="button"
                 onClick={() => set("archivalEnabled")(fields.archivalEnabled === "false" ? "true" : "false")}
                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                  fields.archivalEnabled !== "false" ? "bg-indigo-600" : "bg-gray-200"
+                  fields.archivalEnabled !== "false" ? "bg-violet-base" : "bg-surface-muted"
                 }`}
               >
                 <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
                   fields.archivalEnabled !== "false" ? "translate-x-4" : "translate-x-0.5"
                 }`} />
               </button>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-text-secondary">
                 {fields.archivalEnabled !== "false" ? "Enabled (used as free fallback)" : "Disabled"}
               </span>
             </div>
@@ -195,11 +197,11 @@ function IntegrationsTab({ initial }: { initial: Record<string, string> }) {
           </FieldGroup>
           <div className="grid grid-cols-2 gap-3">
             <FieldGroup label="Region">
-              <input type="text" className="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              <input type="text" className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
                 value={fields.awsRegion ?? "eu-central-1"} onChange={(e) => set("awsRegion")(e.target.value)} />
             </FieldGroup>
             <FieldGroup label="S3 Bucket">
-              <input type="text" className="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              <input type="text" className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
                 placeholder="my-video-assets" value={fields.s3Bucket ?? ""} onChange={(e) => set("s3Bucket")(e.target.value)} />
             </FieldGroup>
           </div>
@@ -236,8 +238,8 @@ function YouTubeTab() {
 
   return (
     <div>
-      <h2 className="text-base font-semibold text-gray-900 mb-1">YouTube Channels</h2>
-      <p className="text-sm text-gray-500 mb-6">
+      <h2 className="text-base font-semibold text-text-primary mb-1">YouTube Channels</h2>
+      <p className="text-sm text-text-secondary mb-6">
         Connect channels for direct publishing. Each requires its own OAuth2 authorization.
         Refresh tokens are encrypted with AES-256-GCM.
       </p>
@@ -253,27 +255,27 @@ function YouTubeTab() {
                 const spend = parseFloat(ch.currentMonthSpendUsd) || 0;
                 const pct = budget > 0 ? Math.min((spend / budget) * 100, 100) : 0;
                 return (
-                  <div key={ch.id} className="bg-white border rounded-lg px-5 py-4">
+                  <div key={ch.id} className="glass border border-surface-border rounded-2xl px-5 py-4">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-red-50 rounded-full flex items-center justify-center flex-shrink-0">
+                        <div className="w-9 h-9 bg-error-dim/20 rounded-full flex items-center justify-center flex-shrink-0">
                           <svg viewBox="0 0 24 24" width="18" height="18" fill="#ef4444">
                             <path d="M23.5 6.2a3.02 3.02 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5a3.02 3.02 0 0 0-2.1 2.1C0 8.1 0 12 0 12s0 3.9.5 5.8a3.02 3.02 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3.02 3.02 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z" />
                           </svg>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{ch.channelName ?? ch.channelId}</p>
-                          <p className="text-xs text-gray-400">Connected {new Date(ch.createdAt).toLocaleDateString()}</p>
+                          <p className="text-sm font-medium text-text-primary">{ch.channelName ?? ch.channelId}</p>
+                          <p className="text-xs text-text-muted">Connected {new Date(ch.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-xs font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Connected
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neon-dim/40 text-neon-glow text-xs font-medium border border-neon-base/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-neon-base" /> Connected
                         </span>
                         <button
                           onClick={() => handleDisconnect(ch.id)}
                           disabled={disconnecting === ch.id}
-                          className="text-xs text-red-500 hover:text-red-700 transition-colors disabled:opacity-50"
+                          className="text-xs text-error-base hover:text-error-base/80 transition-colors disabled:opacity-50"
                         >
                           {disconnecting === ch.id ? "Disconnecting…" : "Disconnect"}
                         </button>
@@ -281,13 +283,13 @@ function YouTubeTab() {
                     </div>
                     {budget > 0 && (
                       <div className="mt-2">
-                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <div className="flex justify-between text-xs text-text-secondary mb-1">
                           <span>Monthly spend</span>
                           <span>${spend.toFixed(2)} / ${budget.toFixed(2)}</span>
                         </div>
-                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-surface-overlay rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all ${pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-amber-400" : "bg-indigo-500"}`}
+                            className={`h-full rounded-full transition-all ${pct >= 100 ? "bg-error-base" : pct >= 80 ? "bg-warn-base" : "bg-gradient-violet"}`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -299,21 +301,21 @@ function YouTubeTab() {
             </div>
           )}
 
-          <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 flex flex-col items-center gap-3 text-center">
-            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
+          <div className="border-2 border-dashed border-surface-border rounded-2xl p-8 flex flex-col items-center gap-3 text-center hover:border-violet-base/30 transition-colors">
+            <div className="w-12 h-12 bg-error-dim/20 rounded-full flex items-center justify-center">
               <svg viewBox="0 0 24 24" width="22" height="22" fill="#ef4444">
                 <path d="M23.5 6.2a3.02 3.02 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5a3.02 3.02 0 0 0-2.1 2.1C0 8.1 0 12 0 12s0 3.9.5 5.8a3.02 3.02 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3.02 3.02 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z" />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Connect a YouTube Channel</p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-sm font-medium text-text-primary">Connect a YouTube Channel</p>
+              <p className="text-xs text-text-secondary mt-0.5">
                 Redirects to Google OAuth2. PKCE flow — no passwords stored.
               </p>
             </div>
             <a
               href={`${API_BASE}/api/youtube/connect${userId ? `?userId=${userId}` : ""}`}
-              className="mt-1 inline-flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors"
+              className="mt-1 inline-flex items-center gap-2 px-5 py-2.5 bg-error-base/90 hover:bg-error-base text-white text-sm font-semibold rounded-xl transition-colors"
             >
               Connect with Google
             </a>
@@ -356,17 +358,17 @@ function WorkerModeTab({ initial }: { initial: SettingsDto["worker"] }) {
 
   return (
     <div>
-      <h2 className="text-base font-semibold text-gray-900 mb-1">Worker Mode</h2>
-      <p className="text-sm text-gray-500 mb-6">Autonomous Shorts pipeline. Runs on CRON — no human input needed.</p>
+      <h2 className="text-base font-semibold text-text-primary mb-1">Worker Mode</h2>
+      <p className="text-sm text-text-secondary mb-6">Autonomous Shorts pipeline. Runs on CRON — no human input needed.</p>
 
-      <div className="flex items-center justify-between border rounded-lg px-5 py-4 mb-6 bg-white">
+      <div className="flex items-center justify-between glass border border-surface-border rounded-2xl px-5 py-4 mb-6">
         <div>
-          <p className="text-sm font-medium text-gray-900">Enable Worker Mode</p>
-          <p className="text-xs text-gray-400 mt-0.5">Starts the CRON scheduler when enabled.</p>
+          <p className="text-sm font-medium text-text-primary">Enable Worker Mode</p>
+          <p className="text-xs text-text-muted mt-0.5">Starts the CRON scheduler when enabled.</p>
         </div>
         <button
           onClick={() => set("enabled")(!cfg.enabled)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${cfg.enabled ? "bg-indigo-600" : "bg-gray-200"}`}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${cfg.enabled ? "bg-violet-base" : "bg-surface-muted"}`}
         >
           <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${cfg.enabled ? "translate-x-6" : "translate-x-1"}`} />
         </button>
@@ -375,17 +377,17 @@ function WorkerModeTab({ initial }: { initial: SettingsDto["worker"] }) {
       <div className="grid grid-cols-2 gap-x-8">
         <div>
           <FieldGroup label="CRON Schedule" hint='"0 * * * *" = every hour.'>
-            <input type="text" className="border rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            <input type="text" className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm font-mono text-text-primary focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
               value={cfg.cronSchedule} onChange={(e) => set("cronSchedule")(e.target.value)} />
           </FieldGroup>
           <FieldGroup label="Niche Profile" hint="Defines tone, hook pattern, and visual vocabulary.">
-            <select className="border rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            <select className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-violet-base"
               value={cfg.nicheProfileId} onChange={(e) => set("nicheProfileId")(e.target.value)}>
               {NICHE_PROFILES.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </FieldGroup>
           <FieldGroup label="AI Backend URL" hint="FastAPI backend running CrewAI agents.">
-            <input type="text" className="border rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            <input type="text" className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm font-mono text-text-primary focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
               value={cfg.aiBackendUrl} onChange={(e) => set("aiBackendUrl")(e.target.value)} />
           </FieldGroup>
         </div>
@@ -395,23 +397,23 @@ function WorkerModeTab({ initial }: { initial: SettingsDto["worker"] }) {
             <input type="range" min={0} max={1} step={0.05} value={cfg.minViralityScore}
               onChange={(e) => set("minViralityScore")(parseFloat(e.target.value))}
               className="w-full accent-indigo-600" />
-            <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>Low</span><span>High</span></div>
+            <div className="flex justify-between text-xs text-text-muted mt-0.5"><span>Low</span><span>High</span></div>
           </FieldGroup>
           <FieldGroup label={`Dedup Window: ${cfg.dedupWindowHours}h`} hint="Re-publish suppression window.">
             <input type="range" min={6} max={168} step={6} value={cfg.dedupWindowHours}
               onChange={(e) => set("dedupWindowHours")(parseInt(e.target.value, 10))}
               className="w-full accent-indigo-600" />
-            <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>6h</span><span>7d</span></div>
+            <div className="flex justify-between text-xs text-text-muted mt-0.5"><span>6h</span><span>7d</span></div>
           </FieldGroup>
 
-          <div className="mt-4 bg-gray-50 border rounded-lg p-4 text-sm space-y-2">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Summary</p>
-            <div className="flex justify-between"><span className="text-gray-500">Status</span>
-              <span className={`font-medium ${cfg.enabled ? "text-green-600" : "text-gray-400"}`}>{cfg.enabled ? "Active" : "Disabled"}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Schedule</span>
-              <code className="text-xs text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">{cfg.cronSchedule}</code></div>
-            <div className="flex justify-between"><span className="text-gray-500">Niche</span>
-              <span className="text-gray-700">{NICHE_PROFILES.find((p) => p.id === cfg.nicheProfileId)?.name}</span></div>
+          <div className="mt-4 bg-surface-base/50 border border-surface-border rounded-xl p-4 text-sm space-y-2">
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Summary</p>
+            <div className="flex justify-between"><span className="text-text-secondary">Status</span>
+              <span className={`font-medium ${cfg.enabled ? "text-neon-glow" : "text-text-muted"}`}>{cfg.enabled ? "Active" : "Disabled"}</span></div>
+            <div className="flex justify-between"><span className="text-text-secondary">Schedule</span>
+              <code className="text-xs text-violet-glow bg-violet-base/10 px-1.5 py-0.5 rounded font-mono">{cfg.cronSchedule}</code></div>
+            <div className="flex justify-between"><span className="text-text-secondary">Niche</span>
+              <span className="text-text-primary">{NICHE_PROFILES.find((p) => p.id === cfg.nicheProfileId)?.name}</span></div>
           </div>
         </div>
       </div>
@@ -454,31 +456,31 @@ function BudgetTab({ initialRates }: { initialRates: Record<string, string> }) {
 
   return (
     <div>
-      <h2 className="text-base font-semibold text-gray-900 mb-1">Budget & Cost Controls</h2>
-      <p className="text-sm text-gray-500 mb-6">
+      <h2 className="text-base font-semibold text-text-primary mb-1">Budget & Cost Controls</h2>
+      <p className="text-sm text-text-secondary mb-6">
         Monthly limits per channel. At 80% a warning fires; at 100% the pipeline halts.
       </p>
 
       <div className="mb-8 space-y-3">
         <SectionLabel>Per-Channel Monthly Budget</SectionLabel>
         {channels.length === 0 && (
-          <p className="text-sm text-gray-400 italic">No channels connected yet.</p>
+          <p className="text-sm text-text-muted italic">No channels connected yet.</p>
         )}
         {channels.map((ch) => (
-          <div key={ch.id} className="bg-white border rounded-lg px-5 py-4 flex items-center gap-6">
+          <div key={ch.id} className="glass border border-surface-border rounded-2xl px-5 py-4 flex items-center gap-6">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">{ch.channelName ?? ch.channelId}</p>
-              <p className="text-xs text-gray-400">$0 = unlimited</p>
+              <p className="text-sm font-medium text-text-primary">{ch.channelName ?? ch.channelId}</p>
+              <p className="text-xs text-text-muted">$0 = unlimited</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">$</span>
+              <span className="text-sm text-text-secondary">$</span>
               <input type="number" min={0} step={10}
-                className="w-24 border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-24 bg-surface-overlay border border-surface-border rounded-xl px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-violet-base"
                 value={ch.monthlyBudgetUsd}
                 onChange={(e) => updateChannelBudget(ch.id, e.target.value)} />
-              <span className="text-sm text-gray-400">/ month</span>
+              <span className="text-sm text-text-muted">/ month</span>
               <button onClick={() => saveBudget(ch)} disabled={budgetSaving === ch.id}
-                className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+                className="px-3 py-1.5 bg-gradient-violet text-white text-xs rounded-lg disabled:opacity-50 transition-colors hover:shadow-glow-violet">
                 {budgetSaving === ch.id ? "…" : "Save"}
               </button>
             </div>
@@ -488,7 +490,7 @@ function BudgetTab({ initialRates }: { initialRates: Record<string, string> }) {
 
       <div>
         <SectionLabel>Cost Model (per unit)</SectionLabel>
-        <div className="bg-white border rounded-lg p-5 space-y-3">
+        <div className="glass border border-surface-border rounded-2xl p-5 space-y-3">
           {([
             ["ElevenLabs (per character)", "elevenlabsPerChar"],
             ["Runway Gen-3 (per scene)", "runwayPerScene"],
@@ -496,11 +498,11 @@ function BudgetTab({ initialRates }: { initialRates: Record<string, string> }) {
             ["Lambda render (per minute)", "lambdaPerMin"],
           ] as [string, string][]).map(([label, key]) => (
             <div key={key} className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">{label}</span>
+              <span className="text-sm text-text-secondary">{label}</span>
               <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-400">$</span>
+                <span className="text-xs text-text-muted">$</span>
                 <input type="number" step="0.0001" min={0}
-                  className="w-28 border rounded px-2 py-1 text-sm text-right font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-28 bg-surface-overlay border border-surface-border rounded-lg px-2 py-1 text-sm text-right font-mono text-text-primary focus:outline-none focus:ring-1 focus:ring-violet-base"
                   value={rates[key] ?? ""}
                   onChange={(e) => { setRates((p) => ({ ...p, [key]: e.target.value })); setRatesSaved(false); }} />
               </div>
@@ -533,8 +535,8 @@ function AlertsTab({ initial }: { initial: Record<string, string> }) {
 
   return (
     <div>
-      <h2 className="text-base font-semibold text-gray-900 mb-1">Alert Channels</h2>
-      <p className="text-sm text-gray-500 mb-6">
+      <h2 className="text-base font-semibold text-text-primary mb-1">Alert Channels</h2>
+      <p className="text-sm text-text-secondary mb-6">
         DLQ escalations, high failure rates, 80%+ budget, and YouTube token failures.
         Alerts are deduplicated per 15-minute window.
       </p>
@@ -547,17 +549,17 @@ function AlertsTab({ initial }: { initial: Record<string, string> }) {
                 <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zm2.521-10.123a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.122a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z" />
               </svg>
             </div>
-            <span className="text-sm font-semibold text-gray-800">Slack</span>
+            <span className="text-sm font-semibold text-text-primary">Slack</span>
           </div>
           <FieldGroup label="Incoming Webhook URL" hint="api.slack.com/apps → Incoming Webhooks">
             <ApiKeyInput placeholder="https://hooks.slack.com/services/T…" value={fields.slackWebhookUrl ?? ""} onChange={set("slackWebhookUrl")} />
           </FieldGroup>
           <FieldGroup label="Dashboard URL (in alert messages)" hint="Link included in every Slack alert.">
-            <input type="text" className="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            <input type="text" className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
               value={fields.dashboardUrl ?? ""} onChange={setPlain("dashboardUrl")} />
           </FieldGroup>
-          <div className="border rounded-lg p-4 bg-gray-50 text-xs text-gray-500">
-            <p className="font-medium text-gray-700 mb-1">Alert triggers:</p>
+          <div className="border border-surface-border rounded-xl p-4 bg-surface-overlay text-xs text-text-secondary">
+            <p className="font-medium text-text-secondary mb-1">Alert triggers:</p>
             <ul className="space-y-1 list-disc list-inside">
               <li>Job failure rate &gt; 10% for 5 min (critical)</li>
               <li>DLQ depth &gt; 5 jobs</li>
@@ -574,31 +576,31 @@ function AlertsTab({ initial }: { initial: Record<string, string> }) {
                 <path d="m18 8.118-8 4-8-4V14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8.118z" />
               </svg>
             </div>
-            <span className="text-sm font-semibold text-gray-800">Email (SMTP)</span>
+            <span className="text-sm font-semibold text-text-primary">Email (SMTP)</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <FieldGroup label="SMTP Host">
-              <input type="text" className="border rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              <input type="text" className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm font-mono text-text-primary focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
                 placeholder="smtp.sendgrid.net" value={fields.smtpHost ?? ""} onChange={setPlain("smtpHost")} />
             </FieldGroup>
             <FieldGroup label="Port">
-              <input type="text" className="border rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              <input type="text" className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm font-mono text-text-primary focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
                 value={fields.smtpPort ?? "587"} onChange={setPlain("smtpPort")} />
             </FieldGroup>
           </div>
           <FieldGroup label="SMTP Username">
-            <input type="text" className="border rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            <input type="text" className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm font-mono text-text-primary focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
               value={fields.smtpUser ?? ""} onChange={setPlain("smtpUser")} />
           </FieldGroup>
           <FieldGroup label="SMTP Password">
             <ApiKeyInput placeholder="…" value={fields.smtpPass ?? ""} onChange={set("smtpPass")} />
           </FieldGroup>
           <FieldGroup label="Send alerts to">
-            <input type="email" className="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            <input type="email" className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
               placeholder="you@example.com" value={fields.alertEmailTo ?? ""} onChange={setPlain("alertEmailTo")} />
           </FieldGroup>
           <FieldGroup label="From address">
-            <input type="text" className="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            <input type="text" className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
               value={fields.smtpFrom ?? ""} onChange={setPlain("smtpFrom")} />
           </FieldGroup>
         </div>
@@ -635,76 +637,57 @@ export default function SettingsPage() {
   useEffect(() => { loadSettings(); }, [loadSettings]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 bg-indigo-600 rounded-md flex items-center justify-center">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-white">
-              <rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" />
-              <rect x="9" y="1" width="6" height="6" rx="1" fill="currentColor" opacity="0.6" />
-              <rect x="1" y="9" width="6" height="6" rx="1" fill="currentColor" opacity="0.6" />
-              <rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" />
-            </svg>
-          </div>
-          <span className="font-semibold text-gray-900">AI Video Factory</span>
+    <div className="min-h-screen bg-surface-base p-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-text-primary">Settings</h1>
+        <p className="text-sm text-text-secondary mt-1">Configure API integrations, YouTube channels, Worker Mode, and alerts.</p>
+      </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-xl bg-error-dim/30 border border-error-base/20 px-4 py-3 text-sm text-error-base">
+          Failed to load settings: {loadError}
         </div>
-        <nav className="flex items-center gap-1 text-sm">
-          <Link href="/dashboard" className="px-3 py-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors">Dashboard</Link>
-          <Link href="/create" className="px-3 py-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors">Creator Mode</Link>
-          <span className="px-3 py-1.5 bg-gray-100 text-gray-900 rounded-md font-medium">Settings</span>
-        </nav>
-      </header>
+      )}
 
-      <main className="max-w-5xl mx-auto px-6 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
-          <p className="text-sm text-gray-500 mt-1">Configure API integrations, YouTube channels, Worker Mode, and alerts.</p>
+      <div className="flex gap-6">
+        <aside className="w-52 flex-shrink-0">
+          <nav className="space-y-0.5">
+            {TABS.map((tab) => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors ${
+                  activeTab === tab.id
+                    ? "bg-violet-base/10 text-violet-glow font-medium border border-violet-base/20"
+                    : "text-text-secondary hover:bg-surface-overlay hover:text-text-primary"
+                }`}>
+                <span className="text-base leading-none">{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+            <div className="h-px bg-surface-border mx-2 my-3" />
+            <Link href="/dashboard/dlq"
+              className="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-text-secondary hover:bg-surface-overlay hover:text-text-primary transition-colors">
+              <span className="text-base leading-none">⚠</span>
+              Dead Letter Queue
+            </Link>
+          </nav>
+        </aside>
+
+        <div className="flex-1 min-w-0 glass rounded-2xl p-7 shadow-card">
+          {!settings ? (
+            <div className="text-center py-12 text-text-muted text-sm">
+              {loadError ? "Could not load settings." : "Loading…"}
+            </div>
+          ) : (
+            <>
+              {activeTab === "integrations" && <IntegrationsTab initial={settings.integrations} />}
+              {activeTab === "youtube" && <YouTubeTab />}
+              {activeTab === "worker" && <WorkerModeTab initial={settings.worker} />}
+              {activeTab === "budget" && <BudgetTab initialRates={settings.costRates} />}
+              {activeTab === "alerts" && <AlertsTab initial={settings.alerts} />}
+            </>
+          )}
         </div>
-
-        {loadError && (
-          <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-            Failed to load settings: {loadError}
-          </div>
-        )}
-
-        <div className="flex gap-6">
-          <aside className="w-48 flex-shrink-0">
-            <nav className="space-y-0.5">
-              {TABS.map((tab) => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                    activeTab === tab.id ? "bg-indigo-50 text-indigo-700 font-medium" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                  }`}>
-                  <span className="text-base leading-none">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
-              <div className="border-t my-3" />
-              <Link href="/dashboard/dlq"
-                className="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors">
-                <span className="text-base leading-none">⚠</span>
-                Dead Letter Queue
-              </Link>
-            </nav>
-          </aside>
-
-          <div className="flex-1 min-w-0 bg-white border rounded-xl p-7">
-            {!settings ? (
-              <div className="text-center py-12 text-gray-400 text-sm">
-                {loadError ? "Could not load settings." : "Loading…"}
-              </div>
-            ) : (
-              <>
-                {activeTab === "integrations" && <IntegrationsTab initial={settings.integrations} />}
-                {activeTab === "youtube" && <YouTubeTab />}
-                {activeTab === "worker" && <WorkerModeTab initial={settings.worker} />}
-                {activeTab === "budget" && <BudgetTab initialRates={settings.costRates} />}
-                {activeTab === "alerts" && <AlertsTab initial={settings.alerts} />}
-              </>
-            )}
-          </div>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }

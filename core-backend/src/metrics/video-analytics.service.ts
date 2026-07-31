@@ -6,6 +6,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DRIZZLE } from "../db/db.module";
 import * as schema from "../db/schema";
 import { projects, videoAnalytics } from "../db/schema";
+import { CronLockService } from "../common/cron-lock.service";
 
 const logger = pino({ level: "info" });
 
@@ -19,11 +20,17 @@ const YT_API_BASE = "https://www.googleapis.com/youtube/v3";
  */
 @Injectable()
 export class VideoAnalyticsService {
-  constructor(@Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
+    private readonly cronLock: CronLockService,
+  ) {}
 
   /** Fetch and store the latest YouTube stats for all published projects. */
   @Cron(CronExpression.EVERY_HOUR)
   async syncYouTubeAnalytics(): Promise<void> {
+    const acquired = await this.cronLock.acquire("ingest-video-analytics", 3600);
+    if (!acquired) return;
+
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) {
       return; // No API key configured — skip silently

@@ -1,3 +1,53 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Base ───────────────────────────────────────────────── */
+html, body {
+  background-color: #07090f;
+  color: #e2e8f5;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Glass utility ──────────────────────────────────────── */
+/* Use for floating panels, cards, modals */
+.glass {
+  background: rgba(13,17,23,0.75);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+/* ── Surface card ───────────────────────────────────────── */
+.card {
+  background: #0d1117;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 99px;
+  transition: background 0.15s;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* ── Range slider ───────────────────────────────────────── */
+input[type="range"] { accent-color: #5b6ef5; }
+
+/* ── Selection ──────────────────────────────────────────── */
+::selection { background: rgba(91,110,245,0.3); }
+
+/* ── Focus ring ─────────────────────────────────────────── */
+@layer base {
+  :focus-visible {
+    outline: 2px solid #5b6ef5;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}

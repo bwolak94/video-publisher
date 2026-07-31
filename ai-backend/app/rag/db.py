@@ -1,4 +1,6 @@
 """PostgreSQL + pgvector connection for RAG source material storage."""
+import asyncio
+
 import asyncpg
 import structlog
 
@@ -10,10 +12,13 @@ _CREATE_EXTENSION = "CREATE EXTENSION IF NOT EXISTS vector;"
 
 _CREATE_SOURCES_TABLE = """
 CREATE TABLE IF NOT EXISTS rag_sources (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    project_id  TEXT NOT NULL,
-    filename    TEXT,
-    created_at  TIMESTAMPTZ DEFAULT NOW()
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id   TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    tenant_id    TEXT,
+    filename     TEXT,
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (project_id, content_hash)
 );
 """
 
@@ -32,14 +37,18 @@ CREATE INDEX IF NOT EXISTS rag_chunks_project_idx ON rag_chunks (project_id);
 
 
 _pool: asyncpg.Pool | None = None
+_pool_lock = asyncio.Lock()
 
 
 async def get_pool() -> asyncpg.Pool:
     """Return the shared asyncpg connection pool, creating it on first call."""
     global _pool
-    if _pool is None:
-        db_url = get_settings().DATABASE_URL.replace("postgres://", "postgresql://")
-        _pool = await asyncpg.create_pool(db_url, min_size=1, max_size=5)
+    if _pool is not None:
+        return _pool
+    async with _pool_lock:
+        if _pool is None:
+            db_url = get_settings().DATABASE_URL.replace("postgres://", "postgresql://")
+            _pool = await asyncpg.create_pool(db_url, min_size=1, max_size=5)
     return _pool
 
 

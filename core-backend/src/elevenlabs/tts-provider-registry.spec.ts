@@ -6,6 +6,7 @@ import { Test } from "@nestjs/testing";
 import { TtsProviderRegistry, piperModelName } from "./tts-provider-registry";
 import { ElevenLabsService } from "./elevenlabs.service";
 import { AudioCacheService } from "./audio-cache.service";
+import { SettingsService } from "../settings/settings.service";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,7 @@ async function buildRegistry(cacheMock: any, elevenMock: any) {
       TtsProviderRegistry,
       { provide: ElevenLabsService, useValue: elevenMock },
       { provide: AudioCacheService, useValue: cacheMock },
+      { provide: SettingsService, useValue: { getDecrypted: jest.fn().mockResolvedValue(null), getPlaintext: jest.fn().mockResolvedValue("") } },
     ],
   }).compile();
   return module.get(TtsProviderRegistry);

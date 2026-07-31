@@ -19,6 +19,8 @@ import { MetricsService } from "../../metrics/metrics.service";
 import { AssetDedupService } from "../asset-dedup.service";
 import { RateLimiterService } from "../../common/rate-limiter.service";
 import { RetryBudgetService } from "../retry-budget.service";
+import { EntitiesService } from "../../entities/entities.service";
+import { ScenesService } from "../../scenes/scenes.service";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "asset-generation";
@@ -72,6 +74,8 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     private readonly dedup: AssetDedupService,
     private readonly rateLimiter: RateLimiterService,
     private readonly retryBudget: RetryBudgetService,
+    private readonly entitiesService: EntitiesService,
+    private readonly scenesService: ScenesService,
   ) {}
 
   onModuleInit() {
@@ -112,8 +116,22 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
 
     logger.info({ jobId: job.id, sceneId, assetType, correlationId, traceparent }, "Processing asset generation");
 
-    // I8: Enforce per-project daily retry budget before doing any work
+    // S9: Skip scenes that are pending human review
     const projectId = job.data.projectId;
+    if (projectId && sceneId) {
+      try {
+        const { scene } = await this.scenesService.findScene(sceneId);
+        if (scene.shotStatus === "pending_review") {
+          logger.info({ sceneId, shotStatus: "pending_review" }, "S9: Scene pending review — skipping generation");
+          await job.updateProgress(100);
+          return {};
+        }
+        // Transition to generating
+        await this.scenesService.updateShotStatus(projectId, sceneId, "generating");
+      } catch { /* non-fatal — proceed if scene not found in new storyboards */ }
+    }
+
+    // I8: Enforce per-project daily retry budget before doing any work
     if (projectId) {
       await this.retryBudget.checkAndIncrement(projectId, job.attemptsMade ?? 0);
     }
@@ -122,6 +140,11 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     await this.sleep(Math.random() * 500);
 
     let videoProvider: string | undefined;
+
+    // R2 + S3: Enrich visual prompt with entity descriptions and get approved reference image
+    const { enrichedPrompt: enrichedVisualPrompt, referenceImageUrl } = visualPrompt && projectId
+      ? await this.getPromptEnrichment(visualPrompt, projectId)
+      : { enrichedPrompt: visualPrompt, referenceImageUrl: undefined };
 
     // I2: Acquire distributed lock per content hash to prevent duplicate generation
     const contentHash = this.computeContentHash(job.data);
@@ -140,16 +163,21 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
         narrationText && voiceId && standardVoiceId
           ? this.generateAudio(narrationText, voiceId, standardVoiceId, { stability, similarityBoost, style })
           : Promise.resolve(null),
-        assetType === "image" && visualPrompt
-          ? this.generateImage(visualPrompt, sceneId, aspectRatio).then((url) => ({ s3Url: url, provider: "dalle3" }))
-          : visualPrompt
-            ? this.generateVideoWithProvider(visualPrompt, sceneId, aspectRatio)
+        assetType === "image" && enrichedVisualPrompt
+          ? this.generateImage(enrichedVisualPrompt, sceneId, aspectRatio, referenceImageUrl).then((url) => ({ s3Url: url, provider: "dalle3" }))
+          : enrichedVisualPrompt
+            ? this.generateVideoWithProvider(enrichedVisualPrompt, sceneId, aspectRatio, referenceImageUrl)
             : Promise.resolve(null),
       ]);
 
       videoProvider = visualResult?.provider;
     } finally {
       await this.dedup.release(contentHash, holderId);
+    }
+
+    // S9: Transition to done on success
+    if (projectId && sceneId) {
+      try { await this.scenesService.updateShotStatus(projectId, sceneId, "done"); } catch { /* non-fatal */ }
     }
 
     await job.updateProgress(100);
@@ -175,22 +203,25 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
   protected async generateVideoWithProvider(
     prompt: string,
     sceneId: string,
-    aspectRatio?: "16:9" | "9:16" | "1:1"
+    aspectRatio?: "16:9" | "9:16" | "1:1",
+    referenceImageUrl?: string | null,
   ): Promise<{ s3Url: string; provider: string }> {
     await this.rateLimiter.throttle("runway"); // I3: default to runway limit; registry picks actual provider
     return this.videoAsset.generateVideo({
       visualPrompt: prompt,
       sceneId,
       aspectRatio: aspectRatio === "1:1" ? "16:9" : aspectRatio,
+      referenceImageUrl,
     });
   }
 
   protected async generateImage(
     prompt: string,
     sceneId: string,
-    aspectRatio?: "16:9" | "9:16" | "1:1"
+    aspectRatio?: "16:9" | "9:16" | "1:1",
+    referenceImageUrl?: string | null,
   ): Promise<string> {
-    return this.imageAsset.generateImage({ visualPrompt: prompt, sceneId, aspectRatio });
+    return this.imageAsset.generateImage({ visualPrompt: prompt, sceneId, aspectRatio, referenceImageUrl });
   }
 
   // ── Lifecycle event handlers ───────────────────────────────────────────────
@@ -290,6 +321,37 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
     return provider === "pexels" || provider === "archival"
       ? config.pexelsPerSceneUsd
       : config.runwayPerSceneUsd;
+  }
+
+  /**
+   * R2 + S3: Enrich visual prompt with entity descriptions and retrieve approved reference image URL.
+   * Only entities whose names appear in the prompt (case-insensitive) are injected.
+   * The first entity with an approvedReferenceImageUrl is used for visual conditioning.
+   */
+  private async getPromptEnrichment(
+    prompt: string,
+    projectId: string,
+  ): Promise<{ enrichedPrompt: string; referenceImageUrl?: string }> {
+    try {
+      const entityList = await this.entitiesService.findByProjectIdCached(projectId);
+      const relevant = entityList.filter(
+        (e) => new RegExp(`\\b${e.name}\\b`, "i").test(prompt)
+      );
+
+      // S3: pick approved reference image from the first matching entity that has one
+      const referenceImageUrl = relevant.find((e) => e.approvedReferenceImageUrl)?.approvedReferenceImageUrl ?? undefined;
+
+      // R2: inject text descriptions for relevant entities that have them
+      const withDesc = relevant.filter((e) => e.description);
+      if (withDesc.length === 0) return { enrichedPrompt: prompt, referenceImageUrl };
+
+      const injected = withDesc.map((e) => `${e.name} — ${e.description}`).join("; ");
+      logger.info({ projectId, count: withDesc.length, hasRef: !!referenceImageUrl }, "R2+S3: Enriching prompt with entity data");
+      return { enrichedPrompt: `${prompt} [Visual consistency: ${injected}]`, referenceImageUrl };
+    } catch (err) {
+      logger.warn({ projectId, err }, "R2+S3: Entity enrichment failed — using original prompt");
+      return { enrichedPrompt: prompt };
+    }
   }
 
   private sleep(ms: number) {

@@ -40,10 +40,10 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 const PROVIDER_BADGE_STYLES: Record<string, string> = {
-  runway:   "bg-purple-100 text-purple-700",
-  kling:    "bg-blue-100 text-blue-700",
-  pexels:   "bg-green-100 text-green-700",
-  archival: "bg-amber-100 text-amber-700",
+  runway:   "bg-accent/10 text-accent border border-accent/20",
+  kling:    "bg-info-dim text-info-glow border border-info/20",
+  pexels:   "bg-success-bg text-success-text border border-success-border",
+  archival: "bg-warning-bg text-warning-text border border-warning-border",
 };
 
 const ELEVENLABS_VOICES = [
@@ -212,18 +212,20 @@ function SceneCardInner({ sceneId, projectId, onSeekClick }: SceneCardProps) {
 
   if (!scene) return null;
 
+  const isRegenerating = scene.status === "regenerating";
+
   return (
     <div
       data-testid={`scene-card-${sceneId}`}
-      className="bg-white border rounded-lg p-4 shadow-sm"
+      className="bg-panel border border-line rounded-xl p-4 hover:border-line-strong transition-colors"
     >
-      <div className="flex gap-4">
+      <div className="flex gap-3">
         <SceneThumbnail
           videoUrl={scene.videoUrl}
-          isRegenerating={scene.status === "regenerating"}
+          isRegenerating={isRegenerating}
         />
-        <div className="flex-1 space-y-2 min-w-0">
-          {/* Header row with metadata + action buttons */}
+        <div className="flex-1 space-y-3 min-w-0">
+          {/* Header row */}
           <div className="flex items-center justify-between">
             <SceneMetadata
               sceneId={sceneId}
@@ -235,14 +237,18 @@ function SceneCardInner({ sceneId, projectId, onSeekClick }: SceneCardProps) {
               <button
                 onClick={handleAddAfter}
                 title="Add scene after"
-                className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 border border-gray-200 rounded hover:bg-gray-200"
+                className="px-2 py-0.5 text-xs text-ink-secondary bg-subtle border border-line rounded-md hover:bg-hover hover:text-ink transition-colors"
               >
                 + Add
               </button>
               <button
                 onClick={() => setShowEffects((v) => !v)}
                 title="Text overlay / effects"
-                className={`px-2 py-0.5 text-xs border rounded ${showEffects ? "bg-purple-100 text-purple-700 border-purple-200" : "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200"}`}
+                className={`px-2 py-0.5 text-xs border rounded-md transition-colors ${
+                  showEffects
+                    ? "bg-accent/15 text-accent border-accent/25"
+                    : "bg-subtle text-ink-secondary border-line hover:bg-hover hover:text-ink"
+                }`}
               >
                 Fx
               </button>
@@ -250,74 +256,104 @@ function SceneCardInner({ sceneId, projectId, onSeekClick }: SceneCardProps) {
                 onClick={() => setShowAvatar((v) => !v)}
                 title="Talking head / avatar"
                 data-testid="avatar-toggle-btn"
-                className={`px-2 py-0.5 text-xs border rounded ${showAvatar ? "bg-violet-100 text-violet-700 border-violet-200" : "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200"}`}
+                className={`px-2 py-0.5 text-xs border rounded-md transition-colors ${
+                  showAvatar
+                    ? "bg-accent/15 text-accent border-accent/25"
+                    : "bg-subtle text-ink-secondary border-line hover:bg-hover hover:text-ink"
+                }`}
               >
                 Avatar
               </button>
               <button
                 onClick={handleDelete}
                 title="Delete scene"
-                className="px-2 py-0.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded hover:bg-red-100"
+                className="px-2 py-0.5 text-xs bg-danger-bg text-danger-text border border-danger-border rounded-md hover:opacity-80 transition-opacity"
               >
                 ✕
               </button>
             </div>
           </div>
 
-          <AudioPlayer audioUrl={scene.audioUrl} />
+          <AudioPlayer
+            audioUrl={scene.audioUrl}
+            onDurationDetected={(seconds) => {
+              // P2: sync actual audio duration → composition durationInFrames
+              if (Math.abs((scene.durationInSeconds ?? 0) - seconds) > 0.1) {
+                useTimelineStore.getState().updateSceneField(sceneId, "durationInSeconds", seconds);
+              }
+            }}
+          />
 
           <VisualPromptField
             value={scene.visualPrompt}
             onChange={handleVisualPromptChange}
             onRegenerate={handleRegenerate}
-            isRegenerating={scene.status === "regenerating"}
+            isRegenerating={isRegenerating}
             costBadge={visualCostEst}
           />
 
           {/* Provider badge */}
           {scene.videoProvider && (
-            <div className="flex items-center gap-1">
-              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${PROVIDER_BADGE_STYLES[scene.videoProvider] ?? "bg-gray-100 text-gray-600"}`}>
-                {PROVIDER_LABELS[scene.videoProvider] ?? scene.videoProvider}
-              </span>
-            </div>
+            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-2xs font-medium ${PROVIDER_BADGE_STYLES[scene.videoProvider] ?? "bg-subtle text-ink-muted border border-line"}`}>
+              {PROVIDER_LABELS[scene.videoProvider] ?? scene.videoProvider}
+            </span>
           )}
 
-          {/* Custom video URL input */}
+          {/* S4: Transition selector */}
           <div className="flex items-center gap-2">
+            <label className="text-2xs text-ink-muted font-semibold uppercase tracking-wide">Transition in:</label>
+            <select
+              value={scene.transitionType ?? "fade"}
+              onChange={(e) =>
+                useTimelineStore.getState().updateSceneField(sceneId, "transitionType", e.target.value)
+              }
+              className="text-xs text-ink bg-muted border border-line rounded-md px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
+            >
+              <option value="fade">Fade</option>
+              <option value="slide">Slide</option>
+              <option value="wipe">Wipe</option>
+              <option value="flip">Flip</option>
+              <option value="clock-wipe">Clock Wipe</option>
+              <option value="film-burn">Film Burn</option>
+              <option value="none">Cut (none)</option>
+            </select>
+          </div>
+
+          {/* Custom video URL */}
+          <div>
             <button
               onClick={() => setShowVideoUrlInput((v) => !v)}
-              className="text-xs text-gray-500 underline hover:text-gray-700"
+              className="text-xs text-ink-muted hover:text-ink-secondary underline underline-offset-2 transition-colors"
             >
               {showVideoUrlInput ? "Cancel" : "Use video URL instead"}
             </button>
+            {showVideoUrlInput && (
+              <div className="flex gap-2 mt-1.5">
+                <input
+                  type="url"
+                  value={videoUrlInput}
+                  onChange={(e) => setVideoUrlInput(e.target.value)}
+                  placeholder="https://…"
+                  className="flex-1 text-sm text-ink bg-muted border border-line rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
+                />
+                <button
+                  onClick={handleSetVideoUrl}
+                  disabled={isRegenerating}
+                  className="px-3 py-1 text-xs bg-accent/10 text-accent border border-accent/20 rounded-lg hover:bg-accent/15 disabled:opacity-40 transition-colors"
+                >
+                  Set
+                </button>
+              </div>
+            )}
           </div>
-          {showVideoUrlInput && (
-            <div className="flex gap-2">
-              <input
-                type="url"
-                value={videoUrlInput}
-                onChange={(e) => setVideoUrlInput(e.target.value)}
-                placeholder="https://..."
-                className="flex-1 text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-              />
-              <button
-                onClick={handleSetVideoUrl}
-                disabled={scene.status === "regenerating"}
-                className="px-2 py-1 text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded hover:bg-indigo-100 disabled:opacity-50"
-              >
-                Set
-              </button>
-            </div>
-          )}
 
-          {/* Voice selector + narration */}
+          {/* Voice selector */}
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500">Voice:</label>
+            <label className="text-2xs text-ink-muted font-semibold uppercase tracking-wide">Voice:</label>
             <select
               value={selectedVoiceId}
               onChange={(e) => setSelectedVoiceId(e.target.value)}
-              className="text-xs border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="text-xs text-ink bg-muted border border-line rounded-md px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               <optgroup label="ElevenLabs (cloud)">
                 {ELEVENLABS_VOICES.map((v) => (
@@ -336,45 +372,33 @@ function SceneCardInner({ sceneId, projectId, onSeekClick }: SceneCardProps) {
             value={scene.narrationText}
             onChange={handleNarrationChange}
             onUpdateVoice={handleUpdateVoice}
-            isRegenerating={scene.status === "regenerating"}
+            isRegenerating={isRegenerating}
           />
 
-          {/* Subtitle generation */}
-          <div className="flex items-center gap-2">
+          {/* Subtitles */}
+          <div className="flex items-center flex-wrap gap-2">
             <button
               onClick={handleGenerateSubtitles}
-              disabled={!scene.audioUrl || scene.status === "regenerating"}
+              disabled={!scene.audioUrl || isRegenerating}
               title={!scene.audioUrl ? "Generate audio first" : "Generate subtitles from narration audio"}
-              className="px-2 py-0.5 text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded hover:bg-teal-100 disabled:opacity-40"
+              className="px-2 py-0.5 text-xs bg-info-dim text-info-glow border border-info/20 rounded-md hover:opacity-80 disabled:opacity-40 transition-opacity"
             >
               {scene.subtitleTrack ? "Regenerate Subtitles" : "Generate Subtitles"}
             </button>
             {scene.subtitleTrack && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-2xs font-medium bg-info-dim text-info-glow border border-info/20">
                 CC {scene.subtitleTrack.provider === "whisper_local" ? "(local)" : "(API)"}
               </span>
             )}
             {scene.subtitleTrack?.vttUrl && (
-              <a
-                href={scene.subtitleTrack.vttUrl}
-                download
-                className="text-xs text-teal-600 underline hover:text-teal-800"
-              >
-                VTT
-              </a>
+              <a href={scene.subtitleTrack.vttUrl} download className="text-xs text-accent hover:text-accent-hover transition-colors">VTT ↓</a>
             )}
             {scene.subtitleTrack?.srtUrl && (
-              <a
-                href={scene.subtitleTrack.srtUrl}
-                download
-                className="text-xs text-teal-600 underline hover:text-teal-800"
-              >
-                SRT
-              </a>
+              <a href={scene.subtitleTrack.srtUrl} download className="text-xs text-accent hover:text-accent-hover transition-colors">SRT ↓</a>
             )}
           </div>
 
-          {/* Avatar / talking-head panel (FEATURE-11) */}
+          {/* Avatar panel */}
           {showAvatar && (
             <AvatarConfigPanel
               sceneId={sceneId}
@@ -388,22 +412,22 @@ function SceneCardInner({ sceneId, projectId, onSeekClick }: SceneCardProps) {
 
           {/* Text overlay / effects panel */}
           {showEffects && (
-            <div className="mt-2 p-3 bg-purple-50 border border-purple-200 rounded space-y-2">
-              <p className="text-xs font-medium text-purple-700">Text Overlay</p>
+            <div className="p-3 bg-accent/8 border border-accent/15 rounded-xl space-y-2">
+              <p className="text-2xs font-semibold text-accent uppercase tracking-wide">Text Overlay</p>
               <input
                 type="text"
                 value={scene.textOverlay?.text ?? ""}
                 onChange={(e) => handleTextOverlayChange("text", e.target.value)}
                 placeholder="Overlay text (leave empty to disable)"
-                className="w-full text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                className="w-full text-sm text-ink bg-muted border border-line rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
               />
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <label className="text-xs text-gray-500">Style</label>
+                  <label className="text-2xs text-ink-muted">Style</label>
                   <select
                     value={scene.textOverlay?.style ?? "standard"}
                     onChange={(e) => handleTextOverlayChange("style", e.target.value)}
-                    className="w-full text-xs border rounded px-1 py-0.5 mt-0.5"
+                    className="w-full text-xs text-ink bg-muted border border-line rounded-md px-1.5 py-0.5 mt-0.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
                   >
                     <option value="standard">Standard</option>
                     <option value="punchy">Punchy</option>
@@ -411,11 +435,11 @@ function SceneCardInner({ sceneId, projectId, onSeekClick }: SceneCardProps) {
                   </select>
                 </div>
                 <div className="flex-1">
-                  <label className="text-xs text-gray-500">Position</label>
+                  <label className="text-2xs text-ink-muted">Position</label>
                   <select
                     value={scene.textOverlay?.position ?? "bottom"}
                     onChange={(e) => handleTextOverlayChange("position", e.target.value)}
-                    className="w-full text-xs border rounded px-1 py-0.5 mt-0.5"
+                    className="w-full text-xs text-ink bg-muted border border-line rounded-md px-1.5 py-0.5 mt-0.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
                   >
                     <option value="top">Top</option>
                     <option value="center">Center</option>

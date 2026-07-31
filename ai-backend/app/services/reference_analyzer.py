@@ -190,14 +190,30 @@ async def analyze_reference_video(url: str) -> ReferenceAnalysisBrief:
         video_path = await download_reference_video(url)
         logger.info("reference_downloaded", path=video_path)
 
-        # Steps 2-6: run probe, scene detection, audio extraction, loudness, frames in parallel
-        structure_task    = asyncio.create_task(ffprobe.probe_video(video_path))
-        scene_task        = asyncio.create_task(ffprobe.detect_scenes(video_path))
-        frames_task       = asyncio.create_task(ffprobe.sample_frames(video_path, n=5))
+        # Steps 2-6: run probe, scene detection, and frames in parallel.
+        # Each task degrades gracefully so a single ffmpeg failure doesn't abort the whole analysis.
+        structure_task = asyncio.create_task(ffprobe.probe_video(video_path))
+        scene_task     = asyncio.create_task(ffprobe.detect_scenes(video_path))
+        frames_task    = asyncio.create_task(ffprobe.sample_frames(video_path, n=5))
 
-        structure    = await structure_task
-        scenes       = await scene_task
-        frames_b64   = await frames_task
+        try:
+            structure = await structure_task
+        except Exception as exc:
+            logger.warning("reference_probe_failed", error=str(exc))
+            from app.services.ffprobe_service import VideoStructure
+            structure = VideoStructure(duration_seconds=0, width=0, height=0, fps=0, has_audio=False)
+
+        try:
+            scenes = await scene_task
+        except Exception as exc:
+            logger.warning("reference_scene_detect_failed", error=str(exc))
+            scenes = [0.0]
+
+        try:
+            frames_b64 = await frames_task
+        except Exception as exc:
+            logger.warning("reference_frames_failed", error=str(exc))
+            frames_b64 = []
 
         # Audio extraction + loudness (sequential — need audio file for both)
         avg_loudness = -23.0

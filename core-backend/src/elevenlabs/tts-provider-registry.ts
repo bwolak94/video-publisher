@@ -13,6 +13,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import pino from "pino";
 import { AudioCacheService } from "./audio-cache.service";
 import { ElevenLabsService, type GenerateAudioParams } from "./elevenlabs.service";
+import { SettingsService } from "../settings/settings.service";
 
 const logger = pino({ level: "info" });
 
@@ -41,6 +42,7 @@ export class TtsProviderRegistry {
   constructor(
     private readonly elevenLabs: ElevenLabsService,
     private readonly cache: AudioCacheService,
+    private readonly settings: SettingsService,
   ) {
     this.bucket = process.env.S3_BUCKET ?? "video-publisher-assets";
     this.s3 = new S3Client({
@@ -66,10 +68,73 @@ export class TtsProviderRegistry {
     if (voiceId.startsWith("piper_")) {
       return this.generateWithPiper(narrationText, voiceId, cacheKey);
     }
+
+    // Check ElevenLabs key from env var OR Settings DB (where the UI stores it)
+    const elevenLabsKey =
+      process.env.ELEVENLABS_API_KEY ||
+      (await this.settings.getPlaintext("integrations.elevenLabsKey").catch(() => "")) ||
+      "";
+
+    if (elevenLabsKey) {
+      return this.elevenLabs.generateAudio(params);
+    }
+
+    // No ElevenLabs key — fall back to OpenAI TTS
+    const openaiKey = process.env.OPENAI_API_KEY;
+    if (openaiKey) {
+      return this.generateWithOpenAI(narrationText, cacheKey, openaiKey);
+    }
+
+    // Last resort: still try ElevenLabs (will fail with a clear error message)
     return this.elevenLabs.generateAudio(params);
   }
 
   // ── Private ────────────────────────────────────────────────────────────────
+
+  private async generateWithOpenAI(
+    text: string,
+    cacheKey: string,
+    apiKey: string,
+  ): Promise<string> {
+    logger.info({ textLen: text.length }, "OpenAI TTS fallback requested");
+
+    const response = await fetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "tts-1",
+        input: text,
+        voice: "alloy",
+        response_format: "mp3",
+      }),
+    });
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => response.statusText);
+      throw new Error(`OpenAI TTS failed (${response.status}): ${detail}`);
+    }
+
+    const mp3Buffer = Buffer.from(await response.arrayBuffer());
+
+    const s3Key = `audio/${cacheKey}.mp3`;
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: s3Key,
+        Body: mp3Buffer,
+        ContentType: "audio/mpeg",
+      }),
+    );
+
+    const s3Url = `s3://${this.bucket}/${s3Key}`;
+    await this.cache.setCached(cacheKey, s3Url);
+
+    logger.info({ s3Url }, "OpenAI TTS audio generated and cached");
+    return s3Url;
+  }
 
   private async generateWithPiper(
     text: string,

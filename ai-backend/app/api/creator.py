@@ -7,6 +7,7 @@ POST /api/creator/storyboard → generates full VideoStoryboard from approved ou
 import asyncio
 import json
 import os
+import shutil
 import tempfile
 import uuid
 from typing import Any, Literal
@@ -156,16 +157,25 @@ async def generate_outline(req: OutlineRequest) -> StreamingResponse:
     raw = await call_llm_mini(system, user)
     clean = strip_fences(raw)
 
-    # Parse the JSON outline array and format as plain text bullets
+    # Parse the JSON outline array and format as plain text bullets.
+    # The LLM may return either a bare list or a {"outline": [...]} wrapper.
+    bullets: list[str] = []
     try:
-        items = json.loads(clean)
+        parsed = json.loads(clean)
+        if isinstance(parsed, dict):
+            # Unwrap any single-key dict wrapper (e.g. {"outline": [...], "points": [...]})
+            items = next(
+                (v for v in parsed.values() if isinstance(v, list)),
+                [],
+            )
+        else:
+            items = parsed
         bullets = [f"- {item.get('title', '')}: {item.get('keyPoint', '')}" for item in items]
         text = "\n".join(bullets)
-    except (json.JSONDecodeError, AttributeError):
-        # If not valid JSON, return raw text as-is
+    except (json.JSONDecodeError, AttributeError, TypeError, StopIteration):
         text = clean
 
-    logger.info("creator_outline_done", topic=req.topic, bullets=len(bullets) if 'bullets' in locals() else 0)
+    logger.info("creator_outline_done", topic=req.topic, bullets=len(bullets))
     return StreamingResponse(iter([text]), media_type="text/plain; charset=utf-8")
 
 
@@ -272,25 +282,29 @@ async def clone_voice(req: CloneVoiceRequest) -> dict[str, Any]:
 
     logger.info("clone_voice_start", url=req.videoUrl, voice_name=req.voiceName)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Download video (reuses FEATURE-06 downloader)
+    video_path: str | None = None
+    try:
         video_path = await download_reference_video(req.videoUrl)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Extract first 60s of audio as mp3
+            audio_path = os.path.join(tmpdir, "voice_sample.mp3")
+            proc = await asyncio.create_subprocess_exec(
+                shutil.which("ffmpeg") or "/usr/local/bin/ffmpeg", "-y", "-i", video_path, "-t", "60", "-vn",
+                "-acodec", "libmp3lame", "-ab", "128k", audio_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise HTTPException(status_code=500, detail=f"ffmpeg audio extraction failed: {stderr.decode()[:200]}")
 
-        # Extract first 60s of audio as mp3
-        audio_path = os.path.join(tmpdir, "voice_sample.mp3")
-        proc = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-y", "-i", video_path, "-t", "60", "-vn",
-            "-acodec", "libmp3lame", "-ab", "128k", audio_path,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _, stderr = await proc.communicate()
-        if proc.returncode != 0:
-            raise HTTPException(status_code=500, detail=f"ffmpeg audio extraction failed: {stderr.decode()[:200]}")
-
-        # Call ElevenLabs Voice Add API (instant voice cloning)
-        with open(audio_path, "rb") as f:
-            audio_bytes = f.read()
+            # Call ElevenLabs Voice Add API (instant voice cloning)
+            with open(audio_path, "rb") as f:
+                audio_bytes = f.read()
+    finally:
+        if video_path:
+            from app.services.video_downloader import _safe_delete
+            _safe_delete(video_path)
 
     async with httpx.AsyncClient(timeout=120) as client:
         resp = await client.post(

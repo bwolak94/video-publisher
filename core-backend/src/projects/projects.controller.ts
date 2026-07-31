@@ -14,6 +14,7 @@ import {
   BadRequestException,
   Sse,
   MessageEvent,
+  UseGuards,
 } from "@nestjs/common";
 import { Observable, interval } from "rxjs";
 import { switchMap, take, map } from "rxjs/operators";
@@ -29,8 +30,9 @@ import { QueueService } from "../queue/queue.service";
 import { VideoAnalyticsService } from "../metrics/video-analytics.service";
 import { S3Service } from "../storage/s3.service";
 import type { VideoStoryboard } from "../storyboard/video-storyboard";
+import { AuthGuard } from "../auth/auth.guard";
 
-// Auth is intentionally removed — single-user local dev tool.
+@UseGuards(AuthGuard)
 @Controller("api/projects")
 export class ProjectsController {
   constructor(
@@ -49,7 +51,8 @@ export class ProjectsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@Req() req: any, @Body() dto: CreateProjectDto) {
-    return this.projectsService.create(req.headers["x-user-id"] ?? null, dto);
+    // userId derived from JWT payload via AuthGuard
+    return this.projectsService.create(req.userId as string ?? null, dto);
   }
 
   @Get("stats")
@@ -144,7 +147,8 @@ export class ProjectsController {
   @HttpCode(HttpStatus.CREATED)
   async importCsv(@Req() req: any, @Body() body: { csv: string }) {
     if (!body.csv) throw new BadRequestException("csv field is required");
-    return this.projectsService.importFromCsv(body.csv, req.headers["x-user-id"] ?? null);
+    // userId derived from JWT payload via AuthGuard
+    return this.projectsService.importFromCsv(body.csv, req.userId as string ?? null);
   }
 
   // ── I1: SSE Job Progress ───────────────────────────────────────────────────
@@ -275,7 +279,8 @@ export class ProjectsController {
   @Post(":id/slice-to-short")
   @HttpCode(HttpStatus.CREATED)
   sliceToShort(@Req() req: any, @Param("id") id: string) {
-    return this.slicer.slice(id, req.headers["x-user-id"] ?? null);
+    // userId derived from JWT payload via AuthGuard
+    return this.slicer.slice(id, req.userId as string ?? null);
   }
 
   // ── F4: Subtitle Export ────────────────────────────────────────────────────

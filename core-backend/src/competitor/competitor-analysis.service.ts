@@ -12,6 +12,7 @@ import {
   type CompetitorChannel,
   type CompetitorGapAnalysis,
 } from "../db/schema";
+import { CronLockService } from "../common/cron-lock.service";
 
 const logger = pino({ level: "info" });
 
@@ -27,7 +28,10 @@ export class CompetitorAnalysisService {
   private readonly youtubeApiKey = process.env.YOUTUBE_DATA_API_KEY;
   private readonly openaiApiKey  = process.env.OPENAI_API_KEY;
 
-  constructor(@Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
+    private readonly cronLock: CronLockService,
+  ) {}
 
   // ── CRUD ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +61,9 @@ export class CompetitorAnalysisService {
 
   @Cron(CronExpression.EVERY_WEEK)
   async weeklyAnalysis(): Promise<void> {
+    const acquired = await this.cronLock.acquire("weekly-competitor-analysis", 7 * 24 * 3600);
+    if (!acquired) return;
+
     logger.info("F4: Starting weekly competitor gap analysis");
 
     // Group competitors by userId
@@ -97,8 +104,9 @@ export class CompetitorAnalysisService {
   // ── Core pipeline ──────────────────────────────────────────────────────────
 
   private async analyzeForUser(userId: string, competitors: CompetitorChannel[]): Promise<CompetitorGapAnalysis> {
-    // 1. Fetch recent videos for every competitor channel
+    // 1. Fetch recent videos for every competitor channel (outside transaction — external I/O)
     const allTitles: { channelName: string; title: string; viewCount: string }[] = [];
+    const videosByComp = new Map<string, { platformVideoId: string; title: string; viewCount: string; publishedAt?: string }[]>();
 
     for (const comp of competitors) {
       const videos = await this.fetchRecentVideos(comp).catch((err) => {
@@ -106,35 +114,45 @@ export class CompetitorAnalysisService {
         return [];
       });
 
+      videosByComp.set(comp.id, videos);
       for (const v of videos) {
         allTitles.push({ channelName: comp.channelName ?? comp.channelId, title: v.title, viewCount: v.viewCount ?? "0" });
-        // Upsert video record
-        await this.db
-          .insert(competitorVideos)
-          .values({
-            competitorChannelId: comp.id,
-            platformVideoId: v.platformVideoId,
-            title: v.title,
-            viewCount: v.viewCount ?? "0",
-            publishedAt: v.publishedAt ? new Date(v.publishedAt) : null,
-          } as any)
-          .onConflictDoNothing();
       }
-
-      await this.db
-        .update(competitorChannels)
-        .set({ lastAnalyzedAt: new Date() } as any)
-        .where(eq(competitorChannels.id, comp.id));
     }
 
-    // 2. GPT-4o gap synthesis
+    // 2. GPT-4o gap synthesis (outside transaction — external I/O)
     const insights = await this.synthesizeGaps(allTitles);
 
-    // 3. Persist
-    const [row] = await this.db
-      .insert(competitorGapAnalyses)
-      .values({ userId, insights } as any)
-      .returning();
+    // 3. Persist all writes atomically
+    const row = await this.db.transaction(async (tx: any) => {
+      for (const comp of competitors) {
+        const videos = videosByComp.get(comp.id) ?? [];
+        for (const v of videos) {
+          await tx
+            .insert(competitorVideos)
+            .values({
+              competitorChannelId: comp.id,
+              platformVideoId: v.platformVideoId,
+              title: v.title,
+              viewCount: v.viewCount ?? "0",
+              publishedAt: v.publishedAt ? new Date(v.publishedAt) : null,
+            } as any)
+            .onConflictDoNothing();
+        }
+
+        await tx
+          .update(competitorChannels)
+          .set({ lastAnalyzedAt: new Date() } as any)
+          .where(eq(competitorChannels.id, comp.id));
+      }
+
+      const [inserted] = await tx
+        .insert(competitorGapAnalyses)
+        .values({ userId, insights } as any)
+        .returning();
+
+      return inserted;
+    });
 
     logger.info({ userId, competitorCount: competitors.length }, "F4: Gap analysis complete");
     return row;

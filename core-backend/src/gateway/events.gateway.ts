@@ -20,7 +20,12 @@ import { BudgetApprovalGate } from "../cost/budget-approval-gate";
 // Prevents resource exhaustion on large accounts or from misbehaving clients.
 const MAX_ROOMS_PER_SOCKET = 10;
 
-@WebSocketGateway({ cors: true })
+@WebSocketGateway({
+  cors: {
+    origin: process.env.FRONTEND_ORIGIN ?? "http://localhost:3000",
+    credentials: true,
+  },
+})
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -108,6 +113,22 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     return { event: "joined", projectId: data.projectId };
+  }
+
+  /**
+   * Client leaves a project room explicitly.
+   * Decrements the socket room count so the slot can be reused.
+   */
+  @SubscribeMessage("leave-project")
+  handleLeaveProject(
+    @ConnectedSocket() socket: Socket,
+    @MessageBody() projectId: string,
+  ): void {
+    void socket.leave(`project:${projectId}`);
+    const current = this.socketRoomCount.get(socket.id) ?? 0;
+    if (current > 0) {
+      this.socketRoomCount.set(socket.id, current - 1);
+    }
   }
 
   /**

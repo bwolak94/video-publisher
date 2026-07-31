@@ -18,10 +18,19 @@ from app.main import app
 
 @pytest.fixture(autouse=True)
 def reset_settings_cache():
-    """Clear lru_cache between tests so env-var mutations take effect."""
+    """Clear lru_cache between tests so env-var mutations take effect.
+
+    Also disables .env file reading so monkeypatch.delenv() is the sole
+    source of truth — without this, pydantic-settings falls back to the
+    local .env file even after a test removes a key from the environment.
+    """
+    from app.config import Settings
+    original_env_file = Settings.model_config.get("env_file")
+    Settings.model_config["env_file"] = None
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+    Settings.model_config["env_file"] = original_env_file
 
 
 @pytest.fixture(autouse=True)

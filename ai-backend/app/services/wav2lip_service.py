@@ -20,6 +20,8 @@ from pathlib import Path
 import httpx
 import structlog
 
+from app.utils.network import assert_public_url
+
 logger = structlog.get_logger(__name__)
 
 WAV2LIP_DIR = os.environ.get("WAV2LIP_DIR", "/opt/wav2lip")
@@ -65,8 +67,9 @@ class Wav2LipService:
 
     async def _download(self, url: str, dest: str, max_bytes: int) -> None:
         """Download a URL to a local file, enforcing a size cap."""
+        assert_public_url(url)
         async with httpx.AsyncClient(timeout=60) as client:
-            async with client.stream("GET", url) as response:
+            async with client.stream("GET", url, follow_redirects=False) as response:
                 response.raise_for_status()
                 written = 0
                 with open(dest, "wb") as f:

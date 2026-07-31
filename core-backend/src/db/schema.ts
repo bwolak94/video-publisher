@@ -491,3 +491,32 @@ export const narrationVariants = pgTable(
 
 export type NarrationVariant    = typeof narrationVariants.$inferSelect;
 export type NewNarrationVariant = typeof narrationVariants.$inferInsert;
+
+// ── P1: Visual Consistency System — named entities ────────────────────────────
+
+/**
+ * An "Entity" is a named visual subject (character, location, prop) that appears
+ * across multiple scenes. Storing reference image URLs here lets the generation
+ * pipeline enforce consistent appearance in every scene.
+ */
+export const entities = pgTable(
+  "entities",
+  {
+    id:                   uuid("id").primaryKey().defaultRandom(),
+    projectId:            uuid("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+    name:                 text("name").notNull(),                           // e.g. "Trump", "Studio Apartment"
+    type:                 text("type").notNull(),                           // "character" | "location" | "prop"
+    description:          text("description"),                              // e.g. "Male, 70s, white hair, business suit"
+    referenceImageUrls:          jsonb("reference_image_urls").default("[]"),      // string[] of S3 URLs
+    /** S3: The single approved image used as reference conditioning input during generation. */
+    approvedReferenceImageUrl:   text("approved_reference_image_url"),
+    createdAt:            timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt:            timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_entities_project_id: index("idx_entities_project_id").on(t.projectId),
+  }),
+);
+
+export type Entity    = typeof entities.$inferSelect;
+export type NewEntity = typeof entities.$inferInsert;

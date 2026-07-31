@@ -5,6 +5,7 @@ import { VirtualizedSceneList } from "./VirtualizedSceneList";
 import { PreviewPanel } from "./PreviewPanel";
 import { RestoreBanner } from "./RestoreBanner";
 import { MusicPanel } from "./MusicPanel";
+import { EntityManager } from "./EntityManager";
 import { BudgetApprovalModal, type ApprovalRequest } from "./BudgetApprovalModal";
 import { useSceneWebSocket } from "@/hooks/useSceneWebSocket";
 import { usePersistTimeline } from "@/hooks/usePersistTimeline";
@@ -28,6 +29,9 @@ export function TimelineEditor({
   onRender,
   serverUpdatedAt,
 }: TimelineEditorProps) {
+  // Right panel tab: "preview" | "entities"
+  const [rightTab, setRightTab] = useState<"preview" | "entities">("preview");
+
   // Budget approval modal state (FEATURE-09)
   const [approvalRequest, setApprovalRequest] = useState<ApprovalRequest | null>(null);
 
@@ -87,7 +91,7 @@ export function TimelineEditor({
 
   return (
     <div
-      className="flex flex-col h-screen bg-gray-50"
+      className="flex flex-col h-screen bg-app"
       data-testid="timeline-editor"
     >
       {approvalRequest && (
@@ -116,17 +120,46 @@ export function TimelineEditor({
             onSceneClick={handleSceneClick}
           />
         </div>
-        {/* Right: live preview panel + music controls */}
+        {/* Right: tab bar + preview/entities panel */}
         <div
-          className="w-1/3 min-w-64 max-w-2xl border-l border-gray-200 flex-shrink-0 flex flex-col"
+          className="w-1/3 min-w-64 max-w-2xl border-l border-line flex-shrink-0 flex flex-col"
           data-testid="preview-panel-wrapper"
         >
-          <div className="flex-1 bg-black overflow-hidden">
-            <PreviewPanel onSeekReady={handleSeekReady} />
+          {/* Tab switcher */}
+          <div className="flex border-b border-line bg-panel">
+            {(["preview", "entities"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setRightTab(tab)}
+                className={`flex-1 py-2 text-xs font-medium transition-colors capitalize ${
+                  rightTab === tab
+                    ? "text-accent border-b-2 border-accent bg-accent/5"
+                    : "text-ink-muted hover:text-ink-secondary"
+                }`}
+              >
+                {tab === "entities" ? "Entities (P1)" : "Preview"}
+              </button>
+            ))}
           </div>
-          <div className="p-3 bg-gray-50 border-t border-gray-200">
-            <MusicPanel />
-          </div>
+
+          {rightTab === "preview" ? (
+            <>
+              <div className="flex-1 bg-black overflow-hidden">
+                <PreviewPanel onSeekReady={handleSeekReady} />
+              </div>
+              <div className="p-3 bg-panel border-t border-line">
+                <MusicPanel />
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 overflow-hidden">
+              {projectId ? (
+                <EntityManager projectId={projectId} />
+              ) : (
+                <p className="text-xs text-ink-muted text-center py-8">No project selected</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

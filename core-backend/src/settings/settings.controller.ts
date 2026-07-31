@@ -1,9 +1,11 @@
-import { Controller, Get, Put, Body, Delete, Param, Inject } from "@nestjs/common";
+import { Controller, Get, Put, Body, Delete, Param, Inject, UseGuards } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { SettingsService } from "./settings.service";
 import { DRIZZLE } from "../db/db.module";
 import { youtubeChannels } from "../db/schema";
+import { AuthGuard } from "../auth/auth.guard";
 
+@UseGuards(AuthGuard)
 @Controller("api/settings")
 export class SettingsController {
   constructor(

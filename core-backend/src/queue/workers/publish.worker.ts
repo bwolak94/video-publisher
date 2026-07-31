@@ -8,11 +8,11 @@ import { DlqService } from "../dlq.service";
 import { MetricsService } from "../../metrics/metrics.service";
 import { PublisherRegistry } from "../../publishing/publisher.registry";
 import type { Platform, PublishOptions, PublishResult } from "../../publishing/video-publisher.interface";
-import { QUEUE_CONCURRENCY, RESEARCH_WORKER_SETTINGS } from "../queue.config";
+import { QUEUE_CONCURRENCY, PUBLISH_WORKER_SETTINGS } from "../queue.config";
 
 const logger = pino({ level: "info" });
 const QUEUE_NAME = "publish";
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 5;
 
 export interface PublishJobPayload {
   jobId: string;
@@ -46,8 +46,8 @@ export class PublishWorker implements OnModuleInit, OnModuleDestroy {
       {
         connection: this.redis,
         concurrency: QUEUE_CONCURRENCY[QUEUE_NAME] ?? 3,
-        stalledInterval: RESEARCH_WORKER_SETTINGS.stalledInterval,
-        maxStalledCount: RESEARCH_WORKER_SETTINGS.maxStalledCount,
+        stalledInterval: PUBLISH_WORKER_SETTINGS.stalledInterval,
+        maxStalledCount: PUBLISH_WORKER_SETTINGS.maxStalledCount,
       },
     );
 

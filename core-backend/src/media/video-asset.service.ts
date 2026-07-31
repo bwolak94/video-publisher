@@ -8,6 +8,8 @@ export interface GenerateVideoParams {
   visualPrompt: string;
   aspectRatio?: "16:9" | "9:16";
   sceneId: string;
+  /** S3: Reference image URL for visual conditioning (passed through to provider) */
+  referenceImageUrl?: string | null;
 }
 
 export interface GenerateVideoResult {
@@ -32,7 +34,7 @@ export class VideoAssetService {
 
     logger.info({ sceneId, visualPrompt: visualPrompt.slice(0, 80) }, "Video generation requested");
 
-    const result = await this.registry.generate({ visualPrompt, aspectRatio, sceneId });
+    const result = await this.registry.generate({ visualPrompt, aspectRatio, sceneId, referenceImageUrl: params.referenceImageUrl });
 
     logger.info({ sceneId, provider: result.provider, s3Url: result.s3Url }, "Video generation complete");
     return result;

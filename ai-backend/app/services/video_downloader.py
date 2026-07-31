@@ -12,11 +12,15 @@ Returns the path to a temporary file; caller is responsible for deletion.
 """
 import asyncio
 import os
+import shutil
+import sys
 import tempfile
 from urllib.parse import urlparse
 
 import httpx
 import structlog
+
+from app.utils.network import assert_public_url
 
 logger = structlog.get_logger(__name__)
 
@@ -38,9 +42,10 @@ def _is_direct_video_url(url: str) -> bool:
 async def download_reference_video(url: str) -> str:
     """Download a reference video to a temp file. Returns the temp file path.
 
-    Raises ValueError for unsupported URLs.
+    Raises ValueError for unsupported URLs or SSRF-blocked hosts.
     Raises RuntimeError on download failure.
     """
+    assert_public_url(url)
     if _is_youtube_url(url):
         return await _download_youtube(url)
     if _is_direct_video_url(url):
@@ -50,6 +55,17 @@ async def download_reference_video(url: str) -> str:
     )
 
 
+def _yt_dlp_bin() -> str:
+    """Return the yt-dlp binary path, preferring the same venv as the running interpreter."""
+    candidate = os.path.join(os.path.dirname(sys.executable), "yt-dlp")
+    if os.path.isfile(candidate):
+        return candidate
+    found = shutil.which("yt-dlp")
+    if found:
+        return found
+    raise RuntimeError("yt-dlp not found. Install it with: uv pip install yt-dlp")
+
+
 async def _download_youtube(url: str) -> str:
     """Use yt-dlp to download the best ≤1080p stream to a temp file."""
     tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
@@ -57,7 +73,7 @@ async def _download_youtube(url: str) -> str:
     output_path = tmp.name
 
     cmd = [
-        "yt-dlp",
+        _yt_dlp_bin(),
         "--no-playlist",
         "--format", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]",
         "--merge-output-format", "mp4",
@@ -103,7 +119,7 @@ async def _download_direct(url: str) -> str:
     try:
         downloaded = 0
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, read=300.0)) as client:
-            async with client.stream("GET", url, follow_redirects=True) as res:
+            async with client.stream("GET", url, follow_redirects=False) as res:
                 res.raise_for_status()
                 async for chunk in res.aiter_bytes(chunk_size=65536):
                     downloaded += len(chunk)

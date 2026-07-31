@@ -32,13 +32,16 @@ export class RetryBudgetService {
 
     const date = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
     const key = `retry-budget:${projectId}:${date}`;
+    const TTL_SECONDS = 90_000; // ~25h — auto-expires after midnight
 
-    const count = await this.redis.incr(key);
-
-    if (count === 1) {
-      // First entry of the day — set TTL to 25h to auto-expire after midnight
-      await this.redis.expire(key, 90_000);
-    }
+    // Atomic INCR + conditional EXPIRE via Lua to avoid a race between
+    // incr() and expire() when two workers process the same project concurrently.
+    const script = `
+      local val = redis.call('incr', KEYS[1])
+      if val == 1 then redis.call('expire', KEYS[1], ARGV[1]) end
+      return val
+    `;
+    const count = await this.redis.eval(script, 1, key, TTL_SECONDS) as number;
 
     if (count > limit) {
       logger.warn({ projectId, count, limit }, "I8: Daily retry budget exhausted — marking job unrecoverable");
