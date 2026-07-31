@@ -17,15 +17,46 @@ const STOP_WORDS = new Set([
 ]);
 
 /**
+ * Named people and fictional characters that Pexels won't have.
+ * Replaced with generic context synonyms so searches still yield relevant b-roll.
+ */
+const NAMED_ENTITY_MAP: Record<string, string> = {
+  trump: "politician",
+  biden: "politician",
+  obama: "politician",
+  clinton: "politician",
+  elon: "entrepreneur",
+  musk: "entrepreneur",
+  bezos: "businessman",
+  zuckerberg: "tech ceo",
+  harry: "student",
+  potter: "magic",
+  hermione: "student",
+  voldemort: "villain",
+  gandalf: "wizard",
+  batman: "superhero",
+  superman: "superhero",
+  spiderman: "superhero",
+  ironman: "superhero",
+};
+
+/**
  * Extract search keywords from a visual prompt.
+ * Named public figures and fictional characters are replaced with generic
+ * context synonyms so Pexels can still return relevant b-roll.
+ *
  * @param visualPrompt - e.g. "Close-up of stock market graph falling rapidly"
  * @param maxKeywords  - max number of words to return (default: 5)
  * @returns space-joined keyword string, e.g. "stock market graph falling"
  */
 export function extractKeywords(visualPrompt: string, maxKeywords = 5): string {
-  const words = visualPrompt
-    .toLowerCase()
-    .replace(/[^a-z\s]/g, " ")
+  // Replace named entities first (before lower-casing and splitting)
+  let normalized = visualPrompt.toLowerCase().replace(/[^a-z\s]/g, " ");
+  for (const [entity, replacement] of Object.entries(NAMED_ENTITY_MAP)) {
+    normalized = normalized.replace(new RegExp(`\\b${entity}\\b`, "g"), replacement);
+  }
+
+  const words = normalized
     .split(/\s+/)
     .filter((w) => w.length > 3 && !STOP_WORDS.has(w));
 

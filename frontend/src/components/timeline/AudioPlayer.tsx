@@ -3,9 +3,11 @@ import React, { useEffect, useState } from "react";
 
 interface AudioPlayerProps {
   audioUrl: string | null;
+  /** When the browser reads audio metadata, fires with the actual duration in seconds */
+  onDurationDetected?: (seconds: number) => void;
 }
 
-export function AudioPlayer({ audioUrl }: AudioPlayerProps) {
+export function AudioPlayer({ audioUrl, onDurationDetected }: AudioPlayerProps) {
   // Cache the URL in state on mount — do not refetch on re-renders (Rule 7)
   const [cachedUrl, setCachedUrl] = useState<string | null>(null);
 
@@ -20,10 +22,10 @@ export function AudioPlayer({ audioUrl }: AudioPlayerProps) {
   if (!cachedUrl) {
     return (
       <div
-        className="h-8 bg-gray-50 rounded flex items-center px-2 text-xs text-gray-400"
+        className="h-8 bg-muted rounded-lg flex items-center px-2 text-xs text-ink-muted"
         data-testid="audio-player-empty"
       >
-        {audioUrl ? "Loading audio..." : "No audio"}
+        {audioUrl ? "Loading audio…" : "No audio"}
       </div>
     );
   }
@@ -35,6 +37,12 @@ export function AudioPlayer({ audioUrl }: AudioPlayerProps) {
       src={cachedUrl}
       data-testid="audio-player"
       className="w-full h-8"
+      onLoadedMetadata={(e) => {
+        const { duration } = e.currentTarget;
+        if (duration && isFinite(duration) && onDurationDetected) {
+          onDurationDetected(duration);
+        }
+      }}
     />
   );
 }

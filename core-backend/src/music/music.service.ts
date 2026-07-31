@@ -100,4 +100,22 @@ export class MusicService {
     }
     return stamps;
   }
+
+  /**
+   * S5: Snap scene durations to the nearest beat boundary for the given mood.
+   * Each scene's durationInSeconds is rounded to the nearest multiple of the
+   * beat interval (60 / bpm), with a minimum of one beat interval.
+   */
+  snapDurationsToBeats(
+    scenes: { sceneId: string; durationInSeconds: number }[],
+    mood: MusicMood,
+  ): { sceneId: string; durationInSeconds: number }[] {
+    const bpm = MOOD_BPM[mood] ?? 90;
+    const beatInterval = 60 / bpm;
+    return scenes.map(({ sceneId, durationInSeconds }) => {
+      const beats = Math.max(1, Math.round(durationInSeconds / beatInterval));
+      const snapped = Math.round(beats * beatInterval * 100) / 100;
+      return { sceneId, durationInSeconds: snapped };
+    });
+  }
 }

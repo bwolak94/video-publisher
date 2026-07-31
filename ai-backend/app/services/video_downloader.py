@@ -15,6 +15,9 @@ import os
 import tempfile
 from urllib.parse import urlparse
 
+import shutil
+import sys
+
 import httpx
 import structlog
 
@@ -53,6 +56,17 @@ async def download_reference_video(url: str) -> str:
     )
 
 
+def _yt_dlp_bin() -> str:
+    """Return the yt-dlp binary path, preferring the same venv as the running interpreter."""
+    candidate = os.path.join(os.path.dirname(sys.executable), "yt-dlp")
+    if os.path.isfile(candidate):
+        return candidate
+    found = shutil.which("yt-dlp")
+    if found:
+        return found
+    raise RuntimeError("yt-dlp not found. Install it with: uv pip install yt-dlp")
+
+
 async def _download_youtube(url: str) -> str:
     """Use yt-dlp to download the best ≤1080p stream to a temp file."""
     tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
@@ -60,7 +74,7 @@ async def _download_youtube(url: str) -> str:
     output_path = tmp.name
 
     cmd = [
-        "yt-dlp",
+        _yt_dlp_bin(),
         "--no-playlist",
         "--format", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]",
         "--merge-output-format", "mp4",

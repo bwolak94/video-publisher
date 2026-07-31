@@ -8,6 +8,12 @@ export interface VideoGenerateParams {
   visualPrompt: string;
   aspectRatio?: "16:9" | "9:16";
   sceneId: string;
+  /**
+   * S3: Approved entity reference image URL for visual conditioning.
+   * Passed to providers that support image-to-image or reference conditioning.
+   * Providers that don't support it yet should ignore this field.
+   */
+  referenceImageUrl?: string | null;
 }
 
 export interface ProviderScores {

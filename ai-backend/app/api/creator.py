@@ -7,6 +7,7 @@ POST /api/creator/storyboard → generates full VideoStoryboard from approved ou
 import asyncio
 import json
 import os
+import shutil
 import tempfile
 import uuid
 from typing import Any, Literal
@@ -156,13 +157,22 @@ async def generate_outline(req: OutlineRequest) -> StreamingResponse:
     raw = await call_llm_mini(system, user)
     clean = strip_fences(raw)
 
-    # Parse the JSON outline array and format as plain text bullets
+    # Parse the JSON outline array and format as plain text bullets.
+    # The LLM may return either a bare list or a {"outline": [...]} wrapper.
     bullets: list[str] = []
     try:
-        items = json.loads(clean)
+        parsed = json.loads(clean)
+        if isinstance(parsed, dict):
+            # Unwrap any single-key dict wrapper (e.g. {"outline": [...], "points": [...]})
+            items = next(
+                (v for v in parsed.values() if isinstance(v, list)),
+                [],
+            )
+        else:
+            items = parsed
         bullets = [f"- {item.get('title', '')}: {item.get('keyPoint', '')}" for item in items]
         text = "\n".join(bullets)
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, StopIteration):
         text = clean
 
     logger.info("creator_outline_done", topic=req.topic, bullets=len(bullets))
@@ -279,7 +289,7 @@ async def clone_voice(req: CloneVoiceRequest) -> dict[str, Any]:
             # Extract first 60s of audio as mp3
             audio_path = os.path.join(tmpdir, "voice_sample.mp3")
             proc = await asyncio.create_subprocess_exec(
-                "ffmpeg", "-y", "-i", video_path, "-t", "60", "-vn",
+                shutil.which("ffmpeg") or "/usr/local/bin/ffmpeg", "-y", "-i", video_path, "-t", "60", "-vn",
                 "-acodec", "libmp3lame", "-ab", "128k", audio_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,

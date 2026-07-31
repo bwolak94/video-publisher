@@ -16,7 +16,7 @@ import { S3Service } from "../storage/s3.service";
 import { ScenePreviewService } from "../render/scene-preview.service";
 import { REDIS_CLIENT } from "../redis/redis.module";
 import { configuration } from "../config/configuration";
-import type { VideoStoryboard } from "../storyboard/video-storyboard";
+import type { VideoStoryboard, ShotStatus } from "../storyboard/video-storyboard";
 
 const logger = pino({ level: "info" });
 
@@ -570,6 +570,26 @@ export class ScenesController {
     @Param("targetProjectId") targetProjectId: string,
   ) {
     return this.scenesService.copySceneTo(sceneId, targetProjectId);
+  }
+
+  /**
+   * S9: Set the shot lifecycle status for a scene.
+   * PATCH /api/scenes/projects/:projectId/scenes/:sceneId/status
+   * Body: { status: "pending_review" | "approved" | "generating" | "done" | "failed" }
+   * Worker skips scenes in "pending_review" state.
+   */
+  @Patch("projects/:projectId/scenes/:sceneId/status")
+  @HttpCode(HttpStatus.OK)
+  async updateShotStatus(
+    @Param("projectId") projectId: string,
+    @Param("sceneId") sceneId: string,
+    @Body() body: { status: ShotStatus },
+  ) {
+    const VALID_STATUSES: ShotStatus[] = ["pending_review", "approved", "generating", "done", "failed"];
+    if (!VALID_STATUSES.includes(body.status)) {
+      throw new HttpException({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}` }, HttpStatus.BAD_REQUEST);
+    }
+    return this.scenesService.updateShotStatus(projectId, sceneId, body.status);
   }
 
   // ── Private ────────────────────────────────────────────────────────────────

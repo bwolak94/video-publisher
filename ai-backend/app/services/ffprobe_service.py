@@ -7,12 +7,45 @@ import asyncio
 import base64
 import json
 import os
+import shutil
 import tempfile
 from dataclasses import dataclass, field
 
 import structlog
 
 logger = structlog.get_logger(__name__)
+
+_FFPROBE_BIN: str | None = None
+_FFMPEG_BIN: str | None = None
+
+
+def _find_bin(name: str) -> str:
+    """Resolve ffprobe/ffmpeg binary, checking common macOS/Linux locations."""
+    global _FFPROBE_BIN, _FFMPEG_BIN
+    found = shutil.which(name)
+    if found:
+        return found
+    for prefix in ("/usr/local/bin", "/opt/homebrew/bin", "/usr/bin"):
+        candidate = os.path.join(prefix, name)
+        if os.path.isfile(candidate):
+            return candidate
+    raise RuntimeError(
+        f"{name!r} not found. Install it with: brew install ffmpeg"
+    )
+
+
+def _ffprobe() -> str:
+    global _FFPROBE_BIN
+    if _FFPROBE_BIN is None:
+        _FFPROBE_BIN = _find_bin("ffprobe")
+    return _FFPROBE_BIN
+
+
+def _ffmpeg() -> str:
+    global _FFMPEG_BIN
+    if _FFMPEG_BIN is None:
+        _FFMPEG_BIN = _find_bin("ffmpeg")
+    return _FFMPEG_BIN
 
 
 @dataclass
@@ -30,7 +63,7 @@ class VideoStructure:
 async def probe_video(path: str) -> VideoStructure:
     """Extract video metadata via ffprobe."""
     cmd = [
-        "ffprobe",
+        _ffprobe(),
         "-v", "quiet",
         "-print_format", "json",
         "-show_streams",
@@ -79,7 +112,7 @@ async def detect_scenes(path: str, threshold: float = 0.35) -> list[float]:
     Threshold 0.35 is a good balance between over/under-segmentation.
     """
     cmd = [
-        "ffmpeg",
+        _ffmpeg(),
         "-i", path,
         "-vf", f"select='gt(scene,{threshold})',showinfo",
         "-vsync", "vfr",
@@ -107,7 +140,7 @@ async def detect_scenes(path: str, threshold: float = 0.35) -> list[float]:
 async def measure_audio_loudness(path: str) -> float:
     """Measure integrated loudness in LUFS using ffmpeg's ebur128 filter."""
     cmd = [
-        "ffmpeg",
+        _ffmpeg(),
         "-i", path,
         "-af", "ebur128=peak=true",
         "-f", "null",
@@ -145,7 +178,7 @@ async def sample_frames(path: str, n: int = 5) -> list[str]:
         tmp.close()
 
         cmd = [
-            "ffmpeg",
+            _ffmpeg(),
             "-ss", str(t),
             "-i", path,
             "-frames:v", "1",
@@ -175,7 +208,7 @@ async def extract_audio(path: str) -> str:
     tmp.close()
 
     cmd = [
-        "ffmpeg",
+        _ffmpeg(),
         "-i", path,
         "-vn",
         "-ar", "16000",   # 16kHz — optimal for Whisper
@@ -195,7 +228,7 @@ async def probe_bitrates(path: str) -> tuple[float, float]:
     bit_rate split 80/20 if per-stream values are missing.
     """
     cmd = [
-        "ffprobe",
+        _ffprobe(),
         "-v", "quiet",
         "-print_format", "json",
         "-show_streams",
@@ -235,7 +268,7 @@ async def detect_black_frames(path: str, threshold: float = 0.98) -> int:
     Each detected black segment (d ≥ 0.05s) counts as one.
     """
     cmd = [
-        "ffmpeg",
+        _ffmpeg(),
         "-i", path,
         "-vf", f"blackdetect=d=0.05:pix_th={threshold}",
         "-an",
@@ -253,7 +286,7 @@ async def detect_frozen_frames(path: str, noise_db: float = -60.0, min_duration:
     Returns count of continuous freeze segments (each ≥ min_duration seconds).
     """
     cmd = [
-        "ffmpeg",
+        _ffmpeg(),
         "-i", path,
         "-vf", f"freezedetect=n={noise_db}dB:d={min_duration}",
         "-an",
@@ -271,7 +304,7 @@ async def count_scene_changes(path: str, threshold: float = 0.1) -> int:
     Low count relative to duration → high slideshow risk.
     """
     cmd = [
-        "ffmpeg",
+        _ffmpeg(),
         "-i", path,
         "-vf", f"select='gt(scene,{threshold})',showinfo",
         "-vsync", "vfr",

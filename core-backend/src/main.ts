@@ -3,6 +3,7 @@ import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { FastifyAdapter, NestFastifyApplication } from "@nestjs/platform-fastify";
+import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { DRIZZLE, runMigrations } from "./db/db.module";
 import pino from "pino";
@@ -46,7 +47,30 @@ async function bootstrap() {
   //   setupBullBoard(app);
   // }
 
+  // S2: Preserve raw body for Remotion Lambda webhook HMAC-SHA512 verification
+  app.getHttpAdapter().getInstance().addContentTypeParser(
+    "application/json",
+    { parseAs: "buffer" },
+    (req: any, body: Buffer, done: (err: Error | null, body?: unknown) => void) => {
+      req.rawBody = body;
+      try { done(null, JSON.parse(body.toString())); }
+      catch (e) { done(e as Error); }
+    }
+  );
+
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+
+  // R3: OpenAPI spec — available at /api/docs (UI) and /api/openapi.json (machine-readable)
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle("Video Publisher API")
+    .setDescription("Core backend REST API for AI Video Factory")
+    .setVersion("1.0")
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup("api/docs", app, document, {
+    jsonDocumentUrl: "api/openapi.json",
+  });
 
   // Run DB migrations on startup (UC-01)
   const db = app.get(DRIZZLE);

@@ -23,10 +23,13 @@ import { RateLimiterService } from "../common/rate-limiter.service";
 import { RenderQualityService } from "../render/render-quality.service";
 import { RetryBudgetService } from "./retry-budget.service";
 import { QueueDepthPollerService } from "../metrics/queue-depth-poller.service";
+import { EntitiesModule } from "../entities/entities.module";
+import { ScenesModule } from "../scenes/scenes.module";
+import { RenderWebhookController } from "./render-webhook.controller";
 
 @Module({
-  imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule, RenderModule, CostModule, AlertsModule, MetricsModule, QualityGatesModule],
-  controllers: [DlqController, JobsController],
+  imports: [GatewayModule, ElevenLabsModule, MediaModule, ImagesModule, RenderModule, CostModule, AlertsModule, MetricsModule, QualityGatesModule, EntitiesModule, ScenesModule],
+  controllers: [DlqController, JobsController, RenderWebhookController],
   providers: [
     QueueService,
     JobSyncService,

@@ -31,6 +31,8 @@ export interface SceneState {
   videoProvider?: string;
   /** Generated subtitle track for this scene (FEATURE-04) */
   subtitleTrack?: SubtitleTrack | null;
+  /** S4: Transition effect entering this scene from the previous one */
+  transitionType?: "fade" | "slide" | "wipe" | "flip" | "clock-wipe" | "film-burn" | "none";
 }
 
 interface TimelineState {

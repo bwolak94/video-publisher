@@ -32,15 +32,15 @@ export function TimelineHeader({ onRender, budgetExceeded = false, projectId }: 
 
   return (
     <div
-      className="flex items-center justify-between px-6 py-3 border-b bg-white"
+      className="flex items-center justify-between px-5 h-14 border-b border-line bg-panel flex-shrink-0"
       data-testid="timeline-header"
     >
       <div className="flex items-center gap-4">
-        <h2 className="font-semibold text-gray-900">Timeline Editor</h2>
-        <span className="text-sm text-gray-500" data-testid="scene-count">
+        <h2 className="text-sm font-semibold text-ink">Timeline Editor</h2>
+        <span className="text-xs text-ink-muted" data-testid="scene-count">
           {sceneCount} {sceneCount === 1 ? "scene" : "scenes"}
         </span>
-        <span className="text-sm text-gray-500" data-testid="total-duration">
+        <span className="text-xs text-ink-muted tabular-nums" data-testid="total-duration">
           {formattedDuration}
         </span>
       </div>
@@ -53,7 +53,8 @@ export function TimelineHeader({ onRender, budgetExceeded = false, projectId }: 
           onClick={onRender}
           disabled={sceneCount === 0}
           data-testid="render-button"
-          className="px-4 py-1.5 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 disabled:opacity-50"
+          className="px-4 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:opacity-90 transition-opacity active:scale-95"
+          style={{ background: "linear-gradient(135deg,#5b6ef5 0%,#3d52e8 100%)" }}
         >
           Render Video
         </button>

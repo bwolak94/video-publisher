@@ -12,6 +12,8 @@ export interface GenerateImageParams {
   visualPrompt: string;
   aspectRatio?: string;
   sceneId: string;
+  /** S3: Approved entity reference image URL for visual conditioning (passed to providers that support it). */
+  referenceImageUrl?: string | null;
 }
 
 @Injectable()

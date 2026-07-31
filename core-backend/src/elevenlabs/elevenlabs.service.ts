@@ -143,7 +143,7 @@ export class ElevenLabsService {
       },
       body: JSON.stringify({
         text,
-        model_id: "eleven_monolingual_v1",
+        model_id: "eleven_multilingual_v2",
         voice_settings: {
           stability: params.stability ?? 0.5,
           similarity_boost: params.similarityBoost ?? 0.75,
@@ -173,7 +173,7 @@ export class ElevenLabsService {
       })
     );
 
-    return `https://${this.bucket}.s3.amazonaws.com/${key}`;
+    return `s3://${this.bucket}/${key}`;
   }
 
   /**

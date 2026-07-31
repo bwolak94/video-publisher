@@ -42,7 +42,7 @@ export function ChatInput({
   };
 
   return (
-    <div className="border-t bg-white px-4 py-3 space-y-2">
+    <div className="border-t border-line bg-panel px-4 py-3 space-y-2">
       <div className="flex items-end gap-2">
         <textarea
           ref={textareaRef}
@@ -52,19 +52,20 @@ export function ChatInput({
           placeholder="Describe your video topic..."
           rows={2}
           disabled={isStreaming}
-          className="flex-1 resize-none border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          className="flex-1 resize-none bg-subtle border border-line rounded-xl px-3 py-2.5 text-sm text-ink placeholder:text-ink-placeholder focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50 disabled:opacity-40 transition-colors"
           data-testid="chat-textarea"
         />
         <button
           onClick={handleSubmit}
           disabled={isStreaming || !text.trim()}
-          className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50"
+          className="text-white px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-100 active:scale-95 hover:opacity-90"
+          style={{ background: "linear-gradient(135deg,#5b6ef5 0%,#3d52e8 100%)" }}
           data-testid="send-button"
         >
           Send
         </button>
       </div>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between px-1">
         <FileUploader files={uploadedFiles} onAdd={onAddFile} onRemove={onRemoveFile} />
         <LanguageSelector value={language} onChange={onLanguageChange} />
       </div>

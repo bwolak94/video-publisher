@@ -115,7 +115,7 @@ export function VirtualizedSceneList({ projectId, onSceneClick }: VirtualizedSce
         <div className="px-4 py-3">
           <button
             onClick={() => useTimelineStore.getState().addScene()}
-            className="w-full py-2 text-sm text-gray-500 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+            className="w-full py-2 text-sm text-ink-muted border-2 border-dashed border-line rounded-lg hover:border-accent/40 hover:text-accent transition-colors"
           >
             + Add Scene
           </button>

@@ -71,6 +71,9 @@ export interface AvatarConfig {
   voiceId?: string;
 }
 
+/** S9: Shot lifecycle state machine — controls whether the worker processes this scene. */
+export type ShotStatus = "pending_review" | "approved" | "generating" | "done" | "failed";
+
 export interface StoryboardScene {
   sceneId: string;
   sequenceNumber: number;
@@ -90,6 +93,8 @@ export interface StoryboardScene {
   avatarConfig?: AvatarConfig | null;
   /** I9: Per-scene subtitle style override — overrides project-level default at render time */
   subtitleStyle?: "standard" | "punchy" | "karaoke";
+  /** S9: Shot lifecycle status — worker skips scenes in pending_review state. */
+  shotStatus?: ShotStatus;
 }
 
 export interface VideoStoryboard {

@@ -1,7 +1,12 @@
 "use client";
 import React from "react";
-import { AbsoluteFill, useCurrentFrame } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
+import { loadFont } from "@remotion/google-fonts/Inter";
+import { fitText } from "@remotion/layout-utils";
 import type { WordTimestamp } from "@/types/subtitle";
+
+// S1: Register Inter for Lambda headless Chrome — prevents silent fallback to system-ui
+const { fontFamily } = loadFont();
 
 const CONTEXT_WORDS_BEFORE = 3;
 const CONTEXT_WORDS_AFTER = 4;
@@ -34,6 +39,7 @@ export function SubtitleOverlay({
   style = {},
 }: SubtitleOverlayProps) {
   const frame = useCurrentFrame();
+  const { width } = useVideoConfig();
   const currentSeconds = frame / fps - timeOffsetSeconds;
 
   const {
@@ -57,6 +63,15 @@ export function SubtitleOverlay({
   const start = Math.max(0, activeIndex - CONTEXT_WORDS_BEFORE);
   const end = Math.min(words.length, start + TOTAL_CONTEXT);
   const visibleWords = words.slice(start, end);
+
+  // S8: Dynamically scale font to fit 88% of the frame width, capped at the configured fontSize
+  const visibleText = visibleWords.map((w) => w.word).join(" ");
+  const { fontSize: fittedSize } = fitText({
+    fontFamily,
+    text: visibleText,
+    withinWidth: width * 0.88,
+  });
+  const resolvedFontSize = Math.min(fontSize, fittedSize);
 
   // Vertical placement
   const verticalStyle: React.CSSProperties =
@@ -92,8 +107,8 @@ export function SubtitleOverlay({
             <span
               key={`${w.start}-${i}`}
               style={{
-                fontSize,
-                fontFamily: "Inter, system-ui, sans-serif",
+                fontSize: resolvedFontSize,
+                fontFamily,
                 fontWeight: isActive ? 700 : 400,
                 color: isActive ? highlightColor : color,
                 opacity: isActive ? 1 : 0.75,

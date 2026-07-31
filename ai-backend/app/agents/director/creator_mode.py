@@ -1,8 +1,8 @@
 """Director Agent — Creator Mode (LangGraph with human-in-the-loop).
 
 Graph structure:
-  outline ──→ human_approval* ──→ generate_storyboard ──→ END
-                   └──────────────────────────────────────→ END (not approved)
+  outline ──→ human_approval* ──→ generate_storyboard ──→ validate_consistency ──→ END
+                   └─────────────────────────────────────────────────────────────→ END (not approved)
 
 * interrupt_before=["human_approval"] — graph suspends here so the frontend
   can present the outline for user review and editing.
@@ -24,7 +24,11 @@ from langgraph.graph import END, StateGraph
 from openai import AsyncOpenAI
 from typing_extensions import TypedDict
 
-from app.agents.director.prompts import build_full_storyboard_messages, build_outline_messages
+from app.agents.director.prompts import (
+    build_consistency_check_messages,
+    build_full_storyboard_messages,
+    build_outline_messages,
+)
 from app.config import get_settings
 from app.models.director import NicheProfile
 from app.models.storyboard import VideoStoryboard
@@ -59,6 +63,8 @@ class DirectorState(TypedDict):
     # I4: RAG chunks fetched once in outline_node and passed through — avoids a
     # duplicate DB round-trip in generate_storyboard_node for the same query.
     _source_chunks: list[str] | None
+    # S6: Named entities for visual consistency validation (optional).
+    entities: list[dict[str, Any]] | None
 
 
 # ── LLM helpers (thin wrappers — easy to mock in tests) ───────────────────────
@@ -183,6 +189,38 @@ async def generate_storyboard_node(state: DirectorState) -> dict[str, Any]:
         return {"error": str(exc)}
 
 
+async def validate_consistency_node(state: DirectorState) -> dict[str, Any]:
+    """S6: Check that visual prompts honour entity descriptions.
+
+    Uses GPT-4o-mini to scan every scene's visualPrompt for contradictions with
+    the named entity list. Issues are logged as warnings but do NOT block the
+    pipeline — a consistency failure is non-fatal so the storyboard is still
+    returned to the caller. The list of issues is stored in the error field only
+    when the LLM call itself fails; consistency issues are surfaced via logs.
+    """
+    entities: list[dict[str, Any]] = state.get("entities") or []
+    storyboard: dict[str, Any] | None = state.get("storyboard")
+
+    if not entities or not storyboard:
+        # Nothing to check — skip silently.
+        return {}
+
+    try:
+        system, user = build_consistency_check_messages(entities, storyboard)
+        raw = await _call_llm_mini(system, user)
+        result = json.loads(strip_fences(raw))
+        issues: list[str] = result.get("issues", [])
+        if issues:
+            logger.warning("S6: visual_consistency_issues", count=len(issues), issues=issues)
+        else:
+            logger.info("S6: visual_consistency_ok")
+    except (json.JSONDecodeError, openai.OpenAIError) as exc:
+        logger.warning("S6: consistency_check_failed", error=str(exc))
+
+    # Always return the storyboard unchanged — consistency check is advisory only.
+    return {}
+
+
 # ── Routing ────────────────────────────────────────────────────────────────────
 
 def _route_after_approval(state: DirectorState) -> str:
@@ -194,12 +232,20 @@ def _route_after_approval(state: DirectorState) -> str:
 # ── Graph Factory ──────────────────────────────────────────────────────────────
 
 def build_creator_graph() -> StateGraph[DirectorState]:
-    """Build the Creator Mode graph (not yet compiled)."""
+    """Build the Creator Mode graph (not yet compiled).
+
+    Graph topology:
+      outline → human_approval* → generate_storyboard → validate_consistency → END
+                      └─ (not approved) ──────────────────────────────────────→ END
+
+    * interrupt_before=["human_approval"] suspends the graph for human review.
+    """
     graph: StateGraph[DirectorState] = StateGraph(DirectorState)
 
     graph.add_node("outline", outline_node)
     graph.add_node("human_approval", human_approval_node)
     graph.add_node("generate_storyboard", generate_storyboard_node)
+    graph.add_node("validate_consistency", validate_consistency_node)
 
     graph.set_entry_point("outline")
     graph.add_edge("outline", "human_approval")
@@ -208,7 +254,8 @@ def build_creator_graph() -> StateGraph[DirectorState]:
         _route_after_approval,
         {"generate_storyboard": "generate_storyboard", END: END},
     )
-    graph.add_edge("generate_storyboard", END)
+    graph.add_edge("generate_storyboard", "validate_consistency")
+    graph.add_edge("validate_consistency", END)
 
     return graph
 

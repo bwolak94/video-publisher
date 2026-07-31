@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { DRIZZLE } from "../db/db.module";
 import { projects, sceneAssetHistory } from "../db/schema";
-import type { VideoStoryboard, StoryboardScene, SubtitleTrack } from "../storyboard/video-storyboard";
+import type { VideoStoryboard, StoryboardScene, SubtitleTrack, ShotStatus } from "../storyboard/video-storyboard";
 import { WaveformService } from "./waveform.service";
 import { S3Service } from "../storage/s3.service";
 
@@ -203,6 +203,34 @@ export class ScenesService {
       .update(projects)
       .set({ storyboard: updated, updatedAt: new Date() })
       .where(eq(projects.id, projectId));
+  }
+
+  /**
+   * S9: Transition a scene's shotStatus in the lifecycle state machine.
+   * The worker checks this before processing — scenes in "pending_review" are skipped.
+   */
+  async updateShotStatus(projectId: string, sceneId: string, shotStatus: ShotStatus): Promise<StoryboardScene> {
+    const rows = await this.db.select().from(projects).where(eq(projects.id, projectId));
+    const project = rows[0];
+    if (!project) throw new NotFoundException(`Project ${projectId} not found`);
+
+    const storyboard = project.storyboard as VideoStoryboard;
+    const scene = storyboard.timeline.find((s) => s.sceneId === sceneId);
+    if (!scene) throw new NotFoundException(`Scene ${sceneId} not found`);
+
+    const updated = {
+      ...storyboard,
+      timeline: storyboard.timeline.map((s) =>
+        s.sceneId === sceneId ? { ...s, shotStatus } : s
+      ),
+    };
+
+    await this.db
+      .update(projects)
+      .set({ storyboard: updated, updatedAt: new Date() })
+      .where(eq(projects.id, projectId));
+
+    return { ...scene, shotStatus };
   }
 
   /** I6: Get asset history for a scene (latest first). */

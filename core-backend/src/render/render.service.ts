@@ -30,16 +30,12 @@ export class RenderService {
   }
 
   /**
-   * Render a fully-populated storyboard (all s3:// URLs) via Remotion Lambda.
+   * Render a storyboard via Remotion Lambda and WAIT for completion (legacy polling mode).
    * Returns the final s3:// URL of the rendered mp4.
    */
   async render(storyboard: VideoStoryboard, projectId: string): Promise<string> {
-    // Guard: no external URLs may reach Remotion Lambda (PRD NFR-6.3.5)
     this.assertAllS3(storyboard);
-
-    // Convert s3:// URIs to pre-signed HTTPS URLs for Lambda (Chrome can't handle s3://)
     const preparedStoryboard = await this.prepareUrls(storyboard);
-
     const totalFrames = calculateDurationInFrames(preparedStoryboard.timeline, FPS);
     const framesPerLambda = getFramesPerLambda(totalFrames, FPS);
     const outName = `renders/${projectId}/${Date.now()}.mp4`;
@@ -47,30 +43,51 @@ export class RenderService {
     const width = getCompositionWidth(aspectRatio);
     const height = getCompositionHeight(aspectRatio);
 
-    logger.info(
-      { projectId, totalFrames, framesPerLambda, outName, width, height, aspectRatio },
-      "Dispatching render to Lambda"
-    );
-
+    logger.info({ projectId, totalFrames, framesPerLambda, outName, width, height, aspectRatio }, "Dispatching render to Lambda (sync)");
     await this.callRenderMedia({
-      region: LAMBDA_REGION,
-      functionName: this.functionName,
-      serveUrl: this.serveUrl,
-      composition: COMPOSITION_ID,
-      inputProps: { storyboard: preparedStoryboard },
-      codec: "h264",
-      outName,
-      framesPerLambda,
-      architecture: "arm64",
-      memorySizeInMb: MEMORY_MB,
-      overwrite: true,
-      width,
-      height,
+      region: LAMBDA_REGION, functionName: this.functionName, serveUrl: this.serveUrl,
+      composition: COMPOSITION_ID, inputProps: { storyboard: preparedStoryboard },
+      codec: "h264", outName, framesPerLambda, architecture: "arm64",
+      memorySizeInMb: MEMORY_MB, overwrite: true, width, height,
     });
 
     const s3Url = `s3://${this.bucket}/${outName}`;
     logger.info({ projectId, s3Url }, "Render completed");
     return s3Url;
+  }
+
+  /**
+   * S2: Dispatch render to Lambda WITHOUT waiting. Returns the expected s3:// URL and renderId.
+   * Completion is signalled via the Remotion webhook → /webhooks/remotion.
+   */
+  async renderAsync(storyboard: VideoStoryboard, projectId: string, jobId: string): Promise<{ s3Url: string; renderId: string }> {
+    this.assertAllS3(storyboard);
+    const preparedStoryboard = await this.prepareUrls(storyboard);
+    const totalFrames = calculateDurationInFrames(preparedStoryboard.timeline, FPS);
+    const framesPerLambda = getFramesPerLambda(totalFrames, FPS);
+    const outName = `renders/${projectId}/${Date.now()}.mp4`;
+    const aspectRatio = preparedStoryboard.meta.aspectRatio ?? "16:9";
+    const width = getCompositionWidth(aspectRatio);
+    const height = getCompositionHeight(aspectRatio);
+
+    const webhookUrl = process.env.REMOTION_WEBHOOK_URL;
+    const webhookSecret = process.env.REMOTION_WEBHOOK_SECRET;
+
+    logger.info({ projectId, totalFrames, outName, width, height }, "Dispatching render to Lambda (async+webhook)");
+
+    const { renderId } = await this.dispatchRenderAsync({
+      region: LAMBDA_REGION, functionName: this.functionName, serveUrl: this.serveUrl,
+      composition: COMPOSITION_ID, inputProps: { storyboard: preparedStoryboard },
+      codec: "h264", outName, framesPerLambda, architecture: "arm64",
+      memorySizeInMb: MEMORY_MB, overwrite: true, width, height,
+      ...(webhookUrl && webhookSecret
+        ? { webhook: { url: webhookUrl, secret: webhookSecret, customData: { projectId, jobId } } }
+        : {}),
+    });
+
+    const s3Url = `s3://${this.bucket}/${outName}`;
+    logger.info({ projectId, renderId, s3Url }, "Render dispatched — awaiting Lambda webhook callback");
+    return { s3Url, renderId };
   }
 
   private assertAllS3(storyboard: VideoStoryboard): void {
@@ -111,5 +128,10 @@ export class RenderService {
   protected async callRenderMedia(params: object): Promise<void> {
     const { renderMediaOnLambda } = await import("@remotion/lambda/client");
     await renderMediaOnLambda(params as any);
+  }
+
+  protected async dispatchRenderAsync(params: object): Promise<{ renderId: string }> {
+    const { renderMediaOnLambda } = await import("@remotion/lambda/client");
+    return renderMediaOnLambda(params as any) as Promise<{ renderId: string }>;
   }
 }
