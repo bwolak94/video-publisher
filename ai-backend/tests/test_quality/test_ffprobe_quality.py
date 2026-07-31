@@ -12,7 +12,6 @@ from app.services.ffprobe_service import (
     probe_bitrates,
 )
 
-
 _FAKE_FFPROBE = "/fake/ffprobe"
 
 
