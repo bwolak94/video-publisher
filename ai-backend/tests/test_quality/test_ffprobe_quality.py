@@ -13,6 +13,9 @@ from app.services.ffprobe_service import (
 )
 
 
+_FAKE_FFPROBE = "/fake/ffprobe"
+
+
 class TestProbeBitrates:
     @pytest.mark.asyncio
     async def test_parses_per_stream_bitrates(self):
@@ -25,7 +28,8 @@ class TestProbeBitrates:
         }"""
         mock_proc = MagicMock()
         mock_proc.returncode = 0
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
+        with patch("app.services.ffprobe_service._find_bin", return_value=_FAKE_FFPROBE), \
+             patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
              patch("asyncio.wait_for", AsyncMock(return_value=(fake_json, b""))):
             video_kbps, audio_kbps = await probe_bitrates("/fake/video.mp4")
 
@@ -44,7 +48,8 @@ class TestProbeBitrates:
         }"""
         mock_proc = MagicMock()
         mock_proc.returncode = 0
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
+        with patch("app.services.ffprobe_service._find_bin", return_value=_FAKE_FFPROBE), \
+             patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
              patch("asyncio.wait_for", AsyncMock(return_value=(fake_json, b""))):
             video_kbps, audio_kbps = await probe_bitrates("/fake/video.mp4")
 
@@ -55,7 +60,8 @@ class TestProbeBitrates:
     async def test_returns_zeros_on_parse_failure(self):
         mock_proc = MagicMock()
         mock_proc.returncode = 0
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
+        with patch("app.services.ffprobe_service._find_bin", return_value=_FAKE_FFPROBE), \
+             patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
              patch("asyncio.wait_for", AsyncMock(return_value=(b"not json", b""))):
             video_kbps, audio_kbps = await probe_bitrates("/fake/video.mp4")
 
