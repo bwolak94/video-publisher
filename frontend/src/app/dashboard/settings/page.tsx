@@ -65,20 +65,53 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">{children}</p>;
 }
 
-function ApiKeyInput({ placeholder, value, onChange }: { placeholder: string; value: string; onChange: (v: string) => void }) {
+function ApiKeyInput({ placeholder, value, onChange, fieldName }: {
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  fieldName?: string;
+}) {
   const [show, setShow] = useState(false);
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const [revealing, setRevealing] = useState(false);
   const isStored = value === MASK;
+
+  const handleShow = async () => {
+    if (show) {
+      setShow(false);
+      setRevealed(null);
+      return;
+    }
+    if (isStored && fieldName && !revealed) {
+      setRevealing(true);
+      try {
+        const data = await apiGet<{ value: string }>(`/api/settings/decrypt/${fieldName}`);
+        setRevealed(data.value);
+      } catch {
+        setRevealed("");
+      } finally {
+        setRevealing(false);
+      }
+    }
+    setShow(true);
+  };
+
+  const displayValue = isStored ? (revealed ?? "") : value;
+
   return (
     <div className="flex gap-2">
       <div className="relative flex-1">
         <input
           type={show ? "text" : "password"}
           className="w-full bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted font-mono focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
-          placeholder={isStored ? "••••••••••••  (stored encrypted)" : placeholder}
-          value={isStored ? "" : value}
-          onChange={(e) => onChange(e.target.value)}
+          placeholder={isStored && !show ? "••••••••••••  (stored encrypted)" : placeholder}
+          value={displayValue}
+          onChange={(e) => {
+            setRevealed(null);
+            onChange(e.target.value);
+          }}
         />
-        {isStored && (
+        {isStored && !show && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neon-glow font-medium">
             ✓ Set
           </span>
@@ -86,10 +119,11 @@ function ApiKeyInput({ placeholder, value, onChange }: { placeholder: string; va
       </div>
       <button
         type="button"
-        onClick={() => setShow((s) => !s)}
-        className="px-3 py-2 bg-surface-overlay border border-surface-border rounded-xl text-xs text-text-secondary hover:text-text-primary transition-colors"
+        onClick={handleShow}
+        disabled={revealing}
+        className="px-3 py-2 bg-surface-overlay border border-surface-border rounded-xl text-xs text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
       >
-        {show ? "Hide" : "Show"}
+        {revealing ? "…" : show ? "Hide" : "Show"}
       </button>
     </div>
   );
@@ -110,6 +144,64 @@ function SaveButton({ onClick, saving, saved, error }: { onClick: () => void; sa
         {saving ? "Saving…" : saved ? "✓ Saved" : "Save changes"}
       </button>
       {error && <p className="text-sm text-error-base">{error}</p>}
+    </div>
+  );
+}
+
+// ── Provider Status Panel ─────────────────────────────────────────────────────
+
+interface ProviderStatus {
+  name: string;
+  available: boolean;
+  score: number;
+  lastErrorAt: string | null;
+  successRatePct: number | null;
+}
+
+function VideoProviderStatus() {
+  const [providers, setProviders] = useState<ProviderStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<ProviderStatus[]>("/api/scenes/video-providers")
+      .then(setProviders)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className="text-xs text-text-muted">Checking providers…</p>;
+  if (providers.length === 0) return null;
+
+  const ranked = [...providers].sort((a, b) => b.score - a.score);
+
+  return (
+    <div className="mb-5 rounded-xl border border-surface-border overflow-hidden">
+      <div className="px-3 py-2 bg-surface-overlay border-b border-surface-border">
+        <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Active Provider Ranking</p>
+      </div>
+      <div className="divide-y divide-surface-border">
+        {ranked.map((p, i) => (
+          <div key={p.name} className="flex items-center gap-3 px-3 py-2.5">
+            <span className="text-xs text-text-muted w-4">{i + 1}</span>
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${p.available ? "bg-neon-base" : "bg-surface-muted"}`} />
+            <span className="text-sm font-medium text-text-primary capitalize flex-1">{p.name}</span>
+            {i === 0 && p.available && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-neon-dim/40 text-neon-glow border border-neon-base/20">
+                Selected
+              </span>
+            )}
+            {!p.available && (
+              <span className="text-xs text-text-muted">No key</span>
+            )}
+            {p.successRatePct !== null && (
+              <span className="text-xs text-text-muted">{p.successRatePct}% ok</span>
+            )}
+            {p.lastErrorAt && (
+              <span className="text-xs text-error-base">err {new Date(p.lastErrorAt).toLocaleTimeString()}</span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -140,31 +232,32 @@ function IntegrationsTab({ initial }: { initial: Record<string, string> }) {
         <div>
           <SectionLabel>Voice</SectionLabel>
           <FieldGroup label="ElevenLabs API Key" hint="Required for voice synthesis on every scene.">
-            <ApiKeyInput placeholder="sk_…" value={fields.elevenLabsKey ?? ""} onChange={set("elevenLabsKey")} />
+            <ApiKeyInput placeholder="sk_…" value={fields.elevenLabsKey ?? ""} onChange={set("elevenLabsKey")} fieldName="elevenLabsKey" />
           </FieldGroup>
 
           <SectionLabel>AI Models</SectionLabel>
           <FieldGroup label="OpenAI API Key" hint="DALL-E 3 images + GPT-4o scripting.">
-            <ApiKeyInput placeholder="sk-…" value={fields.openaiKey ?? ""} onChange={set("openaiKey")} />
+            <ApiKeyInput placeholder="sk-…" value={fields.openaiKey ?? ""} onChange={set("openaiKey")} fieldName="openaiKey" />
           </FieldGroup>
           <FieldGroup label="Anthropic API Key" hint="Claude as Director/Scriptwriter agent.">
-            <ApiKeyInput placeholder="sk-ant-…" value={fields.anthropicKey ?? ""} onChange={set("anthropicKey")} />
+            <ApiKeyInput placeholder="sk-ant-…" value={fields.anthropicKey ?? ""} onChange={set("anthropicKey")} fieldName="anthropicKey" />
           </FieldGroup>
         </div>
 
         <div>
           <SectionLabel>Video Generation</SectionLabel>
+          <VideoProviderStatus />
           <FieldGroup label="Runway Gen-3 Alpha API Key" hint="AI-generated video. Quality: ★★★★★  Cost: $0.15/scene.">
-            <ApiKeyInput placeholder="rw_…" value={fields.runwayKey ?? ""} onChange={set("runwayKey")} />
+            <ApiKeyInput placeholder="rw_…" value={fields.runwayKey ?? ""} onChange={set("runwayKey")} fieldName="runwayKey" />
           </FieldGroup>
           <FieldGroup label="Kling AI — Access Key" hint="AI-generated video. Quality: ★★★★★  Cost: ~$0.10/scene.">
-            <ApiKeyInput placeholder="kling_ak_…" value={fields.klingAccessKey ?? ""} onChange={set("klingAccessKey")} />
+            <ApiKeyInput placeholder="kling_ak_…" value={fields.klingAccessKey ?? ""} onChange={set("klingAccessKey")} fieldName="klingAccessKey" />
           </FieldGroup>
           <FieldGroup label="Kling AI — Secret Key" hint="Required together with Access Key. Get both at platform.klingai.com.">
-            <ApiKeyInput placeholder="kling_sk_…" value={fields.klingSecretKey ?? ""} onChange={set("klingSecretKey")} />
+            <ApiKeyInput placeholder="kling_sk_…" value={fields.klingSecretKey ?? ""} onChange={set("klingSecretKey")} fieldName="klingSecretKey" />
           </FieldGroup>
-          <FieldGroup label="Pexels API Key" hint="Stock footage. Quality: ★★★  Cost: Free.">
-            <ApiKeyInput placeholder="…" value={fields.pexelsKey ?? ""} onChange={set("pexelsKey")} />
+          <FieldGroup label="Pexels API Key" hint="Stock footage fallback. Quality: ★★★  Cost: Free.">
+            <ApiKeyInput placeholder="…" value={fields.pexelsKey ?? ""} onChange={set("pexelsKey")} fieldName="pexelsKey" />
           </FieldGroup>
           <FieldGroup
             label="Archival Footage (Archive.org / Wikimedia / NASA)"

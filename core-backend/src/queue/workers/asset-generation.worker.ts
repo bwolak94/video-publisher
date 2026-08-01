@@ -159,7 +159,7 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
 
     try {
       // Parallel: audio (ElevenLabs) + visual (image or video based on assetType)
-      const [, visualResult] = await Promise.all([
+      const [audioUrl, visualResult] = await Promise.all([
         narrationText && voiceId && standardVoiceId
           ? this.generateAudio(narrationText, voiceId, standardVoiceId, { stability, similarityBoost, style })
           : Promise.resolve(null),
@@ -171,6 +171,14 @@ export class AssetGenerationWorker implements OnModuleInit, OnModuleDestroy {
       ]);
 
       videoProvider = visualResult?.provider;
+
+      // Persist generated URLs back to the scene in the storyboard
+      if (audioUrl && projectId && sceneId) {
+        await this.scenesService.updateSceneAudioUrl(projectId, sceneId, audioUrl);
+      }
+      if (visualResult?.s3Url && projectId && sceneId) {
+        await this.scenesService.updateSceneVideoUrl(projectId, sceneId, visualResult.s3Url, visualResult.provider);
+      }
     } finally {
       await this.dedup.release(contentHash, holderId);
     }

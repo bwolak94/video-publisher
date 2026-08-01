@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Body, Delete, Param, Inject, UseGuards } from "@nestjs/common";
+import { Controller, Get, Put, Body, Delete, Param, Inject, UseGuards, ForbiddenException } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { SettingsService } from "./settings.service";
 import { DRIZZLE } from "../db/db.module";
@@ -18,6 +18,23 @@ export class SettingsController {
   @Get()
   async getAll() {
     return this.settings.getAll();
+  }
+
+  // ── GET /api/settings/decrypt/:field — reveal a single stored key ────────
+
+  private static readonly DECRYPTABLE = new Set([
+    "elevenLabsKey", "openaiKey", "anthropicKey",
+    "runwayKey", "pexelsKey", "klingAccessKey", "klingSecretKey",
+    "awsAccessKey", "awsSecretKey",
+  ]);
+
+  @Get("decrypt/:field")
+  async decryptField(@Param("field") field: string): Promise<{ value: string }> {
+    if (!SettingsController.DECRYPTABLE.has(field)) {
+      throw new ForbiddenException(`Field '${field}' cannot be decrypted via API`);
+    }
+    const value = await this.settings.getPlaintext(`integrations.${field}`);
+    return { value: value ?? "" };
   }
 
   // ── PUT /api/settings/integrations ────────────────────────────────────────

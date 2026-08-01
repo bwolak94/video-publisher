@@ -77,6 +77,7 @@ export class RunwayService {
       headers: {
         Authorization: `Bearer ${await this.getApiKey()}`,
         "Content-Type": "application/json",
+        "X-Runway-Version": "2024-11-06",
       },
       body: JSON.stringify({
         model: MODEL_ID,
@@ -107,7 +108,10 @@ export class RunwayService {
       await this.sleep(POLL_INTERVAL_MS);
 
       const response = await this.httpFetch(`${this.baseUrl}/v1/tasks/${taskId}`, {
-        headers: { Authorization: `Bearer ${await this.getApiKey()}` },
+        headers: {
+          Authorization: `Bearer ${await this.getApiKey()}`,
+          "X-Runway-Version": "2024-11-06",
+        },
       });
 
       if (!response.ok) {
