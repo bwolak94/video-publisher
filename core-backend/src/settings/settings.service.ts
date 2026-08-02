@@ -22,6 +22,7 @@ const SENSITIVE_KEYS = new Set([
   "integrations.didKey",
   "alerts.slackWebhookUrl",
   "alerts.smtpPass",
+  "remotion.webhookSecret",
 ]);
 
 const MASK = "__STORED__";
@@ -76,6 +77,13 @@ export interface SettingsDto {
     dalle3PerImage: string;
     lambdaPerMin: string;
     approvalThresholdUsd: string;
+  };
+  remotion: {
+    functionName: string;
+    serveUrl: string;
+    region: string;
+    webhookUrl: string;
+    webhookSecret: string;
   };
 }
 
@@ -150,6 +158,13 @@ export class SettingsService {
         dalle3PerImage: get("costRates.dalle3PerImage", "0.04"),
         lambdaPerMin: get("costRates.lambdaPerMin", "0.001"),
         approvalThresholdUsd: get("costRates.approvalThresholdUsd", "0.50"),
+      },
+      remotion: {
+        functionName: get("remotion.functionName", ""),
+        serveUrl: get("remotion.serveUrl", ""),
+        region: get("remotion.region", "eu-central-1"),
+        webhookUrl: get("remotion.webhookUrl", ""),
+        webhookSecret: get("remotion.webhookSecret", ""),
       },
     };
   }

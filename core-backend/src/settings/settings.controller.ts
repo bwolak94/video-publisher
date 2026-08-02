@@ -26,6 +26,7 @@ export class SettingsController {
     "elevenLabsKey", "openaiKey", "anthropicKey",
     "runwayKey", "pexelsKey", "klingAccessKey", "klingSecretKey",
     "awsAccessKey", "awsSecretKey",
+    "remotionWebhookSecret",
   ]);
 
   @Get("decrypt/:field")
@@ -33,7 +34,9 @@ export class SettingsController {
     if (!SettingsController.DECRYPTABLE.has(field)) {
       throw new ForbiddenException(`Field '${field}' cannot be decrypted via API`);
     }
-    const value = await this.settings.getPlaintext(`integrations.${field}`);
+    // remotionWebhookSecret lives under the "remotion." namespace, not "integrations."
+    const namespace = field === "remotionWebhookSecret" ? "remotion.webhookSecret" : `integrations.${field}`;
+    const value = await this.settings.getPlaintext(namespace);
     return { value: value ?? "" };
   }
 
@@ -82,6 +85,19 @@ export class SettingsController {
     const entries: Record<string, string> = {};
     for (const k of allowed) {
       if (body[k] !== undefined) entries[`alerts.${k}`] = body[k];
+    }
+    await this.settings.upsertMany(entries);
+    return { ok: true };
+  }
+
+  // ── PUT /api/settings/remotion ────────────────────────────────────────────
+
+  @Put("remotion")
+  async saveRemotion(@Body() body: Record<string, string>) {
+    const allowed = ["functionName", "serveUrl", "region", "webhookUrl", "webhookSecret"];
+    const entries: Record<string, string> = {};
+    for (const k of allowed) {
+      if (body[k] !== undefined) entries[`remotion.${k}`] = body[k];
     }
     await this.settings.upsertMany(entries);
     return { ok: true };

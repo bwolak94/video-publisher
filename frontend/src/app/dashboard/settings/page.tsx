@@ -9,13 +9,14 @@ const MASK = "__STORED__";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = "integrations" | "youtube" | "worker" | "budget" | "alerts";
+type Tab = "integrations" | "remotion" | "youtube" | "worker" | "budget" | "alerts";
 
 interface SettingsDto {
   integrations: Record<string, string>;
   worker: { enabled: boolean; cronSchedule: string; nicheProfileId: string; minViralityScore: number; dedupWindowHours: number; aiBackendUrl: string };
   alerts: Record<string, string>;
   costRates: Record<string, string>;
+  remotion: Record<string, string>;
 }
 
 interface Channel {
@@ -297,6 +298,100 @@ function IntegrationsTab({ initial }: { initial: Record<string, string> }) {
               <input type="text" className="bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
                 placeholder="my-video-assets" value={fields.s3Bucket ?? ""} onChange={(e) => set("s3Bucket")(e.target.value)} />
             </FieldGroup>
+          </div>
+        </div>
+      </div>
+      <SaveButton onClick={handleSave} saving={saving} saved={saved} error={error} />
+    </div>
+  );
+}
+
+// ── Tab: Remotion Lambda ──────────────────────────────────────────────────────
+
+function RemotonTab({ initial }: { initial: Record<string, string> }) {
+  const [fields, setFields] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const set = (k: string) => (v: string) => { setFields((p) => ({ ...p, [k]: v })); setSaved(false); };
+
+  const handleSave = async () => {
+    setSaving(true); setError(null);
+    try {
+      await apiPut("/api/settings/remotion", fields);
+      setSaved(true);
+    } catch (e: any) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div>
+      <h2 className="text-base font-semibold text-text-primary mb-1">Remotion Lambda</h2>
+      <p className="text-sm text-text-secondary mb-6">
+        Configure the AWS Lambda function used to render final video.
+        Values here are overridden by environment variables if both are set.
+      </p>
+
+      <div className="grid grid-cols-2 gap-x-8">
+        <div>
+          <FieldGroup label="Lambda Function Name" hint="e.g. remotion-render-4-0-0-arm64-2048mb-120sec">
+            <input
+              type="text"
+              className="w-full bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm font-mono text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
+              placeholder="remotion-render-…"
+              value={fields.functionName ?? ""}
+              onChange={(e) => set("functionName")(e.target.value)}
+            />
+          </FieldGroup>
+          <FieldGroup label="Serve URL" hint="S3 URL of your deployed Remotion bundle, e.g. https://remotionlambda-…s3.amazonaws.com/sites/…/index.html">
+            <input
+              type="text"
+              className="w-full bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm font-mono text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
+              placeholder="https://remotionlambda-…"
+              value={fields.serveUrl ?? ""}
+              onChange={(e) => set("serveUrl")(e.target.value)}
+            />
+          </FieldGroup>
+          <FieldGroup label="AWS Region" hint="Region where the Lambda function is deployed.">
+            <input
+              type="text"
+              className="w-full bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm font-mono text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
+              placeholder="eu-central-1"
+              value={fields.region ?? "eu-central-1"}
+              onChange={(e) => set("region")(e.target.value)}
+            />
+          </FieldGroup>
+        </div>
+
+        <div>
+          <FieldGroup label="Webhook URL" hint="Public URL for Remotion Lambda to POST render completion. E.g. https://your-domain.com/webhooks/remotion">
+            <input
+              type="text"
+              className="w-full bg-surface-overlay border border-surface-border rounded-xl px-3 py-2.5 text-sm font-mono text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-violet-base focus:border-transparent"
+              placeholder="https://your-domain.com/webhooks/remotion"
+              value={fields.webhookUrl ?? ""}
+              onChange={(e) => set("webhookUrl")(e.target.value)}
+            />
+          </FieldGroup>
+          <FieldGroup label="Webhook Secret" hint="Used to verify HMAC-SHA512 signatures on webhook callbacks.">
+            <ApiKeyInput
+              placeholder="random secret string"
+              value={fields.webhookSecret ?? ""}
+              onChange={set("webhookSecret")}
+              fieldName="remotionWebhookSecret"
+            />
+          </FieldGroup>
+
+          <div className="mt-4 bg-surface-base/50 border border-surface-border rounded-xl p-4 text-sm space-y-2">
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Priority</p>
+            <p className="text-xs text-text-secondary">
+              Environment variables (<code className="font-mono text-violet-glow">REMOTION_FUNCTION_NAME</code>,{" "}
+              <code className="font-mono text-violet-glow">REMOTION_SERVE_URL</code>,{" "}
+              <code className="font-mono text-violet-glow">REMOTION_WEBHOOK_URL</code>,{" "}
+              <code className="font-mono text-violet-glow">REMOTION_WEBHOOK_SECRET</code>,{" "}
+              <code className="font-mono text-violet-glow">AWS_REGION</code>) take priority over values saved here.
+            </p>
           </div>
         </div>
       </div>
@@ -707,6 +802,7 @@ function AlertsTab({ initial }: { initial: Record<string, string> }) {
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "integrations", label: "Integrations", icon: "🔌" },
+  { id: "remotion", label: "Remotion Lambda", icon: "▲" },
   { id: "youtube", label: "YouTube Channels", icon: "▶" },
   { id: "worker", label: "Worker Mode", icon: "⚙" },
   { id: "budget", label: "Budget & Cost", icon: "💰" },
@@ -773,6 +869,7 @@ export default function SettingsPage() {
           ) : (
             <>
               {activeTab === "integrations" && <IntegrationsTab initial={settings.integrations} />}
+              {activeTab === "remotion" && <RemotonTab initial={settings.remotion ?? {}} />}
               {activeTab === "youtube" && <YouTubeTab />}
               {activeTab === "worker" && <WorkerModeTab initial={settings.worker} />}
               {activeTab === "budget" && <BudgetTab initialRates={settings.costRates} />}

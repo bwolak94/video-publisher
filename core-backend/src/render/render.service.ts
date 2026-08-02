@@ -1,12 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import pino from "pino";
 import { S3Service } from "../storage/s3.service";
+import { SettingsService } from "../settings/settings.service";
 import { VideoStoryboard, StoryboardScene } from "../storyboard/video-storyboard";
 import { NonS3UrlError } from "../storyboard/predownload-errors";
 import {
   COMPOSITION_ID,
   FPS,
-  LAMBDA_REGION,
   MEMORY_MB,
   calculateDurationInFrames,
   getFramesPerLambda,
@@ -17,16 +17,39 @@ import {
 const logger = pino({ level: "info" });
 const PRESIGN_TTL_SECONDS = 7200; // 2h — covers 30-min render + buffer
 
+interface RenderConfig {
+  functionName: string;
+  serveUrl: string;
+  region: string;
+  webhookUrl: string | undefined;
+  webhookSecret: string | undefined;
+}
+
 @Injectable()
 export class RenderService {
-  private readonly functionName: string;
-  private readonly serveUrl: string;
   private readonly bucket: string;
 
-  constructor(private readonly s3: S3Service) {
-    this.functionName = process.env.REMOTION_FUNCTION_NAME ?? "";
-    this.serveUrl = process.env.REMOTION_SERVE_URL ?? "";
+  constructor(
+    private readonly s3: S3Service,
+    private readonly settings: SettingsService,
+  ) {
     this.bucket = process.env.S3_BUCKET_NAME ?? process.env.S3_BUCKET ?? "video-publisher-assets";
+  }
+
+  /**
+   * Resolve Remotion config — env vars take priority, DB settings are the fallback.
+   * This allows operators to set values in Settings UI without redeploying.
+   */
+  private async getRenderConfig(): Promise<RenderConfig> {
+    const db = await this.settings.getAll();
+    return {
+      functionName: process.env.REMOTION_FUNCTION_NAME || db.remotion.functionName,
+      serveUrl: process.env.REMOTION_SERVE_URL || db.remotion.serveUrl,
+      region: process.env.AWS_REGION || db.remotion.region || "eu-central-1",
+      webhookUrl: process.env.REMOTION_WEBHOOK_URL || db.remotion.webhookUrl || undefined,
+      webhookSecret: process.env.REMOTION_WEBHOOK_SECRET
+        || (db.remotion.webhookSecret ? await this.settings.getPlaintext("remotion.webhookSecret") ?? undefined : undefined),
+    };
   }
 
   /**
@@ -34,6 +57,7 @@ export class RenderService {
    * Returns the final s3:// URL of the rendered mp4.
    */
   async render(storyboard: VideoStoryboard, projectId: string): Promise<string> {
+    const cfg = await this.getRenderConfig();
     this.assertAllS3(storyboard);
     const preparedStoryboard = await this.prepareUrls(storyboard);
     const totalFrames = calculateDurationInFrames(preparedStoryboard.timeline, FPS);
@@ -45,7 +69,7 @@ export class RenderService {
 
     logger.info({ projectId, totalFrames, framesPerLambda, outName, width, height, aspectRatio }, "Dispatching render to Lambda (sync)");
     await this.callRenderMedia({
-      region: LAMBDA_REGION, functionName: this.functionName, serveUrl: this.serveUrl,
+      region: cfg.region, functionName: cfg.functionName, serveUrl: cfg.serveUrl,
       composition: COMPOSITION_ID, inputProps: { storyboard: preparedStoryboard },
       codec: "h264", outName, framesPerLambda, architecture: "arm64",
       memorySizeInMb: MEMORY_MB, overwrite: true, width, height,
@@ -61,6 +85,7 @@ export class RenderService {
    * Completion is signalled via the Remotion webhook → /webhooks/remotion.
    */
   async renderAsync(storyboard: VideoStoryboard, projectId: string, jobId: string): Promise<{ s3Url: string; renderId: string }> {
+    const cfg = await this.getRenderConfig();
     this.assertAllS3(storyboard);
     const preparedStoryboard = await this.prepareUrls(storyboard);
     const totalFrames = calculateDurationInFrames(preparedStoryboard.timeline, FPS);
@@ -70,18 +95,15 @@ export class RenderService {
     const width = getCompositionWidth(aspectRatio);
     const height = getCompositionHeight(aspectRatio);
 
-    const webhookUrl = process.env.REMOTION_WEBHOOK_URL;
-    const webhookSecret = process.env.REMOTION_WEBHOOK_SECRET;
-
     logger.info({ projectId, totalFrames, outName, width, height }, "Dispatching render to Lambda (async+webhook)");
 
     const { renderId } = await this.dispatchRenderAsync({
-      region: LAMBDA_REGION, functionName: this.functionName, serveUrl: this.serveUrl,
+      region: cfg.region, functionName: cfg.functionName, serveUrl: cfg.serveUrl,
       composition: COMPOSITION_ID, inputProps: { storyboard: preparedStoryboard },
       codec: "h264", outName, framesPerLambda, architecture: "arm64",
       memorySizeInMb: MEMORY_MB, overwrite: true, width, height,
-      ...(webhookUrl && webhookSecret
-        ? { webhook: { url: webhookUrl, secret: webhookSecret, customData: { projectId, jobId } } }
+      ...(cfg.webhookUrl && cfg.webhookSecret
+        ? { webhook: { url: cfg.webhookUrl, secret: cfg.webhookSecret, customData: { projectId, jobId } } }
         : {}),
     });
 
