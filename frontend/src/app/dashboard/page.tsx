@@ -10,7 +10,7 @@ interface Project {
   title: string;
   mode: string;
   status: string;
-  storyboard: { scenes?: unknown[]; meta?: { aspectRatio?: string } } | null;
+  storyboard: { scenes?: unknown[]; timeline?: unknown[]; meta?: { aspectRatio?: string } } | null;
   updatedAt: string;
 }
 
@@ -48,7 +48,7 @@ function StatusPill({ status }: { status: string }) {
 // ─── Project card ─────────────────────────────────────────────────────────────
 
 function ProjectCard({ project }: { project: Project }) {
-  const sceneCount = project.storyboard?.scenes?.length ?? 0;
+  const sceneCount = (project.storyboard?.timeline ?? project.storyboard?.scenes)?.length ?? 0;
   const ratio = project.storyboard?.meta?.aspectRatio ?? "16:9";
   const isCreator = project.mode === "creator";
   const href = isCreator ? `/project/${project.id}/timeline` : "#";

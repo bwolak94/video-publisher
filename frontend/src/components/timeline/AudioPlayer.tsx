@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { s3ToHttpUrl } from "@/lib/s3url";
 
 interface AudioPlayerProps {
   audioUrl: string | null;
@@ -8,18 +9,13 @@ interface AudioPlayerProps {
 }
 
 export function AudioPlayer({ audioUrl, onDurationDetected }: AudioPlayerProps) {
-  // Cache the URL in state on mount — do not refetch on re-renders (Rule 7)
-  const [cachedUrl, setCachedUrl] = useState<string | null>(null);
+  const [httpUrl, setHttpUrl] = useState<string | null>(() => s3ToHttpUrl(audioUrl));
 
   useEffect(() => {
-    if (audioUrl) {
-      setCachedUrl(audioUrl);
-    }
-    // Intentionally run only on mount to cache URL once
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setHttpUrl(s3ToHttpUrl(audioUrl));
+  }, [audioUrl]);
 
-  if (!cachedUrl) {
+  if (!httpUrl) {
     return (
       <div
         className="h-8 bg-muted rounded-lg flex items-center px-2 text-xs text-ink-muted"
@@ -34,7 +30,7 @@ export function AudioPlayer({ audioUrl, onDurationDetected }: AudioPlayerProps) 
     // eslint-disable-next-line jsx-a11y/media-has-caption
     <audio
       controls
-      src={cachedUrl}
+      src={httpUrl}
       data-testid="audio-player"
       className="w-full h-8"
       onLoadedMetadata={(e) => {
