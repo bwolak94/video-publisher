@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Body, Delete, Param, Inject, UseGuards } from "@nestjs/common";
+import { Controller, Get, Put, Body, Delete, Param, Inject, UseGuards, ForbiddenException } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { SettingsService } from "./settings.service";
 import { DRIZZLE } from "../db/db.module";
@@ -18,6 +18,26 @@ export class SettingsController {
   @Get()
   async getAll() {
     return this.settings.getAll();
+  }
+
+  // ── GET /api/settings/decrypt/:field — reveal a single stored key ────────
+
+  private static readonly DECRYPTABLE = new Set([
+    "elevenLabsKey", "openaiKey", "anthropicKey",
+    "runwayKey", "pexelsKey", "klingAccessKey", "klingSecretKey",
+    "awsAccessKey", "awsSecretKey",
+    "remotionWebhookSecret",
+  ]);
+
+  @Get("decrypt/:field")
+  async decryptField(@Param("field") field: string): Promise<{ value: string }> {
+    if (!SettingsController.DECRYPTABLE.has(field)) {
+      throw new ForbiddenException(`Field '${field}' cannot be decrypted via API`);
+    }
+    // remotionWebhookSecret lives under the "remotion." namespace, not "integrations."
+    const namespace = field === "remotionWebhookSecret" ? "remotion.webhookSecret" : `integrations.${field}`;
+    const value = await this.settings.getPlaintext(namespace);
+    return { value: value ?? "" };
   }
 
   // ── PUT /api/settings/integrations ────────────────────────────────────────
@@ -65,6 +85,19 @@ export class SettingsController {
     const entries: Record<string, string> = {};
     for (const k of allowed) {
       if (body[k] !== undefined) entries[`alerts.${k}`] = body[k];
+    }
+    await this.settings.upsertMany(entries);
+    return { ok: true };
+  }
+
+  // ── PUT /api/settings/remotion ────────────────────────────────────────────
+
+  @Put("remotion")
+  async saveRemotion(@Body() body: Record<string, string>) {
+    const allowed = ["functionName", "serveUrl", "region", "webhookUrl", "webhookSecret"];
+    const entries: Record<string, string> = {};
+    for (const k of allowed) {
+      if (body[k] !== undefined) entries[`remotion.${k}`] = body[k];
     }
     await this.settings.upsertMany(entries);
     return { ok: true };

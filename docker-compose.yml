@@ -46,6 +46,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/video_publisher
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      NODE_ENV: "development"
       JWT_PUBLIC_KEY: ""
       JWT_PRIVATE_KEY: ""
       # MinIO as local S3 replacement — no AWS account needed

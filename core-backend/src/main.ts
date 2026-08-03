@@ -47,8 +47,13 @@ async function bootstrap() {
   //   setupBullBoard(app);
   // }
 
-  // S2: Preserve raw body for Remotion Lambda webhook HMAC-SHA512 verification
-  app.getHttpAdapter().getInstance().addContentTypeParser(
+  // S2: Preserve raw body for Remotion Lambda webhook HMAC-SHA512 verification.
+  // Remove Fastify's default JSON parser first, add custom one, then flag the adapter
+  // as already registered so NestJS's init() doesn't try to add a second parser
+  // (which would throw FST_ERR_CTP_ALREADY_PRESENT).
+  const fastify = app.getHttpAdapter().getInstance();
+  fastify.removeContentTypeParser(["application/json", "text/plain"]);
+  fastify.addContentTypeParser(
     "application/json",
     { parseAs: "buffer" },
     (req: any, body: Buffer, done: (err: Error | null, body?: unknown) => void) => {
@@ -57,6 +62,8 @@ async function bootstrap() {
       catch (e) { done(e as Error); }
     }
   );
+  // Prevent NestJS FastifyAdapter.registerParserMiddleware() from re-registering
+  (app.getHttpAdapter() as any)._isParserRegistered = true;
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
 

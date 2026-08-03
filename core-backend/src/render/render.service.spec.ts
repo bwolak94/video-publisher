@@ -4,6 +4,7 @@
 import { Test } from "@nestjs/testing";
 import { RenderService } from "./render.service";
 import { S3Service } from "../storage/s3.service";
+import { SettingsService } from "../settings/settings.service";
 import { NonS3UrlError } from "../storyboard/predownload-errors";
 import { VideoStoryboard } from "../storyboard/video-storyboard";
 
@@ -38,6 +39,15 @@ describe("RenderService", () => {
         {
           provide: S3Service,
           useValue: { getPresignedUrl: jest.fn().mockResolvedValue("https://presigned.s3.example.com/key") },
+        },
+        {
+          provide: SettingsService,
+          useValue: {
+            getAll: jest.fn().mockResolvedValue({
+              remotion: { functionName: "", serveUrl: "", region: "eu-central-1", webhookUrl: "", webhookSecret: "" },
+            }),
+            getPlaintext: jest.fn().mockResolvedValue(null),
+          },
         },
       ],
     }).compile();

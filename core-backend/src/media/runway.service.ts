@@ -7,7 +7,7 @@ import { SettingsService } from "../settings/settings.service";
 
 const logger = pino({ level: "info" });
 
-const MODEL_ID = "gen3a_turbo";
+const MODEL_ID = "gen4.5";
 const RESOLUTION = "1080p";
 const POLL_INTERVAL_MS = 5_000;
 const POLL_TIMEOUT_MS = 120_000;
@@ -30,7 +30,7 @@ export class RunwayService {
     @Inject(RUNWAY_HTTP) private readonly httpFetch: typeof fetch,
     private readonly settings: SettingsService
   ) {
-    this.baseUrl = process.env.RUNWAY_BASE_URL ?? "https://api.runwayml.com";
+    this.baseUrl = process.env.RUNWAY_BASE_URL ?? "https://api.dev.runwayml.com";
     this.bucket = process.env.S3_BUCKET ?? "video-publisher-assets";
     this.s3 = new S3Client({
       region: process.env.AWS_REGION ?? "us-east-1",
@@ -77,12 +77,13 @@ export class RunwayService {
       headers: {
         Authorization: `Bearer ${await this.getApiKey()}`,
         "Content-Type": "application/json",
+        "X-Runway-Version": "2024-11-06",
       },
       body: JSON.stringify({
         model: MODEL_ID,
         promptText: prompt,
         duration: 5,
-        ratio: "1280:768",
+        ratio: "1280:720",
       }),
     });
 
@@ -107,7 +108,10 @@ export class RunwayService {
       await this.sleep(POLL_INTERVAL_MS);
 
       const response = await this.httpFetch(`${this.baseUrl}/v1/tasks/${taskId}`, {
-        headers: { Authorization: `Bearer ${await this.getApiKey()}` },
+        headers: {
+          Authorization: `Bearer ${await this.getApiKey()}`,
+          "X-Runway-Version": "2024-11-06",
+        },
       });
 
       if (!response.ok) {

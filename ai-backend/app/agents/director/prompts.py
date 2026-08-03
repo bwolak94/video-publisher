@@ -33,7 +33,13 @@ Requirements:
 - {scene_count} scenes totaling {target_duration_seconds} seconds
 - Open with: {hook_pattern}
 - Last scene must include a call-to-action
-- Each visualPrompt must be at least 10 words, descriptive, and specific
+- Each visualPrompt MUST:
+  * Visually describe exactly what is SHOWN while the narrator speaks that line
+  * Name every character present with their physical appearance (hair, clothing, expression)
+  * Specify camera angle (close-up, wide shot, over-the-shoulder, etc.)
+  * Specify lighting and mood (dramatic, warm, cinematic, etc.)
+  * Be a cinematic shot description, NOT a keyword list
+  * Be consistent with the same characters/locations across scenes — do NOT change a character's appearance mid-story
 
 Return ONLY valid JSON. No markdown, no explanation."""
 
@@ -241,7 +247,14 @@ Requirements:
 - Aspect ratio: {aspect_ratio}
 - {scene_count} scenes totaling {target_duration_seconds} seconds
 - Last scene must include a call-to-action
-- Each visualPrompt must be at least 10 words, descriptive, and specific
+- Each visualPrompt MUST:
+  * Visually describe exactly what is SHOWN while the narrator speaks that line
+  * Name every character present with their physical appearance (hair, clothing, expression)
+  * Specify camera angle (close-up, wide shot, over-the-shoulder, etc.)
+  * Specify lighting and mood (dramatic, warm, cinematic, etc.)
+  * Be a cinematic shot description, NOT a keyword list
+  * Be consistent with the same characters/locations across scenes — do NOT change a character's appearance mid-story
+  * Example: "Close-up shot of young wizard boy with round glasses and lightning bolt scar, wearing dark school robes, standing in candlelit stone hall, looking determined, cinematic lighting"
 
 Return ONLY valid JSON. No markdown, no explanation."""
 

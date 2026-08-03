@@ -62,7 +62,8 @@ export const useTimelineStore = createWithEqualityFn<TimelineState>()(
       set((draft) => {
         draft.scenes = {};
         draft.sceneOrder = [];
-        for (const scene of timeline) {
+        const sorted = [...timeline].sort((a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0));
+        for (const scene of sorted) {
           draft.scenes[scene.sceneId] = {
             sceneId: scene.sceneId,
             sequenceNumber: scene.sequenceNumber,
@@ -81,6 +82,7 @@ export const useTimelineStore = createWithEqualityFn<TimelineState>()(
             status: "idle",
             textOverlay: scene.textOverlay ?? null,
             subtitleTrack: (scene as any).subtitleTrack ?? null,
+            videoProvider: (scene as any).videoProvider ?? undefined,
           };
           draft.sceneOrder.push(scene.sceneId);
         }

@@ -157,9 +157,9 @@ export class VideoProviderRegistry {
     return available;
   }
 
-  /** Weighted composite score — quality matters most, then cost, then reliability, then latency */
+  /** Weighted composite score — quality is the primary axis for an AI video platform */
   private composite(scores: ProviderScores): number {
-    return scores.quality * 3 + scores.cost * 2 + scores.reliability * 2 + scores.latency * 1;
+    return scores.quality * 6 + scores.cost * 1 + scores.reliability * 2 + scores.latency * 1;
   }
 
   /** I02: For health checks — includes live circuit state, last error, and rolling success rate. */

@@ -11,6 +11,7 @@ import { filmBurn } from "@remotion/transitions/film-burn";
 import type { SceneState } from "@/store/timelineStore";
 import type { MusicTrack } from "@/types/music";
 import { SubtitleOverlay } from "./SubtitleOverlay";
+import { s3ToHttpUrl } from "@/lib/s3url";
 
 const FPS = 30;
 const TRANSITION_FRAMES = 15;
@@ -52,7 +53,7 @@ function SceneClip({
       >
         {scene.videoUrl ? (
           <Video
-            src={scene.videoUrl}
+            src={s3ToHttpUrl(scene.videoUrl) ?? scene.videoUrl}
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : (
@@ -64,7 +65,7 @@ function SceneClip({
           </div>
         )}
       </AbsoluteFill>
-      {scene.audioUrl && <Audio src={scene.audioUrl} />}
+      {scene.audioUrl && <Audio src={s3ToHttpUrl(scene.audioUrl) ?? scene.audioUrl} />}
       {scene.subtitleTrack && scene.subtitleTrack.words.length > 0 && (
         <SubtitleOverlay words={scene.subtitleTrack.words} fps={FPS} />
       )}
@@ -90,7 +91,7 @@ export function VideoComposition({ scenes, musicTrack, musicVolume = 0.3 }: Vide
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
       {musicTrack?.s3Url && (
-        <Audio src={musicTrack.s3Url} volume={musicVolume} />
+        <Audio src={s3ToHttpUrl(musicTrack.s3Url) ?? musicTrack.s3Url} volume={musicVolume} />
       )}
       <TransitionSeries>
         {scenes.map((scene, index) => {
