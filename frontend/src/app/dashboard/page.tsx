@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { StatusPill } from "@/components/ui";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
 
@@ -25,24 +26,21 @@ interface WorkerSettings {
   cronSchedule: string;
 }
 
-// ─── Status pill ─────────────────────────────────────────────────────────────
+// ─── Status mapping: legacy project statuses → StatusPill statuses ────────────
 
-const STATUS_STYLES: Record<string, { dot: string; text: string; bg: string }> = {
-  completed: { dot: "bg-success",         text: "text-success-text",  bg: "bg-success-bg border border-success-border" },
-  running:   { dot: "bg-info",            text: "text-info-glow",     bg: "bg-info-dim border border-info/20" },
-  failed:    { dot: "bg-danger",          text: "text-danger-text",   bg: "bg-danger-bg border border-danger-border" },
-  draft:     { dot: "bg-ink-placeholder", text: "text-ink-muted",     bg: "bg-subtle border border-line" },
-  idle:      { dot: "bg-ink-placeholder", text: "text-ink-muted",     bg: "bg-subtle border border-line" },
+type UiStatus = "queued" | "generating" | "review" | "qa" | "failed" | "blocked" | "done";
+
+const PROJECT_STATUS_MAP: Record<string, UiStatus> = {
+  completed: "done",
+  running:   "generating",
+  failed:    "failed",
+  draft:     "queued",
+  idle:      "queued",
 };
 
-function StatusPill({ status }: { status: string }) {
-  const s = STATUS_STYLES[status] ?? STATUS_STYLES.draft;
-  return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </span>
-  );
+function ProjectStatusPill({ status }: { status: string }) {
+  const mapped: UiStatus = PROJECT_STATUS_MAP[status] ?? "queued";
+  return <StatusPill status={mapped}>{status.charAt(0).toUpperCase() + status.slice(1)}</StatusPill>;
 }
 
 // ─── Project card ─────────────────────────────────────────────────────────────
@@ -87,7 +85,7 @@ function ProjectCard({ project }: { project: Project }) {
       <div className="px-3 py-2.5 flex flex-col gap-1.5">
         <p className="text-sm font-medium text-ink truncate group-hover:text-accent transition-colors">{project.title}</p>
         <div className="flex items-center justify-between">
-          <StatusPill status={project.status} />
+          <ProjectStatusPill status={project.status} />
           <span className="text-xs text-ink-muted">
             {sceneCount > 0 ? `${sceneCount} scenes` : new Date(project.updatedAt).toLocaleDateString()}
           </span>
