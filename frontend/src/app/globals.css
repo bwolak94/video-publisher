@@ -1,53 +1,116 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Geist:wght@400..600&family=Geist+Mono:wght@400..600&display=swap");
+
+/* ── VF Design System Tokens ──────────────────────── */
+:root, [data-theme="dark"] {
+  --bg: #0c0d0f;
+  --surface: #141518;
+  --surface-raised: #1b1d21;
+  --surface-sunken: #08090a;
+  --line: #2a2d33;
+  --line-strong: #646a74;
+  --ink: #eef0f2;
+  --ink-muted: #a3a8b0;
+  --ink-faint: #80858f;
+  --accent: #c8f04a;
+  --accent-hover: #d8ff63;
+  --on-accent: #0c0d0f;
+  --accent-text: #c8f04a;
+  --accent-soft: #c8f04a1f;
+  --info: #6cc4ff;
+  --info-soft: #6cc4ff1f;
+  --warn: #ffb547;
+  --warn-soft: #ffb5471f;
+  --danger: #ff6a55;
+  --danger-soft: #ff6a551f;
+  --on-danger: #0c0d0f;
+  --focus: #c8f04a;
+  --overlay: #000000b3;
+  --shadow-pop: 0 16px 40px rgba(0,0,0,0.55);
+}
+
+[data-theme="light"] {
+  --bg: #f4f4f1;
+  --surface: #ffffff;
+  --surface-raised: #fafaf8;
+  --surface-sunken: #ebebe6;
+  --line: #dcdcd5;
+  --line-strong: #8a8c84;
+  --ink: #111214;
+  --ink-muted: #4e525a;
+  --ink-faint: #656a73;
+  --accent: #c8f04a;
+  --accent-hover: #b6e02f;
+  --on-accent: #111214;
+  --accent-text: #3f5c00;
+  --accent-soft: #c8f04a40;
+  --info: #0a66a8;
+  --info-soft: #0a66a81a;
+  --warn: #8f5300;
+  --warn-soft: #8f53001a;
+  --danger: #b8301d;
+  --danger-soft: #b8301d14;
+  --on-danger: #ffffff;
+  --focus: #3f5c00;
+  --overlay: #11121466;
+  --shadow-pop: 0 16px 40px rgba(17,18,20,0.12);
+}
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+  --ratio-short: 9 / 16;
+  --ratio-source: 16 / 9;
+  --font-display: "Bricolage Grotesque", "Geist", system-ui, sans-serif;
+  --font-sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── Base ───────────────────────────────────────────────── */
+/* ── Base ───────────────────────────────────────────── */
 html, body {
-  background-color: #07090f;
-  color: #e2e8f5;
-  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Glass utility ──────────────────────────────────────── */
-/* Use for floating panels, cards, modals */
-.glass {
-  background: rgba(13,17,23,0.75);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border: 1px solid rgba(255,255,255,0.07);
-}
-
-/* ── Surface card ───────────────────────────────────────── */
-.card {
-  background: #0d1117;
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 12px;
-}
-
-/* ── Scrollbar ──────────────────────────────────────────── */
+/* ── Scrollbar ──────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.1);
+  background: var(--line-strong);
   border-radius: 99px;
   transition: background 0.15s;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
 
-/* ── Range slider ───────────────────────────────────────── */
-input[type="range"] { accent-color: #5b6ef5; }
+/* ── Selection ──────────────────────────────────────── */
+::selection { background: var(--accent-soft); color: var(--ink); }
 
-/* ── Selection ──────────────────────────────────────────── */
-::selection { background: rgba(91,110,245,0.3); }
-
-/* ── Focus ring ─────────────────────────────────────────── */
+/* ── Focus ring ─────────────────────────────────────── */
 @layer base {
   :focus-visible {
-    outline: 2px solid #5b6ef5;
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
     border-radius: 4px;
   }
 }
+
+/* ── Range slider ───────────────────────────────────── */
+input[type="range"] { accent-color: var(--accent); }

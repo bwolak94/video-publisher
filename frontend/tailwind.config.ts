@@ -1,17 +1,5 @@
 import type { Config } from "tailwindcss";
 
-// ─── Design System ──────────────────────────────────────────────────────────
-//
-// Three-layer background system:
-//   app    #07090f  — page canvas (deepest)
-//   panel  #0d1117  — sidebar, main panels
-//   subtle #131824  — card surfaces
-//   muted  #1a2030  — inset areas, code blocks
-//   hover  #1e2538  — hover states
-//
-// Single accent: #5b6ef5 (used SPARINGLY — interactive only)
-// Hairline borders: rgba(255,255,255,0.07) — almost-invisible structure
-
 const config: Config = {
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -19,7 +7,6 @@ const config: Config = {
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    // Override defaults with a precise design system
     fontSize: {
       "2xs": ["11px", { lineHeight: "16px", letterSpacing: "0.01em" }],
       xs:    ["12px", { lineHeight: "16px" }],
@@ -41,140 +28,102 @@ const config: Config = {
     },
     borderRadius: {
       none: "0",
-      sm:   "4px",
-      DEFAULT: "6px",
-      md:   "8px",
-      lg:   "10px",
-      xl:   "12px",
-      "2xl": "16px",
-      "3xl": "20px",
+      xs:   "4px",
+      sm:   "6px",
+      DEFAULT: "8px",
+      md:   "10px",
+      lg:   "14px",
+      xl:   "20px",
+      "2xl": "24px",
+      pill: "999px",
       full: "9999px",
     },
     extend: {
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "-apple-system", "sans-serif"],
-        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        display: ["Bricolage Grotesque", "Geist", "system-ui", "sans-serif"],
+        sans: ["Geist", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["Geist Mono", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       colors: {
-        // ── New clean tokens ──────────────────────────────
-        app:    "#07090f",
-        panel:  "#0d1117",
-        subtle: "#131824",
-        muted:  "#1a2030",
-        hover:  "#1e2538",
-        line:   "rgba(255,255,255,0.07)",
-        "line-strong": "rgba(255,255,255,0.12)",
+        // ── VF Layer tokens ──────────────────────────────
+        bg:              "var(--bg)",
+        surface: {
+          DEFAULT:       "var(--surface)",
+          raised:        "var(--surface-raised)",
+          sunken:        "var(--surface-sunken)",
+        },
+        line: {
+          DEFAULT:       "var(--line)",
+          strong:        "var(--line-strong)",
+        },
         ink: {
-          DEFAULT:     "#e2e8f5",
-          secondary:   "#8892a4",
-          muted:       "#505b70",
-          placeholder: "#3d4657",
+          DEFAULT:       "var(--ink)",
+          muted:         "var(--ink-muted)",
+          faint:         "var(--ink-faint)",
         },
         accent: {
-          DEFAULT: "#5b6ef5",
-          hover:   "#6b7ef7",
-          muted:   "rgba(91,110,245,0.12)",
-          border:  "rgba(91,110,245,0.25)",
-          glow:    "rgba(91,110,245,0.3)",
+          DEFAULT:       "var(--accent)",
+          hover:         "var(--accent-hover)",
+          soft:          "var(--accent-soft)",
+          text:          "var(--accent-text)",
         },
-
-        // ── Backward-compatible aliases (old components) ──
-        // Maps old token names → new color values
-        surface: {
-          base:    "#07090f",   // was #0f1117
-          raised:  "#0d1117",   // was #1a1f2e
-          overlay: "#131824",   // was #252b3b
-          border:  "rgba(255,255,255,0.07)",  // was #2d3448
-          muted:   "#1a2030",   // was #1e2538
-        },
-        text: {
-          primary:   "#e2e8f5",  // was #f1f5f9
-          secondary: "#8892a4",  // was #94a3b8
-          muted:     "#505b70",  // was #64748b
-          inverse:   "#07090f",
-        },
-        violet: {
-          dim:    "rgba(91,110,245,0.08)",
-          base:   "#5b6ef5",    // was #7c3aed
-          bright: "#6b7ef7",    // was #8b5cf6
-          glow:   "#818cf8",    // was #c4b5fd
-        },
-        neon: {
-          dim:  "rgba(22,163,74,0.12)",
-          base: "#16a34a",
-          glow: "#4ade80",
+        "on-accent":     "var(--on-accent)",
+        focus:           "var(--focus)",
+        info: {
+          DEFAULT:       "var(--info)",
+          soft:          "var(--info-soft)",
         },
         warn: {
-          base: "#d97706",
-          glow: "#fbbf24",
+          DEFAULT:       "var(--warn)",
+          soft:          "var(--warn-soft)",
         },
-        error: {
-          dim:  "rgba(220,38,38,0.12)",
-          base: "#dc2626",
-          glow: "#f87171",
+        danger: {
+          DEFAULT:       "var(--danger)",
+          soft:          "var(--danger-soft)",
         },
-        info: {
-          dim:  "rgba(37,99,235,0.12)",
-          base: "#2563eb",
-          glow: "#60a5fa",
-        },
+        "on-danger":     "var(--on-danger)",
+        overlay:         "var(--overlay)",
 
-        // ── Semantic (new-style) ──────────────────────────
-        success: { DEFAULT: "#16a34a", bg: "rgba(22,163,74,0.12)", text: "#4ade80", border: "rgba(22,163,74,0.2)" },
-        warning: { DEFAULT: "#d97706", bg: "rgba(217,119,6,0.12)",  text: "#fbbf24", border: "rgba(217,119,6,0.2)" },
-        danger:  { DEFAULT: "#dc2626", bg: "rgba(220,38,38,0.12)",  text: "#f87171", border: "rgba(220,38,38,0.2)" },
+        // ── Legacy aliases (keep existing pages working) ─
+        app:    "#0c0d0f",
+        panel:  "#141518",
+        subtle: "#1b1d21",
+        muted:  "#1b1d21",
+        hover:  "#1b1d21",
+        "ink-secondary":   "var(--ink-muted)",
+        "ink-placeholder": "var(--ink-faint)",
+        success: { DEFAULT: "#4ade80", bg: "rgba(74,222,128,0.12)", text: "#4ade80", border: "rgba(74,222,128,0.2)" },
+        warning: { DEFAULT: "var(--warn)", bg: "var(--warn-soft)", text: "var(--warn)", border: "var(--warn-soft)" },
       },
-      backgroundImage: {
-        // Old compat
-        "gradient-violet": "linear-gradient(135deg, #5b6ef5 0%, #3d52e8 100%)",
-        "gradient-hero":   "linear-gradient(135deg, rgba(91,110,245,0.05) 0%, transparent 60%)",
-        "gradient-card":   "linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 50%)",
-        // New
-        "accent-gradient": "linear-gradient(135deg, #5b6ef5 0%, #3d52e8 100%)",
-        "panel-gradient":  "linear-gradient(180deg, #0d1117 0%, #0a0d14 100%)",
-        "subtle-gradient": "linear-gradient(135deg, rgba(91,110,245,0.06) 0%, transparent 60%)",
-        "card-shine":      "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 50%)",
+      spacing: {
+        "space-1":  "4px",
+        "space-2":  "8px",
+        "space-3":  "12px",
+        "space-4":  "16px",
+        "space-5":  "20px",
+        "space-6":  "24px",
+        "space-8":  "32px",
+        "space-12": "48px",
       },
       boxShadow: {
-        // Old compat
-        "card":       "0 1px 3px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)",
-        "card-hover": "0 4px 16px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)",
-        "glow-violet":"0 0 20px rgba(91,110,245,0.25)",
-        "glow-neon":  "0 0 20px rgba(22,163,74,0.25)",
-        // New
-        "xs":       "0 1px 2px rgba(0,0,0,0.4)",
-        "sm":       "0 2px 8px rgba(0,0,0,0.5)",
-        "md":       "0 4px 16px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.4)",
-        "lg":       "0 8px 32px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4)",
-        "accent":   "0 0 0 3px rgba(91,110,245,0.25)",
-        "accent-sm":"0 0 0 2px rgba(91,110,245,0.3)",
-        "glow":     "0 0 24px rgba(91,110,245,0.2)",
+        pop:        "var(--shadow-pop)",
         "inner-t":  "inset 0 1px 0 rgba(255,255,255,0.05)",
-        "inset":    "inset 0 1px 3px rgba(0,0,0,0.4)",
+        "card":     "0 1px 3px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)",
+        "card-hover":"0 4px 16px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)",
       },
       keyframes: {
-        // Old compat
         "fade-up":    { from: { opacity: "0", transform: "translateY(6px)" }, to: { opacity: "1", transform: "translateY(0)" } },
         "slide-in":   { from: { opacity: "0", transform: "translateX(12px)" }, to: { opacity: "1", transform: "translateX(0)" } },
-        "pulse-slow": { "0%,100%": { opacity: "1" }, "50%": { opacity: "0.5" } },
-        // New
-        "in":         { from: { opacity: "0", transform: "translateY(4px)" }, to: { opacity: "1", transform: "translateY(0)" } },
-        "in-left":    { from: { opacity: "0", transform: "translateX(-6px)" }, to: { opacity: "1", transform: "translateX(0)" } },
-        "in-scale":   { from: { opacity: "0", transform: "scale(0.97)" }, to: { opacity: "1", transform: "scale(1)" } },
         "pulse-dot":  { "0%,100%": { opacity: "1" }, "50%": { opacity: "0.3" } },
-        "shimmer":    { "0%": { backgroundPosition: "-200% 0" }, "100%": { backgroundPosition: "200% 0" } },
+        "vf-rot":     { to: { transform: "rotate(360deg)" } },
+        "vf-pulse":   { "50%": { opacity: "0.35" } },
       },
       animation: {
-        // Old compat
         "fade-up":    "fade-up 0.2s ease-out both",
         "slide-in":   "slide-in 0.2s ease-out both",
-        "pulse-slow": "pulse-slow 2s ease-in-out infinite",
-        // New
-        "in":        "in 0.15s ease-out",
-        "in-left":   "in-left 0.18s ease-out",
-        "in-scale":  "in-scale 0.15s ease-out",
-        "pulse-dot": "pulse-dot 2s ease-in-out infinite",
-        "shimmer":   "shimmer 1.5s linear infinite",
+        "pulse-dot":  "pulse-dot 2s ease-in-out infinite",
+        "vf-rot":     "vf-rot 0.7s linear infinite",
+        "vf-pulse":   "vf-pulse 1.2s ease-in-out infinite",
       },
     },
   },
