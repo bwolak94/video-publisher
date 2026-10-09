@@ -7,17 +7,18 @@ import { ChatInput } from "@/components/creator/ChatInput";
 import { OutlineCard } from "@/components/creator/OutlineCard";
 import { ResearchBriefCard } from "@/components/creator/ResearchBriefCard";
 import { ReferenceVideoInput } from "@/components/creator/ReferenceVideoInput";
+import { SegmentedControl } from "@/components/ui";
 import { useCreatorStore } from "@/store/creatorStore";
 import type { OutlineBullet } from "@/store/creatorStore";
 import type { ResearchBrief, SearchDepth } from "@/types/research";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
 
-const DEPTH_LABELS: Record<SearchDepth, string> = {
-  quick:    "Quick",
-  standard: "Standard",
-  deep:     "Deep",
-};
+const DEPTH_OPTIONS: { value: SearchDepth; label: string }[] = [
+  { value: "quick", label: "Szybki" },
+  { value: "standard", label: "Standard" },
+  { value: "deep", label: "Doglebny" },
+];
 
 export default function CreatePage() {
   const router = useRouter();
@@ -160,22 +161,14 @@ export default function CreatePage() {
           <span className="text-sm font-semibold text-ink">Creator Mode</span>
         </div>
 
-        {/* Research depth — pill tabs */}
+        {/* Research depth — segmented control */}
         {stage === "chat" && (
-          <div className="flex items-center gap-0.5 ml-4 bg-subtle rounded-lg p-0.5 border border-line">
-            {(Object.keys(DEPTH_LABELS) as SearchDepth[]).map((d) => (
-              <button
-                key={d}
-                onClick={() => setResearchDepth(d)}
-                className={`text-xs px-3 py-1.5 rounded-md transition-all duration-100 font-medium ${
-                  researchDepth === d
-                    ? "bg-accent text-white shadow-sm"
-                    : "text-ink-secondary hover:text-ink"
-                }`}
-              >
-                {DEPTH_LABELS[d]}
-              </button>
-            ))}
+          <div className="ml-4">
+            <SegmentedControl
+              options={DEPTH_OPTIONS}
+              value={researchDepth}
+              onChange={(v) => setResearchDepth(v as SearchDepth)}
+            />
           </div>
         )}
       </div>
