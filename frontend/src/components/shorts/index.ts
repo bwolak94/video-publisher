@@ -1,3 +1,4 @@
+export * from './AudioLanes'
 export * from './BudgetMeter'
 export * from './ExportPanel'
 export * from './KeyframeReview'
