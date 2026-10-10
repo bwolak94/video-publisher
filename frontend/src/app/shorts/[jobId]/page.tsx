@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { ScenePlanCard } from '@/components/shorts/ScenePlanCard'
 import { KeyframeReview } from '@/components/shorts/KeyframeReview'
+import { ExportPanel } from '@/components/shorts/ExportPanel'
 import { Button, InlineAlert } from '@/components/ui'
 import type { ScenePlanScene } from '@/types/shorts'
 
@@ -109,6 +110,16 @@ export default function ShortJobPage() {
           </div>
         ))}
       </div>
+
+      {job.status === 'done' && (
+        <ExportPanel
+          jobId={jobId}
+          title={job.brief?.slice(0, 50) ?? 'Short'}
+          duration={30}
+          cost={0}
+          path={`s3://bucket/shorts/${jobId}/final.mp4`}
+        />
+      )}
     </div>
   )
 }
