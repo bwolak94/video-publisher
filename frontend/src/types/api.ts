@@ -66,6 +66,27 @@ export interface UpdateEntityDto {
   referenceImageUrls?: string[];
 }
 
+// ── Characters (CHAR-02: Character Bible) ────────────────────────────────────
+
+export interface CharacterImage {
+  id: string;
+  s3Url: string;
+  sortOrder: number;
+}
+
+export interface Character {
+  id: string;
+  name: string;
+  description: string;
+  style: string;
+  voiceId?: string;
+  consentType: "original" | "likeness";
+  deletedAt?: string;
+  createdAt: string;
+  version: number;
+  images?: CharacterImage[];
+}
+
 // ── Settings ─────────────────────────────────────────────────────────────────
 
 export interface WorkerSettings {
