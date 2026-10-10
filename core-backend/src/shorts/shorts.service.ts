@@ -110,6 +110,31 @@ export class ShortsService {
   }
 
   /**
+   * Resumes a shorts job that has one or more failed QA clips.
+   * Sets the job status back to 'generating' so workers pick it up again,
+   * and returns the scene_id of the first failed clip.
+   */
+  async resumeJob(jobId: string): Promise<{ status: string; resumedFromScene: string | null }> {
+    const clips = await this.db.execute(sql`
+      SELECT scene_id FROM scene_clips
+      WHERE job_id = ${jobId} AND qa_passed = false
+      ORDER BY created_at ASC LIMIT 1
+    `);
+
+    const rows = Array.isArray(clips) ? clips : (clips as any).rows ?? [];
+    const failedScene = (rows[0] as any)?.scene_id ?? null;
+
+    if (failedScene) {
+      await this.db.execute(sql`
+        UPDATE shorts_jobs SET status = 'generating' WHERE id = ${jobId}
+      `);
+      logger.info({ jobId, failedScene }, "ShortsService: job resumed from failed QA scene");
+    }
+
+    return { status: "resumed", resumedFromScene: failedScene };
+  }
+
+  /**
    * Returns the most recent shorts jobs up to `limit`.
    */
   async listJobs(limit = 20) {
