@@ -722,3 +722,23 @@ export const modelPricing = pgTable("model_pricing", {
 
 export type ModelPricing    = typeof modelPricing.$inferSelect;
 export type NewModelPricing = typeof modelPricing.$inferInsert;
+
+// ── AUDIO-02: SFX library ──────────────────────────────────────────────────────
+
+/**
+ * Pre-seeded sound-effect library used by the SFX search endpoint (FR-08).
+ * Entries are ranked by Jaccard similarity of the tags[] array at query time.
+ * All seed entries are CC0 licensed.
+ */
+export const sfxLibrary = pgTable("sfx_library", {
+  id:        uuid("id").primaryKey().defaultRandom(),
+  name:      text("name").notNull(),
+  tags:      text("tags").array().default([]),
+  s3Url:     text("s3_url").notNull(),
+  durationS: numeric("duration_s", { precision: 5, scale: 2 }),
+  license:   text("license").default("cc0"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type SfxLibraryEntry    = typeof sfxLibrary.$inferSelect;
+export type NewSfxLibraryEntry = typeof sfxLibrary.$inferInsert;
