@@ -42,6 +42,7 @@ import { ShortsModule } from "./shorts/shorts.module";
 import { CharactersModule } from "./characters/characters.module";
 import { LikenessModule } from "./likeness/likeness.module";
 import { ModelPricingModule } from "./model-pricing/model-pricing.module";
+import { SfxModule } from "./sfx/sfx.module";
 
 @Module({
   providers: [{ provide: APP_GUARD, useClass: ThrottleGuard }],
@@ -87,6 +88,7 @@ import { ModelPricingModule } from "./model-pricing/model-pricing.module";
     CharactersModule,
     LikenessModule,
     ModelPricingModule,
+    SfxModule,
   ],
 })
 export class AppModule {}

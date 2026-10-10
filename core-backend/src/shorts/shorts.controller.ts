@@ -3,6 +3,7 @@ import { ShortsService } from "./shorts.service";
 import { CreateBriefDto } from "./dto/create-brief.dto";
 import { T2iService } from "./t2i.service";
 import { FinalizeService } from "./finalize.service";
+import { LipsyncService } from "./lipsync.service";
 
 @Controller("shorts")
 export class ShortsController {
@@ -10,6 +11,7 @@ export class ShortsController {
     private readonly shortsService: ShortsService,
     private readonly t2iService: T2iService,
     private readonly finalizeService: FinalizeService,
+    private readonly lipsyncService: LipsyncService,
   ) {}
 
   @Get()
@@ -99,5 +101,24 @@ export class ShortsController {
   @Post(":jobId/finalize")
   finalizeJob(@Param("jobId") jobId: string) {
     return this.finalizeService.finalizeJob(jobId);
+  }
+
+  /**
+   * Generate lip-synced audio + video for a single scene (FR-21).
+   * POST /shorts/:jobId/scenes/:sceneId/generate-lipsync
+   */
+  @Post(":jobId/scenes/:sceneId/generate-lipsync")
+  generateLipsync(
+    @Param("jobId") jobId: string,
+    @Param("sceneId") sceneId: string,
+    @Body() body: { dialog: string; voiceId: string },
+  ) {
+    return this.lipsyncService.generateLipsync({
+      jobId,
+      sceneId,
+      clipS3Url: "",
+      dialog: body.dialog,
+      voiceId: body.voiceId,
+    });
   }
 }
