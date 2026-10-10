@@ -647,3 +647,54 @@ export const sceneClips = pgTable(
 
 export type SceneClip    = typeof sceneClips.$inferSelect;
 export type NewSceneClip = typeof sceneClips.$inferInsert;
+
+// ── LV-01: Likeness Vault — GDPR Art. 9 biometric consent management ──────────
+
+/**
+ * A one-time invitation token issued by an operator before the subject submits
+ * their likeness consent. Tokens expire after a configurable number of days and
+ * are single-use (used_at is set on first submission).
+ */
+export const likenessInvitations = pgTable("likeness_invitations", {
+  id:         uuid("id").primaryKey().defaultRandom(),
+  token:      text("token").unique().notNull(),
+  operatorId: uuid("operator_id"),
+  expiresAt:  timestamp("expires_at", { withTimezone: true }),
+  usedAt:     timestamp("used_at", { withTimezone: true }),
+  createdAt:  timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type LikenessInvitation    = typeof likenessInvitations.$inferSelect;
+export type NewLikenessInvitation = typeof likenessInvitations.$inferInsert;
+
+/**
+ * Stores explicit consent records for biometric data (facial images, liveness
+ * video) classified as Special Category Data under GDPR Art. 9(2)(a).
+ *
+ * Retention policy: data deleted within 30 days of revocation (Art. 17).
+ * deletion_scheduled_at is set on revocation; a cron job purges S3 + this row.
+ */
+export const likenessConsents = pgTable("likeness_consents", {
+  id:                   uuid("id").primaryKey().defaultRandom(),
+  invitationId:         uuid("invitation_id").references(() => likenessInvitations.id),
+  subjectName:          text("subject_name").notNull(),
+  subjectEmail:         text("subject_email").notNull(),
+  photosS3Keys:         text("photos_s3_keys").array().notNull(),
+  livenessS3Key:        text("liveness_s3_key").notNull(),
+  faceMatchScore:       numeric("face_match_score", { precision: 4, scale: 3 }).notNull(),
+  purpose:              text("purpose").notNull(),
+  channels:             text("channels").array().notNull(),
+  topicsAllowed:        text("topics_allowed").array().notNull(),
+  voiceConsent:         boolean("voice_consent").default(false),
+  periodUntil:          timestamp("period_until", { withTimezone: true }),
+  proofHash:            text("proof_hash").notNull(),
+  proofIpHash:          text("proof_ip_hash").notNull(),
+  proofAt:              timestamp("proof_at", { withTimezone: true }).notNull(),
+  revokedAt:            timestamp("revoked_at", { withTimezone: true }),
+  deletionScheduledAt:  timestamp("deletion_scheduled_at", { withTimezone: true }),
+  version:              integer("version").default(1),
+  createdAt:            timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type LikenessConsent    = typeof likenessConsents.$inferSelect;
+export type NewLikenessConsent = typeof likenessConsents.$inferInsert;

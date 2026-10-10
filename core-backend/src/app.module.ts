@@ -40,6 +40,7 @@ import { EntitiesModule } from "./entities/entities.module";
 import { McpModule } from "./mcp/mcp.module";
 import { ShortsModule } from "./shorts/shorts.module";
 import { CharactersModule } from "./characters/characters.module";
+import { LikenessModule } from "./likeness/likeness.module";
 
 @Module({
   providers: [{ provide: APP_GUARD, useClass: ThrottleGuard }],
@@ -83,6 +84,7 @@ import { CharactersModule } from "./characters/characters.module";
     McpModule,
     ShortsModule,
     CharactersModule,
+    LikenessModule,
   ],
 })
 export class AppModule {}
