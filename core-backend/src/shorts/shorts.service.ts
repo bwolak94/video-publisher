@@ -2,9 +2,11 @@ import {
   Injectable,
   Inject,
   BadRequestException,
+  NotFoundException,
   UnprocessableEntityException,
 } from "@nestjs/common";
 import pino from "pino";
+import { sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DRIZZLE } from "../db/db.module";
 import * as schema from "../db/schema";
@@ -93,6 +95,28 @@ export class ShortsService {
     logger.info({ jobId: row.id, sceneCount }, "Shorts: scene plan generated and persisted");
 
     return { jobId: row.id, scenePlan };
+  }
+
+  /**
+   * Returns a single shorts job by id. Throws `NotFoundException` when not found.
+   */
+  async findJob(id: string) {
+    const rows = await this.db.execute(
+      sql`SELECT id, brief, scene_plan, status, created_at FROM shorts_jobs WHERE id = ${id}`,
+    );
+    const row = rows[0];
+    if (!row) throw new NotFoundException(`Job ${id} not found`);
+    return row;
+  }
+
+  /**
+   * Returns the most recent shorts jobs up to `limit`.
+   */
+  async listJobs(limit = 20) {
+    const rows = await this.db.execute(
+      sql`SELECT id, brief, status, created_at FROM shorts_jobs ORDER BY created_at DESC LIMIT ${limit}`,
+    );
+    return { data: rows, total: rows.length };
   }
 
   // ── Private helpers ─────────────────────────────────────────────────────────
