@@ -698,3 +698,27 @@ export const likenessConsents = pgTable("likeness_consents", {
 
 export type LikenessConsent    = typeof likenessConsents.$inferSelect;
 export type NewLikenessConsent = typeof likenessConsents.$inferInsert;
+
+// ── PRICE-01: Model pricing registry ──────────────────────────────────────────
+
+/**
+ * Stores per-model pricing configuration used for cost estimation.
+ * Records are soft-deleted via is_active flag; deactivated rows are excluded
+ * from estimateCost() lookups but kept for audit purposes.
+ */
+export const modelPricing = pgTable("model_pricing", {
+  id:           uuid("id").primaryKey().defaultRandom(),
+  role:         text("role").notNull(),
+  model:        text("model").notNull(),
+  endpoint:     text("endpoint").notNull(),
+  pricePerUnit: numeric("price_per_unit", { precision: 10, scale: 6 }).notNull(),
+  unit:         text("unit").notNull(),
+  license:      text("license").default("commercial"),
+  isActive:     boolean("is_active").default(true),
+  tag:          text("tag"),
+  updatedAt:    timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  createdAt:    timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type ModelPricing    = typeof modelPricing.$inferSelect;
+export type NewModelPricing = typeof modelPricing.$inferInsert;
