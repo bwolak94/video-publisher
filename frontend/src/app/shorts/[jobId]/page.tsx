@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { ScenePlanCard } from '@/components/shorts/ScenePlanCard'
+import { KeyframeReview } from '@/components/shorts/KeyframeReview'
 import { Button, InlineAlert } from '@/components/ui'
 import type { ScenePlanScene } from '@/types/shorts'
 
@@ -19,6 +20,7 @@ export default function ShortJobPage() {
   const [job, setJob] = useState<ShortsJob | null>(null)
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
+  const [acceptingScene, setAcceptingScene] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     fetch(`/api/shorts/${jobId}`)
@@ -34,6 +36,20 @@ export default function ShortJobPage() {
     setStarting(true)
     await fetch(`/api/shorts/${jobId}/start`, { method: 'POST' })
     setStarting(false)
+  }
+
+  async function handleAcceptKeyframe(sceneId: string, variantId: string) {
+    setAcceptingScene(prev => ({ ...prev, [sceneId]: true }))
+    await fetch(`/api/shorts/${jobId}/scenes/${sceneId}/accept-keyframe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variantId }),
+    })
+    setAcceptingScene(prev => ({ ...prev, [sceneId]: false }))
+  }
+
+  async function handleRegenerateKeyframe(sceneId: string) {
+    await fetch(`/api/shorts/${jobId}/scenes/${sceneId}/regenerate-keyframe`, { method: 'POST' })
   }
 
   if (loading) {
@@ -71,14 +87,26 @@ export default function ShortJobPage() {
 
       <div className="flex flex-col gap-3">
         {(job.scene_plan ?? []).map(scene => (
-          <ScenePlanCard
-            key={scene.scene_id}
-            scene={scene}
-            status="queued"
-            actions={
-              <Button variant="ghost" size="sm">Regeneruj</Button>
-            }
-          />
+          <div key={scene.scene_id} className="flex flex-col gap-3">
+            <ScenePlanCard
+              scene={scene}
+              status="queued"
+              actions={
+                <Button variant="ghost" size="sm">Regeneruj</Button>
+              }
+            />
+            <KeyframeReview
+              sceneId={scene.scene_id}
+              title={scene.image_prompt.slice(0, 60)}
+              variants={[
+                { id: `${scene.scene_id}-v0`, seed: 12345, busy: false },
+                { id: `${scene.scene_id}-v1`, seed: 67890, busy: false },
+              ]}
+              loading={acceptingScene[scene.scene_id] ?? false}
+              onAccept={(variantId) => handleAcceptKeyframe(scene.scene_id, variantId)}
+              onRegenerate={() => handleRegenerateKeyframe(scene.scene_id)}
+            />
+          </div>
         ))}
       </div>
     </div>
