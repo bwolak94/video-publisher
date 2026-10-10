@@ -1,4 +1,5 @@
 export * from './BudgetMeter'
+export * from './ClipTrimmer'
 export * from './ExportPanel'
 export * from './KeyframeReview'
 export * from './QAScore'
