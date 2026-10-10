@@ -2,12 +2,14 @@ import { Controller, Post, Get, Body, Param, Query } from "@nestjs/common";
 import { ShortsService } from "./shorts.service";
 import { CreateBriefDto } from "./dto/create-brief.dto";
 import { T2iService } from "./t2i.service";
+import { FinalizeService } from "./finalize.service";
 
 @Controller("shorts")
 export class ShortsController {
   constructor(
     private readonly shortsService: ShortsService,
     private readonly t2iService: T2iService,
+    private readonly finalizeService: FinalizeService,
   ) {}
 
   @Get()
@@ -76,5 +78,15 @@ export class ShortsController {
   @Post(":jobId/resume")
   resumeJob(@Param("jobId") jobId: string) {
     return this.shortsService.resumeJob(jobId);
+  }
+
+  /**
+   * Finalize a shorts job: builds C2PA manifest for accepted clips, uploads
+   * manifest sidecar to S3, and marks the job as done.
+   * POST /shorts/:jobId/finalize
+   */
+  @Post(":jobId/finalize")
+  finalizeJob(@Param("jobId") jobId: string) {
+    return this.finalizeService.finalizeJob(jobId);
   }
 }

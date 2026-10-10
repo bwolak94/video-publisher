@@ -4,6 +4,8 @@ import { ShortsService, ANTHROPIC_HTTP } from "./shorts.service";
 import { T2iService } from "./t2i.service";
 import { QaGateService, QA_GATE_HTTP } from "./qa-gate.service";
 import { QaGateWorker } from "./qa-gate.worker";
+import { C2paService } from "./c2pa.service";
+import { FinalizeService } from "./finalize.service";
 
 @Module({
   controllers: [ShortsController],
@@ -12,6 +14,8 @@ import { QaGateWorker } from "./qa-gate.worker";
     T2iService,
     QaGateService,
     QaGateWorker,
+    C2paService,
+    FinalizeService,
     {
       provide: ANTHROPIC_HTTP,
       useValue: fetch.bind(globalThis),
@@ -21,6 +25,6 @@ import { QaGateWorker } from "./qa-gate.worker";
       useValue: fetch.bind(globalThis),
     },
   ],
-  exports: [ShortsService, T2iService, QaGateService],
+  exports: [ShortsService, T2iService, QaGateService, C2paService, FinalizeService],
 })
 export class ShortsModule {}
