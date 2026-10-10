@@ -39,6 +39,7 @@ import { NarrationVariantsModule } from "./narration-variants/narration-variants
 import { EntitiesModule } from "./entities/entities.module";
 import { McpModule } from "./mcp/mcp.module";
 import { ShortsModule } from "./shorts/shorts.module";
+import { CharactersModule } from "./characters/characters.module";
 
 @Module({
   providers: [{ provide: APP_GUARD, useClass: ThrottleGuard }],
@@ -81,6 +82,7 @@ import { ShortsModule } from "./shorts/shorts.module";
     EntitiesModule,
     McpModule,
     ShortsModule,
+    CharactersModule,
   ],
 })
 export class AppModule {}
