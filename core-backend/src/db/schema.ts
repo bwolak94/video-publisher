@@ -585,3 +585,31 @@ export const characterImages = pgTable("character_images", {
 export type CharacterImage    = typeof characterImages.$inferSelect;
 export type NewCharacterImage = typeof characterImages.$inferInsert;
 
+// ── KF-02: Scene keyframe variants (T2I via Flux/fal.ai) ──────────────────────
+
+/**
+ * Each row represents one generated image variant for a scene within a
+ * shorts_jobs scene plan. Two variants are produced per generation call
+ * (variant_index 0 and 1). The accepted flag is set when the user picks a
+ * winner via POST /shorts/:jobId/scenes/:sceneId/accept-keyframe.
+ */
+export const sceneKeyframes = pgTable(
+  "scene_keyframes",
+  {
+    id:           uuid("id").primaryKey().defaultRandom(),
+    jobId:        uuid("job_id").references(() => shortsJobs.id, { onDelete: "cascade" }),
+    sceneId:      text("scene_id").notNull(),
+    variantIndex: integer("variant_index").notNull(),
+    s3Url:        text("s3_url").notNull(),
+    seed:         text("seed"),                                               // stored as text — bigint JS precision safe
+    similarity:   numeric("similarity", { precision: 4, scale: 3 }),
+    accepted:     boolean("accepted").default(false),
+    createdAt:    timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_scene_keyframes_job_scene: index("idx_scene_keyframes_job_scene").on(t.jobId, t.sceneId),
+  }),
+);
+
+export type SceneKeyframe    = typeof sceneKeyframes.$inferSelect;
+export type NewSceneKeyframe = typeof sceneKeyframes.$inferInsert;
