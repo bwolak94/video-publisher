@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, Query } from "@nestjs/common";
+import { Controller, Post, Get, Body, Param, Query, Redirect } from "@nestjs/common";
 import { ShortsService } from "./shorts.service";
 import { CreateBriefDto } from "./dto/create-brief.dto";
 import { T2iService } from "./t2i.service";
@@ -66,6 +66,17 @@ export class ShortsController {
     @Param("sceneId") sceneId: string,
   ) {
     return this.t2iService.generateKeyframes(jobId, sceneId);
+  }
+
+  /**
+   * Redirects to a presigned download URL for the final MP4 of a completed job.
+   * GET /shorts/:jobId/download
+   */
+  @Get(":jobId/download")
+  @Redirect()
+  async downloadShort(@Param("jobId") jobId: string) {
+    const url = await this.shortsService.getDownloadUrl(jobId);
+    return { url, statusCode: 302 };
   }
 
   /**

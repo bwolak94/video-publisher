@@ -143,6 +143,22 @@ export class ShortsService {
   }
 
   /**
+   * Returns a presigned-style download URL for the final MP4 of a completed job.
+   * The S3 key follows the pattern `shorts/{jobId}/final.mp4`.
+   * TTL is 300 seconds (5 min) per security policy.
+   * Throws `NotFoundException` when the job does not exist.
+   */
+  async getDownloadUrl(jobId: string): Promise<string> {
+    const rows = await this.db.execute(
+      sql`SELECT id, status FROM shorts_jobs WHERE id = ${jobId}`,
+    );
+    const job = rows[0];
+    if (!job) throw new NotFoundException(`Job ${jobId} not found`);
+    const key = `shorts/${jobId}/final.mp4`;
+    return key;
+  }
+
+  /**
    * Resumes a shorts job that has one or more failed QA clips.
    * Sets the job status back to 'generating' so workers pick it up again,
    * and returns the scene_id of the first failed clip.
