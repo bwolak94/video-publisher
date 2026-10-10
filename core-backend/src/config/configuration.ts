@@ -22,6 +22,7 @@ export interface AppConfig {
   };
   youtubeRedirectUri: string;
   worker: WorkerConfig;
+  falApiKey: string;
 }
 
 export function configuration(): AppConfig {
@@ -48,5 +49,6 @@ export function configuration(): AppConfig {
       dedupWindowHours: parseInt(process.env.WORKER_DEDUP_WINDOW_HOURS ?? "48", 10),
       notificationWebhook: process.env.WORKER_NOTIFICATION_WEBHOOK ?? "",
     },
+    falApiKey: process.env.FAL_API_KEY ?? "",
   };
 }

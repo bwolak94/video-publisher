@@ -116,7 +116,8 @@ export class ShortsService {
     const rows = await this.db.execute(
       sql`SELECT id, brief, status, created_at FROM shorts_jobs ORDER BY created_at DESC LIMIT ${limit}`,
     );
-    return { data: rows, total: rows.length };
+    const data = Array.isArray(rows) ? rows : (rows as any).rows ?? [];
+    return { data, total: data.length };
   }
 
   // ── Private helpers ─────────────────────────────────────────────────────────
