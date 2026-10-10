@@ -38,6 +38,7 @@ import { CompetitorAnalysisModule } from "./competitor/competitor-analysis.modul
 import { NarrationVariantsModule } from "./narration-variants/narration-variants.module";
 import { EntitiesModule } from "./entities/entities.module";
 import { McpModule } from "./mcp/mcp.module";
+import { CharactersModule } from "./characters/characters.module";
 
 @Module({
   providers: [{ provide: APP_GUARD, useClass: ThrottleGuard }],
@@ -79,6 +80,7 @@ import { McpModule } from "./mcp/mcp.module";
     NarrationVariantsModule,
     EntitiesModule,
     McpModule,
+    CharactersModule,
   ],
 })
 export class AppModule {}

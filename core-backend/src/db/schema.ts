@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp, boolean, numeric, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, jsonb, timestamp, boolean, numeric, index, integer } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -520,3 +520,43 @@ export const entities = pgTable(
 
 export type Entity    = typeof entities.$inferSelect;
 export type NewEntity = typeof entities.$inferInsert;
+
+// ── Character Bible ────────────────────────────────────────────────────────────
+
+/**
+ * A Character represents a recurring on-screen persona (host, guest, fictional
+ * character). The bible stores style, voice binding, consent metadata and soft-
+ * delete support for GDPR compliance.
+ */
+export const characters = pgTable("characters", {
+  id:                uuid("id").primaryKey().defaultRandom(),
+  name:              text("name").notNull(),
+  description:       text("description").notNull(),
+  style:             text("style").default("realistic"),
+  voiceId:           text("voice_id"),
+  nicheProfileId:    uuid("niche_profile_id"),
+  consentType:       text("consent_type").default("original"),
+  likenessConsentId: uuid("likeness_consent_id"),
+  version:           integer("version").default(1),
+  deletedAt:         timestamp("deleted_at", { withTimezone: true }),
+  createdAt:         timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type Character    = typeof characters.$inferSelect;
+export type NewCharacter = typeof characters.$inferInsert;
+
+/**
+ * Reference images attached to a Character.  Max 4 per character (enforced in
+ * application layer).  S3 URLs follow the `s3://bucket/key` convention; public
+ * presigned URLs are generated on read.
+ */
+export const characterImages = pgTable("character_images", {
+  id:          uuid("id").primaryKey().defaultRandom(),
+  characterId: uuid("character_id").references(() => characters.id, { onDelete: "cascade" }),
+  s3Url:       text("s3_url").notNull(),
+  sortOrder:   integer("sort_order").default(0),
+  createdAt:   timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type CharacterImage    = typeof characterImages.$inferSelect;
+export type NewCharacterImage = typeof characterImages.$inferInsert;
