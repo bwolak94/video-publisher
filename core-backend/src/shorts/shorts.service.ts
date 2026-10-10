@@ -110,6 +110,39 @@ export class ShortsService {
   }
 
   /**
+   * Returns a job status summary including per-scene stage breakdown.
+   * Throws `NotFoundException` when the job does not exist.
+   */
+  async getJobStatus(id: string) {
+    const rows = await this.db.execute(
+      sql`SELECT id, brief, scene_plan, status, budget_usd, created_at FROM shorts_jobs WHERE id = ${id}`,
+    );
+    const job = rows[0];
+    if (!job) throw new NotFoundException(`Job ${id} not found`);
+    const scenes = (((job as any).scene_plan as any[]) ?? []).map((scene: any) => ({
+      id: scene.scene_id,
+      title: scene.image_prompt?.slice(0, 40),
+      track: 'i2v',
+      model: scene.model_hint,
+      attempt: 1,
+      status: 'queued',
+      stages: { t2i: 'pending', review: 'pending', i2v: 'pending', qa: 'pending', 'lip-sync': 'pending' },
+    }));
+    return {
+      id: (job as any).id,
+      brief: (job as any).brief,
+      status: (job as any).status,
+      done: 0,
+      total: scenes.length,
+      cost: 0,
+      budget: Number((job as any).budget_usd),
+      elapsed: 0,
+      eta: scenes.length * 30,
+      scenes,
+    };
+  }
+
+  /**
    * Returns the most recent shorts jobs up to `limit`.
    */
   async listJobs(limit = 20) {

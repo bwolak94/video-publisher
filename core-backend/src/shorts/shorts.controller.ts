@@ -20,6 +20,11 @@ export class ShortsController {
     return this.shortsService.findJob(jobId);
   }
 
+  @Get(":jobId/status")
+  getJobStatus(@Param("jobId") jobId: string) {
+    return this.shortsService.getJobStatus(jobId);
+  }
+
   @Post("brief")
   async createBrief(@Body() dto: CreateBriefDto) {
     return this.shortsService.generateScenePlan(dto);
