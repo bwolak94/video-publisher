@@ -520,3 +520,27 @@ export const entities = pgTable(
 
 export type Entity    = typeof entities.$inferSelect;
 export type NewEntity = typeof entities.$inferInsert;
+
+// ── BRIEF-02: Shorts Scene Plan jobs ─────────────────────────────────────────
+
+/**
+ * A shorts_jobs row is created for every POST /shorts/brief request.
+ * It stores the generation inputs and the LLM-produced scene plan.
+ */
+export const shortsJobs = pgTable("shorts_jobs", {
+  id:               uuid("id").primaryKey().defaultRandom(),
+  brief:            text("brief").notNull(),
+  nicheId:          uuid("niche_id"),
+  characterIds:     text("character_ids").array().default([]),
+  budgetUsd:        numeric("budget_usd", { precision: 8, scale: 2 }).default("4.00"),
+  durationS:        text("duration_s").notNull(),
+  shotTrack:        text("shot_track").notNull(),
+  hitl:             boolean("hitl").default(true),
+  scenePlan:        jsonb("scene_plan"),
+  status:           text("status").notNull().default("plan_ready"),
+  moderationBlocked: boolean("moderation_blocked").default(false),
+  createdAt:        timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type ShortsJob    = typeof shortsJobs.$inferSelect;
+export type NewShortsJob = typeof shortsJobs.$inferInsert;

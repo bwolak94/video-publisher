@@ -1,0 +1,207 @@
+import {
+  Injectable,
+  Inject,
+  BadRequestException,
+  UnprocessableEntityException,
+} from "@nestjs/common";
+import pino from "pino";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { DRIZZLE } from "../db/db.module";
+import * as schema from "../db/schema";
+import { shortsJobs } from "../db/schema";
+import { CreateBriefDto } from "./dto/create-brief.dto";
+import { ScenePlanSchema, type ScenePlanScene } from "./schemas/scene-plan.schema";
+
+const logger = pino({ level: "info" });
+
+/** Injectable fetch symbol — allows mocking in unit tests. */
+export const ANTHROPIC_HTTP = Symbol("ANTHROPIC_HTTP");
+
+/** Default model used for scene plan generation and moderation. */
+const ANTHROPIC_MODEL = "claude-3-5-haiku-20241022";
+const ANTHROPIC_BASE_URL = "https://api.anthropic.com";
+
+export interface GenerateScenePlanResult {
+  jobId: string;
+  scenePlan: ScenePlanScene[];
+}
+
+@Injectable()
+export class ShortsService {
+  private readonly apiKey: string;
+
+  constructor(
+    @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
+    @Inject(ANTHROPIC_HTTP) private readonly httpFetch: typeof fetch,
+  ) {
+    this.apiKey = process.env.ANTHROPIC_API_KEY ?? "";
+  }
+
+  // ── Public API ──────────────────────────────────────────────────────────────
+
+  /**
+   * Generates an LLM scene plan for the given brief and persists it as a
+   * `shorts_jobs` row. Throws `BadRequestException` when moderation detects a
+   * real-person reference, or `UnprocessableEntityException` when JSON parsing
+   * fails after one retry.
+   */
+  async generateScenePlan(dto: CreateBriefDto): Promise<GenerateScenePlanResult> {
+    // Step 1 — moderation gate
+    const moderationReason = await this.moderateCheck(dto.brief);
+    if (moderationReason) {
+      logger.warn({ brief: dto.brief.slice(0, 60) }, "Shorts: brief rejected by moderation");
+      throw new BadRequestException({ moderation: moderationReason });
+    }
+
+    // Step 2 — compute scene count from duration
+    const sceneCount = this.sceneCountForDuration(dto.duration);
+
+    // Step 3 — build prompts
+    const systemPrompt =
+      `You are a video director creating scene plans for short-form content. ` +
+      `Return ONLY a valid JSON array (no markdown, no explanation) of exactly ${sceneCount} scene objects, ` +
+      `each with: scene_id (s01, s02...), duration_s (number), characters (array of strings), ` +
+      `image_prompt (string), motion_prompt (string), camera (string), voiceover (string), ` +
+      `sfx_tags (array of strings), model_hint (one of: action, dialog, landscape).`;
+
+    const userPrompt =
+      `Brief: ${dto.brief}\n` +
+      `Duration: ${dto.duration}s\n` +
+      `Scene count: ${sceneCount}\n` +
+      `Shot track: ${dto.shotTrack}`;
+
+    // Step 4 — call LLM (with one retry on parse failure)
+    const scenePlan = await this.callLlmWithRetry(systemPrompt, userPrompt);
+
+    // Step 5 — persist to shorts_jobs
+    const [row] = await this.db
+      .insert(shortsJobs)
+      .values({
+        brief:       dto.brief,
+        nicheId:     dto.nicheId ?? null,
+        characterIds: dto.characterIds ?? [],
+        budgetUsd:   String(dto.budgetUsd),
+        durationS:   String(dto.duration),
+        shotTrack:   dto.shotTrack,
+        hitl:        dto.hitl,
+        scenePlan:   scenePlan as any,
+        status:      "plan_ready",
+        moderationBlocked: false,
+      } as any)
+      .returning();
+
+    logger.info({ jobId: row.id, sceneCount }, "Shorts: scene plan generated and persisted");
+
+    return { jobId: row.id, scenePlan };
+  }
+
+  // ── Private helpers ─────────────────────────────────────────────────────────
+
+  /**
+   * Checks whether the brief references a real person by their full name.
+   * Returns a human-readable rejection reason string, or `null` if clean.
+   */
+  private async moderateCheck(brief: string): Promise<string | null> {
+    const response = await this.callAnthropic(
+      "You are a content moderation assistant.",
+      `Does this video brief mention any real person by their full name or describe a clearly identifiable real individual? Answer only YES or NO.\n\nBrief: ${brief}`,
+      50,
+    );
+
+    if (response.trim().toUpperCase().startsWith("YES")) {
+      return "Brief zawiera wizerunek rzeczywistej osoby, co jest niezgodne z polityką platformy.";
+    }
+    return null;
+  }
+
+  /** Maps a duration (seconds) to a scene count. */
+  private sceneCountForDuration(duration: 15 | 30 | 45): number {
+    const map: Record<number, number> = { 15: 3, 30: 6, 45: 8 };
+    return map[duration];
+  }
+
+  /**
+   * Calls the LLM to generate a scene plan. Retries once on zod validation
+   * failure, appending the error context to help the model self-correct.
+   */
+  private async callLlmWithRetry(
+    systemPrompt: string,
+    userPrompt: string,
+  ): Promise<ScenePlanScene[]> {
+    const raw = await this.callAnthropic(systemPrompt, userPrompt, 4096);
+    const parseError = this.tryParseScenePlan(raw);
+
+    if (parseError.scenes !== null) {
+      return parseError.scenes;
+    }
+
+    // Retry once with error context appended
+    logger.warn({ error: parseError.error }, "Shorts: scene plan parse failed, retrying");
+    const retryUserPrompt =
+      userPrompt +
+      `\n\nYour previous response could not be validated. Error: ${parseError.error}. ` +
+      `Fix the JSON and return ONLY the corrected array.`;
+
+    const rawRetry = await this.callAnthropic(systemPrompt, retryUserPrompt, 4096);
+    const retryResult = this.tryParseScenePlan(rawRetry);
+
+    if (retryResult.scenes !== null) {
+      return retryResult.scenes;
+    }
+
+    throw new UnprocessableEntityException({
+      message: "Failed to generate a valid scene plan after retry",
+      errors: retryResult.error,
+    });
+  }
+
+  /**
+   * Attempts to parse and zod-validate a raw LLM JSON string.
+   * Returns `{ scenes, error: null }` on success or `{ scenes: null, error }` on failure.
+   */
+  private tryParseScenePlan(
+    raw: string,
+  ): { scenes: ScenePlanScene[]; error: null } | { scenes: null; error: string } {
+    try {
+      const json: unknown = JSON.parse(raw.trim());
+      const parsed = ScenePlanSchema.parse(json);
+      return { scenes: parsed, error: null };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { scenes: null, error: message };
+    }
+  }
+
+  /**
+   * Low-level Anthropic Messages API call. Uses the ANTHROPIC_HTTP fetch token
+   * so it can be fully mocked in unit tests without network access.
+   */
+  private async callAnthropic(
+    system: string,
+    user: string,
+    maxTokens: number,
+  ): Promise<string> {
+    const response = await this.httpFetch(`${ANTHROPIC_BASE_URL}/v1/messages`, {
+      method: "POST",
+      headers: {
+        "x-api-key":         this.apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type":      "application/json",
+      },
+      body: JSON.stringify({
+        model:      ANTHROPIC_MODEL,
+        max_tokens: maxTokens,
+        system,
+        messages: [{ role: "user", content: user }],
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`Anthropic API error ${response.status}: ${body}`);
+    }
+
+    const data: any = await response.json();
+    return (data.content?.[0]?.text ?? "") as string;
+  }
+}
