@@ -67,4 +67,14 @@ export class ShortsController {
   ) {
     return this.t2iService.generateKeyframes(jobId, sceneId);
   }
+
+  /**
+   * Resumes a shorts job that has QA-failed clips.
+   * Sets the job status back to 'generating' and returns the first failed scene_id.
+   * POST /shorts/:jobId/resume
+   */
+  @Post(":jobId/resume")
+  resumeJob(@Param("jobId") jobId: string) {
+    return this.shortsService.resumeJob(jobId);
+  }
 }

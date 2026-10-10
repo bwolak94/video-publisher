@@ -613,3 +613,37 @@ export const sceneKeyframes = pgTable(
 
 export type SceneKeyframe    = typeof sceneKeyframes.$inferSelect;
 export type NewSceneKeyframe = typeof sceneKeyframes.$inferInsert;
+
+// ── JOB-02: Scene clips with QA gate scoring ──────────────────────────────────
+
+/**
+ * Each row represents one generated video clip for a scene within a shorts job.
+ * The QA gate evaluates the clip via VLM checks (artifact detection, prompt
+ * alignment) and face similarity scoring, storing per-check results in qa_checks
+ * (jsonb) and an aggregate qa_score. Clips that pass (qa_passed=true) are used
+ * in the final assembly; failed clips trigger a re-enqueue up to 3 attempts.
+ */
+export const sceneClips = pgTable(
+  "scene_clips",
+  {
+    id:         uuid("id").primaryKey().defaultRandom(),
+    jobId:      uuid("job_id").references(() => shortsJobs.id, { onDelete: "cascade" }),
+    sceneId:    text("scene_id").notNull(),
+    keyframeId: uuid("keyframe_id").references(() => sceneKeyframes.id),
+    s3Url:      text("s3_url").notNull(),
+    provider:   text("provider").notNull().default("fal-ai"),
+    model:      text("model").notNull().default("wan-2.5"),
+    seed:       text("seed"),                                           // stored as text — bigint JS precision safe
+    attempt:    integer("attempt").default(1),
+    qaScore:    numeric("qa_score", { precision: 4, scale: 3 }),
+    qaChecks:   jsonb("qa_checks"),                                     // { faceSim, artifactScore, promptAlign }
+    qaPassed:   boolean("qa_passed").default(false),
+    createdAt:  timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    idx_scene_clips_job_scene: index("idx_scene_clips_job_scene").on(t.jobId, t.sceneId),
+  }),
+);
+
+export type SceneClip    = typeof sceneClips.$inferSelect;
+export type NewSceneClip = typeof sceneClips.$inferInsert;
