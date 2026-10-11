@@ -742,3 +742,23 @@ export const sfxLibrary = pgTable("sfx_library", {
 
 export type SfxLibraryEntry    = typeof sfxLibrary.$inferSelect;
 export type NewSfxLibraryEntry = typeof sfxLibrary.$inferInsert;
+
+// ── V2V-02: Source clip uploads for Video-to-Video generation ─────────────────
+
+/**
+ * A source_clips row is created for every uploaded video that will be used
+ * as input for the V2V fal.ai pipeline.  ffprobe metadata (duration, fps,
+ * resolution) is extracted on upload and stored for display in the UI.
+ */
+export const sourceClips = pgTable("source_clips", {
+  id:         uuid("id").primaryKey().defaultRandom(),
+  name:       text("name"),
+  s3Url:      text("s3_url").notNull(),
+  durationS:  numeric("duration_s", { precision: 8, scale: 2 }),
+  fps:        numeric("fps", { precision: 5, scale: 2 }),
+  resolution: text("resolution"),
+  createdAt:  timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type SourceClip    = typeof sourceClips.$inferSelect;
+export type NewSourceClip = typeof sourceClips.$inferInsert;

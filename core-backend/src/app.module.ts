@@ -39,6 +39,7 @@ import { NarrationVariantsModule } from "./narration-variants/narration-variants
 import { EntitiesModule } from "./entities/entities.module";
 import { McpModule } from "./mcp/mcp.module";
 import { ShortsModule } from "./shorts/shorts.module";
+import { SourceClipsModule } from "./source-clips/source-clips.module";
 import { CharactersModule } from "./characters/characters.module";
 import { LikenessModule } from "./likeness/likeness.module";
 import { ModelPricingModule } from "./model-pricing/model-pricing.module";
@@ -85,6 +86,7 @@ import { SfxModule } from "./sfx/sfx.module";
     EntitiesModule,
     McpModule,
     ShortsModule,
+    SourceClipsModule,
     CharactersModule,
     LikenessModule,
     ModelPricingModule,

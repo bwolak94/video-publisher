@@ -7,8 +7,11 @@ import { QaGateWorker } from "./qa-gate.worker";
 import { C2paService } from "./c2pa.service";
 import { FinalizeService } from "./finalize.service";
 import { LipsyncService } from "./lipsync.service";
+import { V2VService } from "./v2v.service";
+import { SourceClipsModule } from "../source-clips/source-clips.module";
 
 @Module({
+  imports: [SourceClipsModule],
   controllers: [ShortsController],
   providers: [
     ShortsService,
@@ -18,6 +21,7 @@ import { LipsyncService } from "./lipsync.service";
     C2paService,
     FinalizeService,
     LipsyncService,
+    V2VService,
     {
       provide: ANTHROPIC_HTTP,
       useValue: fetch.bind(globalThis),
@@ -27,6 +31,6 @@ import { LipsyncService } from "./lipsync.service";
       useValue: fetch.bind(globalThis),
     },
   ],
-  exports: [ShortsService, T2iService, QaGateService, C2paService, FinalizeService, LipsyncService],
+  exports: [ShortsService, T2iService, QaGateService, C2paService, FinalizeService, LipsyncService, V2VService],
 })
 export class ShortsModule {}
