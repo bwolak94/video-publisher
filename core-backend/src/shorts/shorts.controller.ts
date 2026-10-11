@@ -4,6 +4,7 @@ import { CreateBriefDto } from "./dto/create-brief.dto";
 import { T2iService } from "./t2i.service";
 import { FinalizeService } from "./finalize.service";
 import { LipsyncService } from "./lipsync.service";
+import { V2VService, GenerateV2VDto } from "./v2v.service";
 
 @Controller("shorts")
 export class ShortsController {
@@ -12,6 +13,7 @@ export class ShortsController {
     private readonly t2iService: T2iService,
     private readonly finalizeService: FinalizeService,
     private readonly lipsyncService: LipsyncService,
+    private readonly v2vService: V2VService,
   ) {}
 
   @Get()
@@ -120,5 +122,18 @@ export class ShortsController {
       dialog: body.dialog,
       voiceId: body.voiceId,
     });
+  }
+
+  /**
+   * Generate a V2V clip for a scene using fal.ai wan/video-to-video (FR-14).
+   * POST /shorts/:jobId/scenes/:sceneId/generate-v2v
+   */
+  @Post(":jobId/scenes/:sceneId/generate-v2v")
+  generateV2V(
+    @Param("jobId") jobId: string,
+    @Param("sceneId") sceneId: string,
+    @Body() dto: GenerateV2VDto,
+  ) {
+    return this.v2vService.generateV2V(jobId, sceneId, dto);
   }
 }
