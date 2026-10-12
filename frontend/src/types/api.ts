@@ -122,7 +122,16 @@ export interface McpToolResult {
   };
 }
 
-// -- Shorts / Keyframes (FIX-04) ---------------------------------------------
+// -- Shorts / Keyframes (FIX-04, FIX-07) ------------------------------------
+
+export interface ShortJobSummary {
+  id: string
+  brief: string
+  status: string
+  sceneCount: number
+  costUsd: number
+  createdAt: string
+}
 
 export interface KeyframeVariant {
   id: string
