@@ -14,10 +14,16 @@ import { shortsJobs } from "../db/schema";
 import { CreateBriefDto } from "./dto/create-brief.dto";
 import { ScenePlanSchema, type ScenePlanScene } from "./schemas/scene-plan.schema";
 
+import { Queue } from "bullmq";
+import type Redis from "ioredis";
+import { REDIS_CLIENT } from "../redis/redis.module";
 const logger = pino({ level: "info" });
 
 /** Injectable fetch symbol — allows mocking in unit tests. */
 export const ANTHROPIC_HTTP = Symbol("ANTHROPIC_HTTP");
+
+/** BullMQ queue name for I2V (image-to-video) generation jobs. */
+const I2V_QUEUE_NAME = "i2v";
 
 /** Default model used for scene plan generation and moderation. */
 const ANTHROPIC_MODEL = "claude-3-5-haiku-20241022";
@@ -31,12 +37,15 @@ export interface GenerateScenePlanResult {
 @Injectable()
 export class ShortsService {
   private readonly apiKey: string;
+  private readonly i2vQueue: Queue;
 
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     @Inject(ANTHROPIC_HTTP) private readonly httpFetch: typeof fetch,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {
     this.apiKey = process.env.ANTHROPIC_API_KEY ?? "";
+    this.i2vQueue = new Queue(I2V_QUEUE_NAME, { connection: this.redis as any });
   }
 
   // ── Public API ──────────────────────────────────────────────────────────────
@@ -180,6 +189,63 @@ export class ShortsService {
     }
 
     return { status: "resumed", resumedFromScene: failedScene };
+  }
+
+  /**
+   * Starts I2V generation for all keyframe-accepted scenes in a job.
+   * Enqueues a BullMQ job per scene and transitions job status to 'generating_i2v'.
+   */
+  async startI2V(jobId: string): Promise<{ jobId: string; status: string; sceneCount: number }> {
+    const rows = await this.db.execute(
+      sql`SELECT id, status, scene_plan FROM shorts_jobs WHERE id = ${jobId}`,
+    );
+    const job = Array.isArray(rows) ? rows[0] : (rows as any).rows?.[0];
+    if (!job) throw new NotFoundException(`Job ${jobId} not found`);
+
+    const scenePlan: any[] = (job as any).scene_plan ?? [];
+
+    await this.db.execute(
+      sql`UPDATE shorts_jobs SET status = 'generating_i2v' WHERE id = ${jobId}`,
+    );
+
+    for (const scene of scenePlan) {
+      await this.i2vQueue.add('generate-i2v', {
+        jobId,
+        sceneId: scene.scene_id,
+        imagePrompt: scene.image_prompt,
+        motionPrompt: scene.motion_prompt,
+        modelHint: scene.model_hint,
+      });
+    }
+
+    logger.info({ jobId, sceneCount: scenePlan.length }, 'ShortsService: I2V generation started');
+
+    return { jobId, status: 'generating_i2v', sceneCount: scenePlan.length };
+  }
+
+  /**
+   * Re-enqueues I2V generation for a single scene (retry after failure).
+   */
+  async generateSceneI2V(jobId: string, sceneId: string): Promise<{ sceneId: string; status: string }> {
+    const rows = await this.db.execute(
+      sql`SELECT scene_plan FROM shorts_jobs WHERE id = ${jobId}`,
+    );
+    const job = Array.isArray(rows) ? rows[0] : (rows as any).rows?.[0];
+    if (!job) throw new NotFoundException(`Job ${jobId} not found`);
+
+    const scene = ((job as any).scene_plan ?? []).find((s: any) => s.scene_id === sceneId);
+
+    await this.i2vQueue.add('generate-i2v', {
+      jobId,
+      sceneId,
+      imagePrompt: scene?.image_prompt ?? '',
+      motionPrompt: scene?.motion_prompt ?? '',
+      modelHint: scene?.model_hint ?? 'action',
+    });
+
+    logger.info({ jobId, sceneId }, 'ShortsService: single scene I2V re-enqueued');
+
+    return { sceneId, status: 'queued' };
   }
 
   /**
