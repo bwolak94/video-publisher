@@ -29,6 +29,8 @@ export function ExportPanel({
   onDownload,
 }: ExportPanelProps) {
   const [copied, setCopied] = useState(false)
+  const [finalizing, setFinalizing] = useState(false)
+  const [finalizeError, setFinalizeError] = useState<string | null>(null)
   const aiLabel = label ?? (hasLikeness ? LABEL_LIKENESS : LABEL_DEFAULT)
 
   async function handleCopy() {
@@ -37,10 +39,31 @@ export function ExportPanel({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  async function handleDownload() {
-    window.location.href = `/api/shorts/${jobId}/download`
+  function triggerDownload(url: string) {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `short-${jobId}.mp4`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
     onDownload?.()
   }
+
+  async function handleFinalize() {
+    setFinalizing(true)
+    setFinalizeError(null)
+    try {
+      const res = await fetch(`/api/shorts/${jobId}/finalize`, { method: 'POST' })
+      if (!res.ok) throw new Error(`${res.status}`)
+      const { downloadUrl } = await res.json()
+      triggerDownload(downloadUrl)
+    } catch {
+      setFinalizeError('Błąd finalizacji. Spróbuj ponownie.')
+    } finally {
+      setFinalizing(false)
+    }
+  }
+
 
   return (
     <Card>
@@ -91,10 +114,17 @@ export function ExportPanel({
       </CardBody>
 
       <CardFoot>
-        <Button variant="primary" block onClick={handleDownload}>
+        {finalizing && (
+          <InlineAlert tone="info" title="Finalizacja">Dołączam manifest C2PA i etykietę AI…</InlineAlert>
+        )}
+        {finalizeError && (
+          <InlineAlert tone="danger" title="Błąd">{finalizeError}</InlineAlert>
+        )}
+        <Button variant="primary" block loading={finalizing} disabled={finalizing} onClick={handleFinalize}>
           Pobierz MP4
         </Button>
       </CardFoot>
+
     </Card>
   )
 }
