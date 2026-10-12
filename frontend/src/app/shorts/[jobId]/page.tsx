@@ -113,17 +113,30 @@ export default function ShortJobPage() {
                 <Button variant="ghost" size="sm">Regeneruj</Button>
               }
             />
-            <KeyframeReview
-              sceneId={scene.scene_id}
-              title={scene.image_prompt.slice(0, 60)}
-              variants={[
-                { id: `${scene.scene_id}-v0`, seed: 12345, busy: false },
-                { id: `${scene.scene_id}-v1`, seed: 67890, busy: false },
-              ]}
-              loading={acceptingScene[scene.scene_id] ?? false}
-              onAccept={(variantId) => handleAcceptKeyframe(scene.scene_id, variantId)}
-              onRegenerate={() => handleRegenerateKeyframe(scene.scene_id)}
-            />
+            {!scene.keyframe_variants?.length ? (
+              <div style={{ display: 'flex', gap: 12 }}>
+                {[0,1].map(i => (
+                  <div key={i} style={{ width: 120, aspectRatio: '9/16', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-faint)' }}>T2I w toku…</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+                <KeyframeReview
+                  sceneId={scene.scene_id}
+                  title={scene.image_prompt.slice(0, 60)}
+                  variants={(scene.keyframe_variants ?? []).map(v => ({
+                    id: v.id,
+                    src: v.s3Url,
+                    seed: v.seed,
+                    busy: v.status === 'generating',
+                  }))}
+                  loading={acceptingScene[scene.scene_id] ?? false}
+                  onAccept={(variantId) => handleAcceptKeyframe(scene.scene_id, variantId)}
+                  onRegenerate={() => handleRegenerateKeyframe(scene.scene_id)}
+                />
+              )
+            }
           </div>
         ))}
       </div>

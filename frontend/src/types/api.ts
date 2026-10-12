@@ -121,3 +121,12 @@ export interface McpToolResult {
     content: Array<{ type: "text"; text: string }>;
   };
 }
+
+// -- Shorts / Keyframes (FIX-04) ---------------------------------------------
+
+export interface KeyframeVariant {
+  id: string
+  s3Url: string
+  seed: number
+  status: 'generating' | 'ready' | 'failed'
+}
