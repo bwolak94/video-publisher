@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { io } from 'socket.io-client'
 import { ScenePlanCard } from '@/components/shorts/ScenePlanCard'
 import { KeyframeReview } from '@/components/shorts/KeyframeReview'
 import { ExportPanel } from '@/components/shorts/ExportPanel'
@@ -23,6 +24,7 @@ export default function ShortJobPage() {
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const [acceptingScene, setAcceptingScene] = useState<Record<string, boolean>>({})
+  const [wsConnected, setWsConnected] = useState(false)
 
   useEffect(() => {
     fetch(`/api/shorts/${jobId}`)
@@ -32,6 +34,42 @@ export default function ShortJobPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
+  }, [jobId])
+
+  useEffect(() => {
+    const socket = io(process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:3002', {
+      transports: ['websocket'],
+    })
+
+    socket.on('connect', () => {
+      setWsConnected(true)
+      socket.emit('join_job', { jobId })
+    })
+
+    socket.on('disconnect', () => {
+      setWsConnected(false)
+    })
+
+    socket.on('job:scene_update', ({ sceneId, status, qaScore }: { sceneId: string; status: string; qaScore?: number }) => {
+      setJob(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          scene_plan: prev.scene_plan.map((s: ScenePlanScene) =>
+            s.scene_id === sceneId ? { ...s, status, qaScore } : s
+          ),
+        }
+      })
+    })
+
+    socket.on('job:status_update', ({ status }: { status: string }) => {
+      setJob(prev => prev ? { ...prev, status } : prev)
+    })
+
+    return () => {
+      socket.emit('leave_job', { jobId })
+      socket.disconnect()
+    }
   }, [jobId])
 
   async function handleStart() {
@@ -98,10 +136,18 @@ export default function ShortJobPage() {
 
       {startError && <InlineAlert tone="danger">{startError}</InlineAlert>}
 
-      <InlineAlert
-        tone="info"
-        title={`${job.scene_plan?.length ?? 0} scen · Status: ${job.status}`}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <InlineAlert
+          tone="info"
+          title={`${job.scene_plan?.length ?? 0} scen · Status: ${job.status}`}
+        />
+        {wsConnected && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'monospace', color: 'var(--info)', flexShrink: 0 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--info)', display: 'inline-block' }} />
+            Live
+          </span>
+        )}
+      </div>
 
       <div className="flex flex-col gap-3">
         {(job.scene_plan ?? []).map(scene => (
