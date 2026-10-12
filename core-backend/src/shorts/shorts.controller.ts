@@ -158,4 +158,26 @@ export class ShortsController {
   ) {
     return this.v2vService.generateV2V(jobId, sceneId, dto);
   }
+
+  /**
+   * Human QA gate — approve a scene clip (FIX-03).
+   * POST /shorts/:jobId/scenes/:sceneId/approve-qa
+   */
+  @Post(':jobId/scenes/:sceneId/approve-qa')
+  async approveQA(@Param('jobId') jobId: string, @Param('sceneId') sceneId: string) {
+    return this.shortsService.approveQA(jobId, sceneId);
+  }
+
+  /**
+   * Human QA gate — reject a scene clip and trigger re-generation (FIX-03).
+   * POST /shorts/:jobId/scenes/:sceneId/reject-qa
+   */
+  @Post(':jobId/scenes/:sceneId/reject-qa')
+  async rejectQA(
+    @Param('jobId') jobId: string,
+    @Param('sceneId') sceneId: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.shortsService.rejectQA(jobId, sceneId, body?.reason);
+  }
 }

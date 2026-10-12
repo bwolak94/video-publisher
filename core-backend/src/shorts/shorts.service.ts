@@ -249,6 +249,43 @@ export class ShortsService {
   }
 
   /**
+   * Approves a scene clip via the human QA gate (FIX-03).
+   * Sets manual_qa_status = 'approved' and qa_passed = true for all clips
+   * matching the given jobId + sceneId.
+   */
+  async approveQA(jobId: string, sceneId: string): Promise<{ sceneId: string; status: string }> {
+    await this.db.execute(sql`
+      UPDATE scene_clips
+      SET manual_qa_status = 'approved', qa_passed = true
+      WHERE job_id = ${jobId} AND scene_id = ${sceneId}
+    `);
+    logger.info({ jobId, sceneId }, "ShortsService: QA approved by human operator");
+    return { sceneId, status: "qa_approved" };
+  }
+
+  /**
+   * Rejects a scene clip via the human QA gate (FIX-03).
+   * Sets manual_qa_status = 'rejected' and qa_passed = false, then resets the
+   * shorts job to 'generating' so the I2V pipeline re-picks the scene.
+   */
+  async rejectQA(
+    jobId: string,
+    sceneId: string,
+    reason?: string,
+  ): Promise<{ sceneId: string; status: string; reason?: string }> {
+    await this.db.execute(sql`
+      UPDATE scene_clips
+      SET manual_qa_status = 'rejected', qa_passed = false
+      WHERE job_id = ${jobId} AND scene_id = ${sceneId}
+    `);
+    await this.db.execute(sql`
+      UPDATE shorts_jobs SET status = 'generating' WHERE id = ${jobId}
+    `);
+    logger.info({ jobId, sceneId, reason }, "ShortsService: QA rejected by human operator — re-queuing I2V");
+    return { sceneId, status: "generating_i2v", reason };
+  }
+
+  /**
    * Returns the most recent shorts jobs up to `limit`.
    */
   async listJobs(limit = 20) {
