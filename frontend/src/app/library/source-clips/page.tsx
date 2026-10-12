@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { InlineAlert } from '@/components/ui/InlineAlert'
+import { InlineAlert } from '@/components/ui'
 import { ClipTrimmer } from '@/components/shorts/ClipTrimmer'
 
 type SourceClip = {

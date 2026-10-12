@@ -11,3 +11,8 @@ export * from "./Switch";
 export * from "./Checkbox";
 export * from "./SegmentedControl";
 export * from "./OtpInput";
+export * from "./Frame";
+export * from "./Progress";
+export * from "./Tabs";
+export * from "./Icon";
+export * from "./Cover";

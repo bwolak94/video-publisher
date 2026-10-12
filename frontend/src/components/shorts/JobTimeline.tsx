@@ -23,6 +23,7 @@ export type JobData = {
   id: string
   title?: string
   status: string
+  hitl?: boolean    // when false: auto QA mode, hide manual approve/reject/lipsync buttons
   done: number
   total: number
   cost: number

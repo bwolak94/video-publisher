@@ -11,6 +11,8 @@ export type ExportPanelProps = {
   path: string              // s3://bucket/key
   label?: string            // custom AI label override
   hasLikeness?: boolean     // changes AI label wording
+  status?: string           // current job status — skip finalize when 'finalized'
+  downloadUrl?: string      // pre-fetched download URL when already finalized
   onDownload?: () => void
 }
 
@@ -26,6 +28,8 @@ export function ExportPanel({
   path,
   label,
   hasLikeness = false,
+  status,
+  downloadUrl: initialDownloadUrl,
   onDownload,
 }: ExportPanelProps) {
   const [copied, setCopied] = useState(false)
@@ -50,6 +54,11 @@ export function ExportPanel({
   }
 
   async function handleFinalize() {
+    // Skip finalize call when already done
+    if (status === 'finalized' && initialDownloadUrl) {
+      triggerDownload(initialDownloadUrl)
+      return
+    }
     setFinalizing(true)
     setFinalizeError(null)
     try {
