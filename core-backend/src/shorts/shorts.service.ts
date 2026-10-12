@@ -99,6 +99,9 @@ export class ShortsService {
 
   /**
    * Returns a single shorts job by id. Throws `NotFoundException` when not found.
+   * Enriches each scene in scene_plan with keyframe_variants fetched from
+   * scene_keyframes so the frontend can render real T2I results instead of
+   * hardcoded placeholder seeds.
    */
   async findJob(id: string) {
     const rows = await this.db.execute(
@@ -106,8 +109,35 @@ export class ShortsService {
     );
     const row = rows[0];
     if (!row) throw new NotFoundException(`Job ${id} not found`);
-    return row;
+
+    const kfRows = await this.db.execute(sql`
+      SELECT id, scene_id, s3_url, seed, accepted
+      FROM scene_keyframes
+      WHERE job_id = ${id}
+      ORDER BY scene_id, created_at
+    `);
+    const kfData: any[] = Array.isArray(kfRows) ? kfRows : (kfRows as any).rows ?? [];
+
+    const variantsByScene = new Map();
+    for (const kf of kfData) {
+      if (!variantsByScene.has(kf.scene_id)) variantsByScene.set(kf.scene_id, []);
+      variantsByScene.get(kf.scene_id).push({
+        id: kf.id,
+        s3Url: kf.s3_url,
+        seed: kf.seed ? Number(kf.seed) : 0,
+        status: 'ready',
+      });
+    }
+
+    const scenes = Array.isArray((row as any).scene_plan) ? ((row as any).scene_plan as any[]) : [];
+    const scenePlanWithVariants = scenes.map((s) => ({
+      ...s,
+      keyframe_variants: variantsByScene.get(s.scene_id) ?? [],
+    }));
+
+    return { ...row, scene_plan: scenePlanWithVariants };
   }
+
 
   /**
    * Returns a job status summary including per-scene stage breakdown.
