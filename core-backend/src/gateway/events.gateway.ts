@@ -187,6 +187,38 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return { event: "rejection_ack", jobId: data?.jobId, resolved };
   }
 
+  /** Broadcast granular scene status update to all sockets in a job room (FIX-08). */
+  broadcastSceneUpdate(jobId: string, sceneId: string, status: string, qaScore?: number): void {
+    this.server
+      .to(`job:${jobId}`)
+      .emit('job:scene_update', { jobId, sceneId, status, qaScore });
+  }
+
+  /** Broadcast top-level job status change to all sockets in a job room (FIX-08). */
+  broadcastJobStatusUpdate(jobId: string, status: string): void {
+    this.server
+      .to(`job:${jobId}`)
+      .emit('job:status_update', { jobId, status });
+  }
+
+  /** Client joins a job-specific room for real-time shorts updates (FIX-08). */
+  @SubscribeMessage('join_job')
+  handleJoinJob(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { jobId: string },
+  ): void {
+    void client.join(`job:${payload?.jobId ?? ''}`);
+  }
+
+  /** Client leaves a job-specific room (FIX-08). */
+  @SubscribeMessage('leave_job')
+  handleLeaveJob(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { jobId: string },
+  ): void {
+    void client.leave(`job:${payload?.jobId ?? ''}`);
+  }
+
   async broadcastJobProgress(
     projectId: string,
     payload: { jobId: string; step: string; status: string; [key: string]: any }
