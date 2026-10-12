@@ -55,18 +55,35 @@ function formatSeconds(s: number) {
 }
 
 export function JobTimeline({ job, threshold = 0.75, onResume }: JobTimelineProps) {
-  const [rejectingId, setRejectingId] = React.useState<string | null>(null)
+  const [scenes, setScenes] = React.useState<JobScene[]>(job.scenes)
   const [approvingId, setApprovingId] = React.useState<string | null>(null)
+  const [rejectingId, setRejectingId] = React.useState<string | null>(null)
+
   async function handleApprove(sceneId: string) {
     setApprovingId(sceneId)
-    try { await fetch(`/api/shorts/${job.id}/scenes/${sceneId}/approve-qa`, { method: "POST" }) } finally { setApprovingId(null) }
-  }
-  async function handleReject(sceneId: string) {
-    setRejectingId(sceneId)
-    try { await fetch(`/api/shorts/${job.id}/scenes/${sceneId}/reject-qa`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ reason: "manual_reject" }) }) } finally { setRejectingId(null) }
+    try {
+      await fetch(`/api/shorts/${job.id}/scenes/${sceneId}/approve-qa`, { method: 'POST' })
+      setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, status: 'done' as SceneStatus } : s))
+    } finally {
+      setApprovingId(null)
+    }
   }
 
-  const hasFailed = job.scenes.some(s => s.status === 'error')
+  async function handleReject(sceneId: string) {
+    setRejectingId(sceneId)
+    try {
+      await fetch(`/api/shorts/${job.id}/scenes/${sceneId}/reject-qa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'manual_reject' }),
+      })
+      setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, status: 'generating' as SceneStatus } : s))
+    } finally {
+      setRejectingId(null)
+    }
+  }
+
+  const hasFailed = scenes.some(s => s.status === 'error')
   const progressPct = job.total > 0 ? (job.done / job.total) * 100 : 0
 
   return (
@@ -96,58 +113,72 @@ export function JobTimeline({ job, threshold = 0.75, onResume }: JobTimelineProp
 
       {/* Scene table */}
       <div className="flex flex-col gap-2">
-        {job.scenes.map(scene => {
+        {scenes.map(scene => {
           const stageOrder = scene.track === 'v2v' ? STAGE_ORDER_V2V : STAGE_ORDER_I2V
           return (
-            <div key={scene.id} className="flex items-center gap-3 p-3 rounded-lg bg-[var(--surface-sunken)]">
-              {/* Scene id */}
-              <span className="text-xs font-mono w-8 text-[var(--ink-faint)] shrink-0">{scene.id}</span>
+            <div key={scene.id} className="flex flex-col gap-2 p-3 rounded-lg bg-[var(--surface-sunken)]">
+              <div className="flex items-center gap-3">
+                {/* Scene id */}
+                <span className="text-xs font-mono w-8 text-[var(--ink-faint)] shrink-0">{scene.id}</span>
 
-              {/* Stage dots */}
-              <div className="flex items-center gap-1 flex-1">
-                {stageOrder.map(stageName => {
-                  const key = stageName.toLowerCase().replace('-', '_')
-                  const stageStatus: StageStatus = scene.stages[key] ?? scene.stages[stageName] ?? 'pending'
-                  return (
-                    <div
-                      key={stageName}
-                      title={stageName}
-                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${stageStatus === 'active' ? 'animate-pulse' : ''}`}
-                      style={{ backgroundColor: STAGE_COLORS[stageStatus] }}
-                    />
-                  )
-                })}
+                {/* Stage dots */}
+                <div className="flex items-center gap-1 flex-1">
+                  {stageOrder.map(stageName => {
+                    const key = stageName.toLowerCase().replace('-', '_')
+                    const stageStatus: StageStatus = scene.stages[key] ?? scene.stages[stageName] ?? 'pending'
+                    return (
+                      <div
+                        key={stageName}
+                        title={stageName}
+                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${stageStatus === 'active' ? 'animate-pulse' : ''}`}
+                        style={{ backgroundColor: STAGE_COLORS[stageStatus] }}
+                      />
+                    )
+                  })}
+                </div>
+
+                {/* Model badge */}
+                {scene.model && <Badge tone="neutral">{scene.model}</Badge>}
+
+                {/* Attempt */}
+                {scene.attempt && (
+                  <span className="text-xs font-mono text-[var(--ink-faint)]">{scene.attempt}/3</span>
+                )}
+
+                {/* QA score */}
+                {scene.qa !== undefined && (
+                  <span className="text-xs font-mono" style={{ color: scene.qa >= threshold ? 'var(--accent)' : 'var(--danger)' }}>
+                    {scene.qa.toFixed(2)}
+                  </span>
+                )}
+
+                {/* Cost */}
+                {scene.cost !== undefined && (
+                  <span className="text-xs font-mono text-[var(--ink-faint)]">${scene.cost.toFixed(3)}</span>
+                )}
+
+                {/* Status */}
+                <StatusPill status={scene.status === 'error' ? 'failed' : scene.status} />
               </div>
 
-              {/* Model badge */}
-              {scene.model && <Badge tone="neutral">{scene.model}</Badge>}
-
-              {/* Attempt */}
-              {scene.attempt && (
-                <span className="text-xs font-mono text-[var(--ink-faint)]">{scene.attempt}/3</span>
-              )}
-
-              {/* QA score */}
-              {scene.qa !== undefined && (
-                <span className="text-xs font-mono" style={{ color: scene.qa >= threshold ? 'var(--accent)' : 'var(--danger)' }}>
-                  {scene.qa.toFixed(2)}
-                </span>
-              )}
-
-              {/* Cost */}
-              {scene.cost !== undefined && (
-                <span className="text-xs font-mono text-[var(--ink-faint)]">${scene.cost.toFixed(3)}</span>
-              )}
-
-              {/* Status */}
-              <StatusPill status={scene.status === 'error' ? 'failed' : scene.status} />
+              {/* QA approve/reject buttons — visible only when scene is awaiting manual QA review */}
               {scene.status === 'qa' && (
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <Button size="sm" variant="primary" onClick={() => handleApprove(scene.id)}>
-                    {approvingId === scene.id ? '...' : 'Akceptuj'}
+                <div className="flex gap-2 mt-1">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    loading={approvingId === scene.id}
+                    onClick={() => handleApprove(scene.id)}
+                  >
+                    Akceptuj
                   </Button>
-                  <Button size="sm" variant="danger" onClick={() => handleReject(scene.id)}>
-                    {rejectingId === scene.id ? '...' : 'Odrzuc i wygeneruj ponownie'}
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    loading={rejectingId === scene.id}
+                    onClick={() => handleReject(scene.id)}
+                  >
+                    Odrzuć i wygeneruj ponownie
                   </Button>
                 </div>
               )}
