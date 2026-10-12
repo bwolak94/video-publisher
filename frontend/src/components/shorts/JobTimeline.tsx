@@ -1,6 +1,6 @@
 'use client'
 import React from 'react'
-import { Button, Badge, StatusPill } from '@/components/ui'
+import { Button, Badge, StatusPill, InlineAlert } from '@/components/ui'
 import { QAScore } from './QAScore'
 
 type StageStatus = 'done' | 'active' | 'review' | 'fail' | 'pending'
@@ -58,6 +58,8 @@ export function JobTimeline({ job, threshold = 0.75, onResume }: JobTimelineProp
   const [scenes, setScenes] = React.useState<JobScene[]>(job.scenes)
   const [approvingId, setApprovingId] = React.useState<string | null>(null)
   const [rejectingId, setRejectingId] = React.useState<string | null>(null)
+  const [lipsyncingId, setLipsyncingId] = React.useState<string | null>(null)
+  const [lipsyncError, setLipsyncError] = React.useState<string | null>(null)
 
   async function handleApprove(sceneId: string) {
     setApprovingId(sceneId)
@@ -66,6 +68,26 @@ export function JobTimeline({ job, threshold = 0.75, onResume }: JobTimelineProp
       setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, status: 'done' as SceneStatus } : s))
     } finally {
       setApprovingId(null)
+    }
+  }
+
+  async function handleLipsync(scene: JobScene) {
+    setLipsyncingId(scene.id)
+    setLipsyncError(null)
+    try {
+      await fetch(`/api/shorts/${job.id}/scenes/${scene.id}/generate-lipsync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dialog: (scene as any).voiceover ?? (scene as any).dialog ?? '',
+          voiceId: (scene as any).voiceId ?? 'default',
+        }),
+      })
+      setScenes(prev => prev.map(s => s.id === scene.id ? { ...s, status: 'generating' as SceneStatus } : s))
+    } catch {
+      setLipsyncError('Lip-sync niedostępny — lektor off-screen')
+    } finally {
+      setLipsyncingId(null)
     }
   }
 
@@ -182,10 +204,29 @@ export function JobTimeline({ job, threshold = 0.75, onResume }: JobTimelineProp
                   </Button>
                 </div>
               )}
+
+              {/* Lip-sync trigger — visible for dialog i2v scenes after I2V completes */}
+              {scene.track === 'i2v' && (scene.model?.includes('dialog') ?? false) && scene.status === 'done' && (
+                <div className="flex gap-2 mt-1">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={lipsyncingId === scene.id}
+                    onClick={() => handleLipsync(scene)}
+                  >
+                    {lipsyncingId === scene.id ? '…' : 'Generuj lip-sync'}
+                  </Button>
+                </div>
+              )}
             </div>
           )
         })}
       </div>
+
+      {/* Lip-sync error alert */}
+      {lipsyncError && (
+        <InlineAlert tone="warn">{lipsyncError}</InlineAlert>
+      )}
 
       {/* Resume button */}
       {hasFailed && onResume && (
