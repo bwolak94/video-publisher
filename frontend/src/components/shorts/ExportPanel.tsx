@@ -39,21 +39,31 @@ export function ExportPanel({
     setTimeout(() => setCopied(false), 2000)
   }
 
+  function triggerDownload(url: string) {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `short-${jobId}.mp4`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    onDownload?.()
+  }
+
   async function handleFinalize() {
     setFinalizing(true)
     setFinalizeError(null)
     try {
       const res = await fetch(`/api/shorts/${jobId}/finalize`, { method: 'POST' })
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) throw new Error(`${res.status}`)
       const { downloadUrl } = await res.json()
-      window.location.href = downloadUrl
-      onDownload?.()
-    } catch (e: any) {
-      setFinalizeError(e.message ?? 'Błąd finalizacji')
+      triggerDownload(downloadUrl)
+    } catch {
+      setFinalizeError('Błąd finalizacji. Spróbuj ponownie.')
     } finally {
       setFinalizing(false)
     }
   }
+
 
   return (
     <Card>
@@ -99,18 +109,22 @@ export function ExportPanel({
           Pamiętaj o oznaczeniu treści syntetycznej na YouTube i TikTok.
         </InlineAlert>
 
-        {finalizing && <InlineAlert tone="info">Dołączam manifest C2PA i etykietę AI&hellip;</InlineAlert>}
-        {finalizeError && <InlineAlert tone="danger">{finalizeError}</InlineAlert>}
-
         {/* S3 path */}
         <code className="text-xs font-mono text-[var(--ink-faint)] break-all">{path}</code>
       </CardBody>
 
       <CardFoot>
-        <Button variant="primary" block onClick={handleFinalize} loading={finalizing}>
-          {finalizing ? 'Finalizacja\u2026' : 'Pobierz MP4'}
+        {finalizing && (
+          <InlineAlert tone="info" title="Finalizacja">Dołączam manifest C2PA i etykietę AI…</InlineAlert>
+        )}
+        {finalizeError && (
+          <InlineAlert tone="danger" title="Błąd">{finalizeError}</InlineAlert>
+        )}
+        <Button variant="primary" block loading={finalizing} disabled={finalizing} onClick={handleFinalize}>
+          Pobierz MP4
         </Button>
       </CardFoot>
+
     </Card>
   )
 }
