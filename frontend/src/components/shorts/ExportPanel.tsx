@@ -29,6 +29,8 @@ export function ExportPanel({
   onDownload,
 }: ExportPanelProps) {
   const [copied, setCopied] = useState(false)
+  const [finalizing, setFinalizing] = useState(false)
+  const [finalizeError, setFinalizeError] = useState<string | null>(null)
   const aiLabel = label ?? (hasLikeness ? LABEL_LIKENESS : LABEL_DEFAULT)
 
   async function handleCopy() {
@@ -37,9 +39,20 @@ export function ExportPanel({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  async function handleDownload() {
-    window.location.href = `/api/shorts/${jobId}/download`
-    onDownload?.()
+  async function handleFinalize() {
+    setFinalizing(true)
+    setFinalizeError(null)
+    try {
+      const res = await fetch(`/api/shorts/${jobId}/finalize`, { method: 'POST' })
+      if (!res.ok) throw new Error(await res.text())
+      const { downloadUrl } = await res.json()
+      window.location.href = downloadUrl
+      onDownload?.()
+    } catch (e: any) {
+      setFinalizeError(e.message ?? 'Błąd finalizacji')
+    } finally {
+      setFinalizing(false)
+    }
   }
 
   return (
@@ -86,13 +99,16 @@ export function ExportPanel({
           Pamiętaj o oznaczeniu treści syntetycznej na YouTube i TikTok.
         </InlineAlert>
 
+        {finalizing && <InlineAlert tone="info">Dołączam manifest C2PA i etykietę AI&hellip;</InlineAlert>}
+        {finalizeError && <InlineAlert tone="danger">{finalizeError}</InlineAlert>}
+
         {/* S3 path */}
         <code className="text-xs font-mono text-[var(--ink-faint)] break-all">{path}</code>
       </CardBody>
 
       <CardFoot>
-        <Button variant="primary" block onClick={handleDownload}>
-          Pobierz MP4
+        <Button variant="primary" block onClick={handleFinalize} loading={finalizing}>
+          {finalizing ? 'Finalizacja\u2026' : 'Pobierz MP4'}
         </Button>
       </CardFoot>
     </Card>

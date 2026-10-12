@@ -11,6 +11,7 @@ const logger = pino({ level: 'info' });
 
 export interface FinalizeResult {
   s3Url: string;
+  downloadUrl: string;
   c2paManifestId: string;
   aiLabel: string;
 }
@@ -97,6 +98,8 @@ export class FinalizeService {
       ? 'Film zawiera syntetyczny wizerunek osoby rzeczywistej wygenerowany przez AI (deepfake, C2PA, AI Act art. 50).'
       : 'Film zawiera postacie fikcyjne wygenerowane przez AI (C2PA).';
 
-    return { s3Url, c2paManifestId: manifestId, aiLabel };
+    const downloadUrl = await this.s3Service.getPresignedUrl(finalKey, 900);
+
+    return { s3Url, downloadUrl, c2paManifestId: manifestId, aiLabel };
   }
 }
