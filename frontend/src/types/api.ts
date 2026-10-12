@@ -130,3 +130,24 @@ export interface KeyframeVariant {
   seed: number
   status: 'generating' | 'ready' | 'failed'
 }
+
+// -- Source Clips (FIX-06) ----------------------------------------------------
+
+export interface SourceClip {
+  id: string
+  /** Original filename provided on upload */
+  name?: string | null
+  /** S3 URI in format s3://bucket/key */
+  s3Url: string
+  /** Total video duration in seconds (populated by ffprobe on server-side upload) */
+  durationS?: string | null
+  /** Frame rate (fps) populated by ffprobe */
+  fps?: string | null
+  /** Resolution string e.g. "1920x1080" */
+  resolution?: string | null
+  /** Trim in point (seconds) */
+  inPointS?: string | null
+  /** Trim out point (seconds) */
+  outPointS?: string | null
+  createdAt?: string | null
+}

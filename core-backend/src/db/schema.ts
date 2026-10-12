@@ -758,6 +758,8 @@ export const sourceClips = pgTable("source_clips", {
   durationS:  numeric("duration_s", { precision: 8, scale: 2 }),
   fps:        numeric("fps", { precision: 5, scale: 2 }),
   resolution: text("resolution"),
+  inPointS:   numeric("in_point_s", { precision: 8, scale: 2 }).default("0"),
+  outPointS:  numeric("out_point_s", { precision: 8, scale: 2 }),
   createdAt:  timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
