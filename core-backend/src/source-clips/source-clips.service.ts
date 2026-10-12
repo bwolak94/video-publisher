@@ -5,6 +5,7 @@ import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import pino from "pino";
 import { DRIZZLE } from "../db/db.module";
 import * as schema from "../db/schema";
@@ -130,5 +131,68 @@ export class SourceClipsService {
       sql`SELECT * FROM source_clips WHERE id = ${id}`,
     )) as unknown as Record<string, unknown>[];
     return rows.length > 0 ? (rows[0] as unknown as SourceClip) : null;
+  }
+
+  /**
+   * Returns a presigned S3 PUT URL so the browser can upload directly to S3.
+   * TTL is 15 minutes (900 s).
+   */
+  async getUploadUrl(
+    filename: string,
+    contentType: string,
+  ): Promise<{ uploadUrl: string; clipId: string; s3Key: string }> {
+    const id = crypto.randomUUID();
+    const s3Key = `source-clips/${id}/${filename}`;
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: s3Key,
+      ContentType: contentType,
+    });
+    const uploadUrl = await getSignedUrl(this.s3Client, command, { expiresIn: 900 });
+    return { uploadUrl, clipId: id, s3Key };
+  }
+
+  /**
+   * Called after the browser PUT to S3 succeeds.
+   * Inserts the DB row without running ffprobe (metadata will be null until a
+   * background job enriches it, or the user provides it).
+   */
+  async confirmUpload(
+    clipId: string,
+    filename: string,
+    s3Key: string,
+  ): Promise<{ id: string; name: string; s3Url: string }> {
+    const s3Url = `s3://${this.bucket}/${s3Key}`;
+    await this.db.execute(sql`
+      INSERT INTO source_clips (id, name, s3_url)
+      VALUES (${clipId}, ${filename}, ${s3Url})
+      ON CONFLICT (id) DO NOTHING
+    `);
+    logger.info({ clipId, s3Key }, "SourceClipsService: confirmUpload row inserted");
+    return { id: clipId, name: filename, s3Url };
+  }
+
+  /** Returns all clips ordered newest-first. */
+  async findAll(): Promise<SourceClip[]> {
+    const rows = (await this.db.execute(
+      sql`SELECT * FROM source_clips ORDER BY created_at DESC`,
+    )) as unknown as SourceClip[];
+    return rows;
+  }
+
+  /** Persists in/out trim points for a clip. */
+  async updateTrimPoints(
+    id: string,
+    inPoint: number,
+    outPoint: number,
+  ): Promise<{ id: string; inPointS: number; outPointS: number }> {
+    await this.db.execute(sql`
+      UPDATE source_clips
+         SET in_point_s  = ${inPoint},
+             out_point_s = ${outPoint}
+       WHERE id = ${id}
+    `);
+    logger.info({ id, inPoint, outPoint }, "SourceClipsService: trim points updated");
+    return { id, inPointS: inPoint, outPointS: outPoint };
   }
 }
