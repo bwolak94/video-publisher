@@ -86,6 +86,28 @@ export class ShortsController {
   }
 
   /**
+   * Starts I2V generation for all keyframe-accepted scenes.
+   * Enqueues BullMQ workers and transitions job to 'generating_i2v'.
+   * POST /shorts/:jobId/start
+   */
+  @Post(":jobId/start")
+  startI2V(@Param("jobId") jobId: string) {
+    return this.shortsService.startI2V(jobId);
+  }
+
+  /**
+   * Re-enqueues I2V generation for a single scene (per-scene retry).
+   * POST /shorts/:jobId/scenes/:sceneId/generate-i2v
+   */
+  @Post(":jobId/scenes/:sceneId/generate-i2v")
+  generateSceneI2V(
+    @Param("jobId") jobId: string,
+    @Param("sceneId") sceneId: string,
+  ) {
+    return this.shortsService.generateSceneI2V(jobId, sceneId);
+  }
+
+  /**
    * Resumes a shorts job that has QA-failed clips.
    * Sets the job status back to 'generating' and returns the first failed scene_id.
    * POST /shorts/:jobId/resume

@@ -21,6 +21,7 @@ export default function ShortJobPage() {
   const [job, setJob] = useState<ShortsJob | null>(null)
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
+  const [startError, setStartError] = useState<string | null>(null)
   const [acceptingScene, setAcceptingScene] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
@@ -35,8 +36,17 @@ export default function ShortJobPage() {
 
   async function handleStart() {
     setStarting(true)
-    await fetch(`/api/shorts/${jobId}/start`, { method: 'POST' })
-    setStarting(false)
+    setStartError(null)
+    try {
+      const res = await fetch(`/api/shorts/${jobId}/start`, { method: 'POST' })
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+      setJob(prev => prev ? { ...prev, status: data.status } : prev)
+    } catch (e: any) {
+      setStartError(e.message ?? 'Błąd uruchamiania generacji')
+    } finally {
+      setStarting(false)
+    }
   }
 
   async function handleAcceptKeyframe(sceneId: string, variantId: string) {
@@ -76,10 +86,17 @@ export default function ShortJobPage() {
           </p>
           <p className="text-sm">{job.brief}</p>
         </div>
-        <Button variant="primary" loading={starting} onClick={handleStart}>
+        <Button
+          variant="primary"
+          loading={starting}
+          disabled={starting || job.status === 'generating_i2v'}
+          onClick={handleStart}
+        >
           Generuj wszystkie sceny
         </Button>
       </div>
+
+      {startError && <InlineAlert tone="danger">{startError}</InlineAlert>}
 
       <InlineAlert
         tone="info"
