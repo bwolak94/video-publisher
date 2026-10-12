@@ -8,11 +8,13 @@ import { C2paService } from "./c2pa.service";
 import { FinalizeService } from "./finalize.service";
 import { LipsyncService } from "./lipsync.service";
 import { V2VService } from "./v2v.service";
+import { FilmReviewService } from "./film-review.service";
+import { FilmReviewController } from "./film-review.controller";
 import { SourceClipsModule } from "../source-clips/source-clips.module";
 
 @Module({
   imports: [SourceClipsModule],
-  controllers: [ShortsController],
+  controllers: [ShortsController, FilmReviewController],
   providers: [
     ShortsService,
     T2iService,
@@ -22,6 +24,7 @@ import { SourceClipsModule } from "../source-clips/source-clips.module";
     FinalizeService,
     LipsyncService,
     V2VService,
+    FilmReviewService,
     {
       provide: ANTHROPIC_HTTP,
       useValue: fetch.bind(globalThis),
@@ -31,6 +34,6 @@ import { SourceClipsModule } from "../source-clips/source-clips.module";
       useValue: fetch.bind(globalThis),
     },
   ],
-  exports: [ShortsService, T2iService, QaGateService, C2paService, FinalizeService, LipsyncService, V2VService],
+  exports: [ShortsService, T2iService, QaGateService, C2paService, FinalizeService, LipsyncService, V2VService, FilmReviewService],
 })
 export class ShortsModule {}
