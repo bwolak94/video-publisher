@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import { Button, Badge, StatusPill } from '@/components/ui'
 import { QAScore } from './QAScore'
 
@@ -54,6 +55,17 @@ function formatSeconds(s: number) {
 }
 
 export function JobTimeline({ job, threshold = 0.75, onResume }: JobTimelineProps) {
+  const [rejectingId, setRejectingId] = React.useState<string | null>(null)
+  const [approvingId, setApprovingId] = React.useState<string | null>(null)
+  async function handleApprove(sceneId: string) {
+    setApprovingId(sceneId)
+    try { await fetch(`/api/shorts/${job.id}/scenes/${sceneId}/approve-qa`, { method: "POST" }) } finally { setApprovingId(null) }
+  }
+  async function handleReject(sceneId: string) {
+    setRejectingId(sceneId)
+    try { await fetch(`/api/shorts/${job.id}/scenes/${sceneId}/reject-qa`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ reason: "manual_reject" }) }) } finally { setRejectingId(null) }
+  }
+
   const hasFailed = job.scenes.some(s => s.status === 'error')
   const progressPct = job.total > 0 ? (job.done / job.total) * 100 : 0
 
@@ -129,6 +141,16 @@ export function JobTimeline({ job, threshold = 0.75, onResume }: JobTimelineProp
 
               {/* Status */}
               <StatusPill status={scene.status === 'error' ? 'failed' : scene.status} />
+              {scene.status === 'qa' && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <Button size="sm" variant="primary" onClick={() => handleApprove(scene.id)}>
+                    {approvingId === scene.id ? '...' : 'Akceptuj'}
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={() => handleReject(scene.id)}>
+                    {rejectingId === scene.id ? '...' : 'Odrzuc i wygeneruj ponownie'}
+                  </Button>
+                </div>
+              )}
             </div>
           )
         })}

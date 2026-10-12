@@ -634,11 +634,12 @@ export const sceneClips = pgTable(
     provider:   text("provider").notNull().default("fal-ai"),
     model:      text("model").notNull().default("wan-2.5"),
     seed:       text("seed"),                                           // stored as text — bigint JS precision safe
-    attempt:    integer("attempt").default(1),
-    qaScore:    numeric("qa_score", { precision: 4, scale: 3 }),
-    qaChecks:   jsonb("qa_checks"),                                     // { faceSim, artifactScore, promptAlign }
-    qaPassed:   boolean("qa_passed").default(false),
-    createdAt:  timestamp("created_at", { withTimezone: true }).defaultNow(),
+    attempt:        integer("attempt").default(1),
+    qaScore:        numeric("qa_score", { precision: 4, scale: 3 }),
+    qaChecks:       jsonb("qa_checks"),                                     // { faceSim, artifactScore, promptAlign }
+    qaPassed:       boolean("qa_passed").default(false),
+    manualQaStatus: text("manual_qa_status"),                               // (approved|rejected) set by human operator via FIX-03
+    createdAt:      timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (t) => ({
     idx_scene_clips_job_scene: index("idx_scene_clips_job_scene").on(t.jobId, t.sceneId),

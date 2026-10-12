@@ -302,4 +302,7 @@ export class ShortsService {
     const data: any = await response.json();
     return (data.content?.[0]?.text ?? "") as string;
   }
+
+  async approveQA(jobId: string, sceneId: string): Promise<{ sceneId: string; status: string }> { return this.db.execute(sql`UPDATE scene_clips SET qa_passed = true WHERE job_id = ${jobId} AND scene_id = ${sceneId}`).then(() => { logger.info({ jobId, sceneId }, "Shorts: QA approved"); return { sceneId, status: "qa_approved" }; }); }
+  async rejectQA(jobId: string, sceneId: string, reason?: string): Promise<{ sceneId: string; status: string; reason?: string }> { return this.db.execute(sql`UPDATE scene_clips SET qa_passed = false WHERE job_id = ${jobId} AND scene_id = ${sceneId}`).then(() => { logger.info({ jobId, sceneId, reason }, "Shorts: QA rejected"); return { sceneId, status: "generating_i2v", reason }; }); }
 }
